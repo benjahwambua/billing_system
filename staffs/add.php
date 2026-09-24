@@ -63,13 +63,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $staffId = $conn->insert_id;
 
 
-            recordAuditLog(
-                $conn,
-                currentUserId(),
-                'Create',
-                'Staffs',
-                $staffId,
-                "Created staff member {$staffCode}"
+            logAudit(
+                'CREATE',
+                'STAFFS',
+                "Created staff member {$staffCode}",
+                'staff',
+                $staffId
             );
 
 
