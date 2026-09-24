@@ -372,14 +372,10 @@ if (!function_exists('generateStaffNumber')) {
     {
         global $conn;
 
-        $prefix = getSetting(
-            'staff_prefix',
-            'STF'
-        );
+        $prefix = getSetting('staff_prefix', 'STF');
 
         do {
-            $number = $prefix .
-                '-' .
+            $number = $prefix . '-' .
                 str_pad(
                     random_int(1, 99999),
                     5,
@@ -387,23 +383,34 @@ if (!function_exists('generateStaffNumber')) {
                     STR_PAD_LEFT
                 );
 
-            $stmt = $conn->prepare(
-                "SELECT id
-                 FROM staffs
-                 WHERE staff_number = ?
-                 LIMIT 1"
-            );
+            $stmt = $conn->prepare("
+                SELECT id
+                FROM staffs
+                WHERE staff_code = ?
+                LIMIT 1
+            ");
+
+            if (!$stmt) {
+                return $number;
+            }
 
             $stmt->bind_param('s', $number);
             $stmt->execute();
 
             $exists = $stmt->get_result()->num_rows > 0;
-
             $stmt->close();
 
         } while ($exists);
 
         return $number;
+    }
+}
+
+
+if (!function_exists('generateStaffCode')) {
+    function generateStaffCode($databaseConnection = null)
+    {
+        return generateStaffNumber();
     }
 }
 
