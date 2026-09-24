@@ -29,9 +29,9 @@ $tenantId = $_SESSION['tenant_id'] ?? null;
 |--------------------------------------------------------------------------
 */
 
-global $pdo;
+global $conn;
 
-if (!isset($pdo) || !($pdo instanceof PDO)) {
+if (!($conn instanceof mysqli)) {
     die('Database connection is not available.');
 }
 
@@ -42,39 +42,103 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
 |--------------------------------------------------------------------------
 */
 
-function dashboardCount($pdo, $sql, $params = [])
+function dashboardBindParams($stmt, $params)
+{
+    if (empty($params)) {
+        return true;
+    }
+
+    $types = str_repeat('i', count($params));
+    $values = [];
+
+    foreach ($params as $value) {
+        $values[] = (int)$value;
+    }
+
+    $stmt->bind_param($types, ...$values);
+
+    return true;
+}
+
+
+function dashboardCount($conn, $sql, $params = [])
 {
     try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        $stmt = $conn->prepare($sql);
 
-        return (int)$stmt->fetchColumn();
+        if (!$stmt) {
+            return 0;
+        }
+
+        dashboardBindParams($stmt, $params);
+
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return 0;
+        }
+
+        $value = $stmt->get_result()->fetch_row()[0] ?? 0;
+        $stmt->close();
+
+        return (int)$value;
     } catch (Throwable $e) {
         return 0;
     }
 }
 
 
-function dashboardAmount($pdo, $sql, $params = [])
+function dashboardAmount($conn, $sql, $params = [])
 {
     try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        $stmt = $conn->prepare($sql);
 
-        return (float)($stmt->fetchColumn() ?? 0);
+        if (!$stmt) {
+            return 0;
+        }
+
+        dashboardBindParams($stmt, $params);
+
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return 0;
+        }
+
+        $value = $stmt->get_result()->fetch_row()[0] ?? 0;
+        $stmt->close();
+
+        return (float)$value;
     } catch (Throwable $e) {
         return 0;
     }
 }
 
 
-function dashboardRows($pdo, $sql, $params = [])
+function dashboardRows($conn, $sql, $params = [])
 {
     try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        $stmt = $conn->prepare($sql);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (!$stmt) {
+            return [];
+        }
+
+        dashboardBindParams($stmt, $params);
+
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return [];
+        }
+
+        $result = $stmt->get_result();
+        $rows = [];
+
+        while ($row = $result->fetch_assoc()) {
+            $rows[] = $row;
+        }
+
+        $stmt->close();
+
+        return $rows;
     } catch (Throwable $e) {
         return [];
     }
