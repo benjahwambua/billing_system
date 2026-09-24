@@ -29,9 +29,9 @@ $tenantId = $_SESSION['tenant_id'] ?? null;
 |--------------------------------------------------------------------------
 */
 
-global $pdo;
+global $conn;
 
-if (!isset($pdo) || !($pdo instanceof PDO)) {
+if (!($conn instanceof mysqli)) {
     die('Database connection is not available.');
 }
 
@@ -42,39 +42,103 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
 |--------------------------------------------------------------------------
 */
 
-function dashboardCount($pdo, $sql, $params = [])
+function dashboardBindParams($stmt, $params)
+{
+    if (empty($params)) {
+        return true;
+    }
+
+    $types = str_repeat('i', count($params));
+    $values = [];
+
+    foreach ($params as $value) {
+        $values[] = (int)$value;
+    }
+
+    $stmt->bind_param($types, ...$values);
+
+    return true;
+}
+
+
+function dashboardCount($conn, $sql, $params = [])
 {
     try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        $stmt = $conn->prepare($sql);
 
-        return (int)$stmt->fetchColumn();
+        if (!$stmt) {
+            return 0;
+        }
+
+        dashboardBindParams($stmt, $params);
+
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return 0;
+        }
+
+        $value = $stmt->get_result()->fetch_row()[0] ?? 0;
+        $stmt->close();
+
+        return (int)$value;
     } catch (Throwable $e) {
         return 0;
     }
 }
 
 
-function dashboardAmount($pdo, $sql, $params = [])
+function dashboardAmount($conn, $sql, $params = [])
 {
     try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        $stmt = $conn->prepare($sql);
 
-        return (float)($stmt->fetchColumn() ?? 0);
+        if (!$stmt) {
+            return 0;
+        }
+
+        dashboardBindParams($stmt, $params);
+
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return 0;
+        }
+
+        $value = $stmt->get_result()->fetch_row()[0] ?? 0;
+        $stmt->close();
+
+        return (float)$value;
     } catch (Throwable $e) {
         return 0;
     }
 }
 
 
-function dashboardRows($pdo, $sql, $params = [])
+function dashboardRows($conn, $sql, $params = [])
 {
     try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        $stmt = $conn->prepare($sql);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (!$stmt) {
+            return [];
+        }
+
+        dashboardBindParams($stmt, $params);
+
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return [];
+        }
+
+        $result = $stmt->get_result();
+        $rows = [];
+
+        while ($row = $result->fetch_assoc()) {
+            $rows[] = $row;
+        }
+
+        $stmt->close();
+
+        return $rows;
     } catch (Throwable $e) {
         return [];
     }
@@ -123,22 +187,22 @@ if ($isHost) {
     */
 
     $totalTenants = dashboardCount(
-        $pdo,
+        $conn,
         "SELECT COUNT(*) FROM tenants"
     );
 
     $activeTenants = dashboardCount(
-        $pdo,
+        $conn,
         "SELECT COUNT(*) FROM tenants WHERE status = 'active'"
     );
 
     $trialTenants = dashboardCount(
-        $pdo,
+        $conn,
         "SELECT COUNT(*) FROM tenants WHERE status = 'trial'"
     );
 
     $suspendedTenants = dashboardCount(
-        $pdo,
+        $conn,
         "SELECT COUNT(*) FROM tenants WHERE status = 'suspended'"
     );
 
@@ -150,7 +214,7 @@ if ($isHost) {
     */
 
     $platformRevenueToday = dashboardAmount(
-        $pdo,
+        $conn,
         "
         SELECT COALESCE(SUM(amount), 0)
         FROM platform_transactions
@@ -159,7 +223,7 @@ if ($isHost) {
     );
 
     $platformRevenueMonth = dashboardAmount(
-        $pdo,
+        $conn,
         "
         SELECT COALESCE(SUM(amount), 0)
         FROM platform_transactions
@@ -176,7 +240,7 @@ if ($isHost) {
     */
 
     $walletBalance = dashboardAmount(
-        $pdo,
+        $conn,
         "
         SELECT COALESCE(SUM(balance), 0)
         FROM wallet_accounts
@@ -191,7 +255,7 @@ if ($isHost) {
     */
 
     $recentTenants = dashboardRows(
-        $pdo,
+        $conn,
         "
         SELECT
             id,
@@ -214,7 +278,7 @@ if ($isHost) {
     */
 
     $recentEvents = dashboardRows(
-        $pdo,
+        $conn,
         "
         SELECT *
         FROM system_events
@@ -264,7 +328,7 @@ if ($isHost) {
         */
 
         $totalCustomers = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM customers
@@ -274,7 +338,7 @@ if ($isHost) {
         );
 
         $activeCustomers = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM customers
@@ -285,7 +349,7 @@ if ($isHost) {
         );
 
         $suspendedCustomers = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM customers
@@ -296,7 +360,7 @@ if ($isHost) {
         );
 
         $expiredCustomers = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM customers
@@ -314,7 +378,7 @@ if ($isHost) {
         */
 
         $revenueToday = dashboardAmount(
-            $pdo,
+            $conn,
             "
             SELECT COALESCE(SUM(amount), 0)
             FROM payments
@@ -325,7 +389,7 @@ if ($isHost) {
         );
 
         $revenueMonth = dashboardAmount(
-            $pdo,
+            $conn,
             "
             SELECT COALESCE(SUM(amount), 0)
             FROM payments
@@ -344,7 +408,7 @@ if ($isHost) {
         */
 
         $activeAccounts = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM internet_accounts
@@ -362,7 +426,7 @@ if ($isHost) {
         */
 
         $onlineUsers = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM active_sessions
@@ -380,7 +444,7 @@ if ($isHost) {
         */
 
         $activeHotspotSessions = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM active_sessions
@@ -399,7 +463,7 @@ if ($isHost) {
         */
 
         $expiringServices = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM internet_accounts
@@ -420,7 +484,7 @@ if ($isHost) {
         */
 
         $outstandingAmount = dashboardAmount(
-            $pdo,
+            $conn,
             "
             SELECT COALESCE(SUM(balance), 0)
             FROM invoices
@@ -439,7 +503,7 @@ if ($isHost) {
         */
 
         $recentPayments = dashboardRows(
-            $pdo,
+            $conn,
             "
             SELECT *
             FROM payments
@@ -458,7 +522,7 @@ if ($isHost) {
         */
 
         $routers = dashboardRows(
-            $pdo,
+            $conn,
             "
             SELECT *
             FROM mikrotik_routers

@@ -173,30 +173,68 @@ if (!function_exists('getSetting')) {
     {
         global $conn;
 
-        $stmt = $conn->prepare(
-            "SELECT setting_value
-             FROM settings
-             WHERE setting_key = ?
-             LIMIT 1"
-        );
-
-        if (!$stmt) {
+        if (!($conn instanceof mysqli)) {
             return $default;
         }
 
-        $stmt->bind_param('s', $key);
-        $stmt->execute();
+        $tenantId = function_exists('getCurrentTenantId')
+            ? getCurrentTenantId()
+            : null;
 
-        $result = $stmt->get_result();
-        $row = $result->fetch_assoc();
+        if ($tenantId) {
+            $stmt = $conn->prepare("
+                SELECT setting_value
+                FROM tenant_settings
+                WHERE tenant_id = ?
+                  AND setting_key = ?
+                LIMIT 1
+            ");
 
-        $stmt->close();
+            if ($stmt) {
+                $stmt->bind_param('is', $tenantId, $key);
 
-        if (!$row) {
-            return $default;
+                if ($stmt->execute()) {
+                    $result = $stmt->get_result();
+                    $row = $result->fetch_assoc();
+                    $stmt->close();
+
+                    if ($row !== null) {
+                        return $row['setting_value'];
+                    }
+                } else {
+                    $stmt->close();
+                }
+            }
         }
 
-        return $row['setting_value'];
+        $tableCheck = $conn->query("SHOW TABLES LIKE 'settings'");
+
+        if ($tableCheck && $tableCheck->num_rows > 0) {
+            $stmt = $conn->prepare("
+                SELECT setting_value
+                FROM settings
+                WHERE setting_key = ?
+                LIMIT 1
+            ");
+
+            if ($stmt) {
+                $stmt->bind_param('s', $key);
+
+                if ($stmt->execute()) {
+                    $result = $stmt->get_result();
+                    $row = $result->fetch_assoc();
+                    $stmt->close();
+
+                    if ($row !== null) {
+                        return $row['setting_value'];
+                    }
+                } else {
+                    $stmt->close();
+                }
+            }
+        }
+
+        return $default;
     }
 }
 
@@ -334,14 +372,10 @@ if (!function_exists('generateStaffNumber')) {
     {
         global $conn;
 
-        $prefix = getSetting(
-            'staff_prefix',
-            'STF'
-        );
+        $prefix = getSetting('staff_prefix', 'STF');
 
         do {
-            $number = $prefix .
-                '-' .
+            $number = $prefix . '-' .
                 str_pad(
                     random_int(1, 99999),
                     5,
@@ -349,23 +383,34 @@ if (!function_exists('generateStaffNumber')) {
                     STR_PAD_LEFT
                 );
 
-            $stmt = $conn->prepare(
-                "SELECT id
-                 FROM staffs
-                 WHERE staff_number = ?
-                 LIMIT 1"
-            );
+            $stmt = $conn->prepare("
+                SELECT id
+                FROM staffs
+                WHERE staff_code = ?
+                LIMIT 1
+            ");
+
+            if (!$stmt) {
+                return $number;
+            }
 
             $stmt->bind_param('s', $number);
             $stmt->execute();
 
             $exists = $stmt->get_result()->num_rows > 0;
-
             $stmt->close();
 
         } while ($exists);
 
         return $number;
+    }
+}
+
+
+if (!function_exists('generateStaffCode')) {
+    function generateStaffCode($databaseConnection = null)
+    {
+        return generateStaffNumber();
     }
 }
 
@@ -2887,106 +2932,6 @@ if (!function_exists('getCompanyName')) {
 }
 
 
-if (!function_exists('getSetting')) {
-
-    function getSetting($key, $default = null)
-    {
-        global $conn;
-
-        if (!($conn instanceof mysqli)) {
-            return $default;
-        }
-
-        /*
-        | Try tenant settings when a tenant is active.
-        */
-
-        $tenantId = null;
-
-        if (function_exists('getCurrentTenantId')) {
-            $tenantId = getCurrentTenantId();
-        }
-
-        if ($tenantId) {
-
-            $stmt = $conn->prepare("
-                SELECT setting_value
-                FROM tenant_settings
-                WHERE tenant_id = ?
-                AND setting_key = ?
-                LIMIT 1
-            ");
-
-            if ($stmt) {
-
-                $stmt->bind_param(
-                    'is',
-                    $tenantId,
-                    $key
-                );
-
-                $stmt->execute();
-
-                $result = $stmt->get_result();
-
-                if ($row = $result->fetch_assoc()) {
-
-                    $stmt->close();
-
-                    return $row['setting_value'];
-                }
-
-                $stmt->close();
-            }
-        }
-
-        /*
-        | Fall back to the old settings table if it exists.
-        */
-
-        $tableCheck = $conn->query("
-            SHOW TABLES LIKE 'settings'
-        ");
-
-        if (
-            $tableCheck &&
-            $tableCheck->num_rows > 0
-        ) {
-
-            $stmt = $conn->prepare("
-                SELECT setting_value
-                FROM settings
-                WHERE setting_key = ?
-                LIMIT 1
-            ");
-
-            if ($stmt) {
-
-                $stmt->bind_param(
-                    's',
-                    $key
-                );
-
-                $stmt->execute();
-
-                $result = $stmt->get_result();
-
-                if ($row = $result->fetch_assoc()) {
-
-                    $stmt->close();
-
-                    return $row['setting_value'];
-                }
-
-                $stmt->close();
-            }
-        }
-
-        return $default;
-    }
-}
-
-
 if (!function_exists('getCurrency')) {
 
     function getCurrency()
@@ -3079,3 +3024,31 @@ if (!function_exists('getLoggedInUserName')) {
     }
 }
 
+if (!function_exists('updateUserActivity')) {
+    function updateUserActivity()
+    {
+        global $conn;
+        $userId = getCurrentUserId();
+
+        if (!$userId || !($conn instanceof mysqli)) {
+            return false;
+        }
+
+        $stmt = $conn->prepare("
+            UPDATE users
+            SET last_activity_at = NOW()
+            WHERE id = ?
+            LIMIT 1
+        ");
+
+        if (!$stmt) {
+            return false;
+        }
+
+        $stmt->bind_param('i', $userId);
+        $success = $stmt->execute();
+        $stmt->close();
+
+        return $success;
+    }
+}

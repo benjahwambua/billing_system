@@ -2,520 +2,319 @@
 
 /**
  * Flexihub Billing System
- * Authentication / Session Utilities
+ * Authentication and session utilities.
  *
- * IMPORTANT:
- * Shared user-context functions are maintained in functions.php.
- *
- * This file does NOT redeclare:
- * - getCurrentUserId()
- * - getCurrentTenantId()
- * - getCurrentUserScope()
- * - isHostUser()
- * - isTenantUser()
- * - requireHost()
- * - requireTenant()
- * - requirePermission()
- * - getLoggedInUserName()
+ * Shared user/tenant/permission helpers live in functions.php.
+ * This file must not redeclare them.
  */
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| LOAD DATABASE
-|--------------------------------------------------------------------------
-*/
-
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/functions.php';
 
 
-/*
-|--------------------------------------------------------------------------
-| DATABASE CONNECTION CHECK
-|--------------------------------------------------------------------------
-*/
-
-/**
- * Get the active database connection.
- *
- * The project uses $conn as the standard MySQLi connection.
- *
- * @return mysqli
- */
-function authDatabase()
-{
-    global $conn;
-
-    if (
-        !isset($conn) ||
-        !($conn instanceof mysqli)
-    ) {
-        http_response_code(500);
-
-        exit(
-            "Database connection is not available. " .
-            "Please check config/database.php."
-        );
-    }
-
-    /*
-     * Check whether MySQLi connection is still alive.
-     */
-    if ($conn->connect_errno) {
-        http_response_code(500);
-
-        exit(
-            "Database connection failed: " .
-            $conn->connect_error
-        );
-    }
-
-    return $conn;
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| LOGIN STATUS
-|--------------------------------------------------------------------------
-*/
-
-function isLoggedIn()
-{
-    return !empty($_SESSION['user_id']);
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| REQUIRE LOGIN
-|--------------------------------------------------------------------------
-*/
-
-function requireLogin()
-{
-    if (!isLoggedIn()) {
-        header("Location: ../auth/login.php");
-        exit;
-    }
-
-    /*
-     * updateUserActivity() belongs to functions.php
-     * when available.
-     */
-    if (function_exists('updateUserActivity')) {
-        updateUserActivity();
+if (!function_exists('isLoggedIn')) {
+    function isLoggedIn()
+    {
+        return !empty($_SESSION['user_id']);
     }
 }
 
 
-/*
-|--------------------------------------------------------------------------
-| CURRENT USER
-|--------------------------------------------------------------------------
-*/
+if (!function_exists('requireLogin')) {
+    function requireLogin()
+    {
+        if (!isLoggedIn()) {
+            header('Location: ../auth/login.php');
+            exit;
+        }
 
-function getCurrentUser()
-{
-    if (empty($_SESSION['user_id'])) {
-        return null;
+        if (function_exists('updateUserActivity')) {
+            updateUserActivity();
+        }
     }
+}
 
-    $conn = authDatabase();
 
-    $userId = (int) $_SESSION['user_id'];
+if (!function_exists('getCurrentUser')) {
+    function getCurrentUser()
+    {
+        global $conn;
 
-    $stmt = $conn->prepare("
-        SELECT
-            id,
-            tenant_id,
-            user_scope,
-            staff_id,
-            username,
-            role,
-            status,
-            last_login,
-            last_activity_at
-        FROM users
-        WHERE id = ?
-        LIMIT 1
-    ");
+        $userId = function_exists('getCurrentUserId')
+            ? getCurrentUserId()
+            : ($_SESSION['user_id'] ?? null);
 
-    if (!$stmt) {
-        return null;
-    }
+        if (!$userId || !($conn instanceof mysqli)) {
+            return null;
+        }
 
-    $stmt->bind_param("i", $userId);
+        $stmt = $conn->prepare("
+            SELECT
+                id,
+                tenant_id,
+                user_scope,
+                staff_id,
+                username,
+                role,
+                status,
+                last_login,
+                last_activity_at
+            FROM users
+            WHERE id = ?
+            LIMIT 1
+        ");
 
-    if (!$stmt->execute()) {
+        if (!$stmt) {
+            return null;
+        }
+
+        $userId = (int)$userId;
+        $stmt->bind_param('i', $userId);
+
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return null;
+        }
+
+        $user = $stmt->get_result()->fetch_assoc();
         $stmt->close();
-        return null;
+
+        return $user ?: null;
     }
-
-    $result = $stmt->get_result();
-
-    $user = $result->fetch_assoc();
-
-    $stmt->close();
-
-    return $user ?: null;
 }
 
 
-/*
-|--------------------------------------------------------------------------
-| CURRENT USER ACTIVE
-|--------------------------------------------------------------------------
-*/
+if (!function_exists('isCurrentUserActive')) {
+    function isCurrentUserActive()
+    {
+        $user = getCurrentUser();
 
-function isCurrentUserActive()
-{
-    $user = getCurrentUser();
-
-    if (!$user) {
-        return false;
+        return $user &&
+            strtolower(trim($user['status'] ?? '')) === 'active';
     }
-
-    return strtolower(
-        trim($user['status'] ?? '')
-    ) === 'active';
 }
 
 
-/*
-|--------------------------------------------------------------------------
-| REQUIRE ACTIVE USER
-|--------------------------------------------------------------------------
-*/
+if (!function_exists('requireActiveUser')) {
+    function requireActiveUser()
+    {
+        requireLogin();
 
-function requireActiveUser()
-{
-    requireLogin();
+        if (!isCurrentUserActive()) {
+            http_response_code(403);
+            exit('Your user account is inactive. Please contact the administrator.');
+        }
+    }
+}
 
-    if (!isCurrentUserActive()) {
 
-        http_response_code(403);
+if (!function_exists('regenerateLoginSession')) {
+    function regenerateLoginSession()
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+    }
+}
 
-        exit(
-            "Your user account is inactive. Please contact the administrator."
+
+if (!function_exists('createLoginSession')) {
+    function createLoginSession($userId)
+    {
+        global $conn;
+
+        $userId = (int)$userId;
+
+        if ($userId <= 0 || !($conn instanceof mysqli)) {
+            return null;
+        }
+
+        $tenantId = function_exists('getCurrentTenantId')
+            ? getCurrentTenantId()
+            : null;
+
+        $sessionToken = bin2hex(random_bytes(32));
+        $sessionHash = hash('sha256', $sessionToken);
+        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+
+        $check = $conn->query("SHOW TABLES LIKE 'user_sessions'");
+
+        if (!$check || $check->num_rows === 0) {
+            return null;
+        }
+
+        $stmt = $conn->prepare("
+            INSERT INTO user_sessions
+            (
+                user_id,
+                tenant_id,
+                session_token,
+                ip_address,
+                user_agent,
+                last_activity_at,
+                expires_at,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY), NOW())
+        ");
+
+        if (!$stmt) {
+            return null;
+        }
+
+        $stmt->bind_param(
+            'iisss',
+            $userId,
+            $tenantId,
+            $sessionHash,
+            $ipAddress,
+            $userAgent
         );
-    }
-}
 
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return null;
+        }
 
-/*
-|--------------------------------------------------------------------------
-| SESSION SECURITY
-|--------------------------------------------------------------------------
-*/
-
-function regenerateLoginSession()
-{
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        session_regenerate_id(true);
-    }
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| CREATE LOGIN SESSION
-|--------------------------------------------------------------------------
-*/
-
-function createLoginSession($userId)
-{
-    $conn = authDatabase();
-
-    $userId = (int) $userId;
-
-    if ($userId <= 0) {
-        return null;
-    }
-
-    /*
-     * Check whether user_sessions exists.
-     */
-    $check = $conn->query(
-        "SHOW TABLES LIKE 'user_sessions'"
-    );
-
-    if (!$check || $check->num_rows === 0) {
-        return null;
-    }
-
-    $sessionToken = bin2hex(
-        random_bytes(32)
-    );
-
-    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
-
-    $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
-
-    $stmt = $conn->prepare("
-        INSERT INTO user_sessions
-        (
-            user_id,
-            session_token,
-            ip_address,
-            user_agent,
-            last_activity_at,
-            created_at
-        )
-        VALUES
-        (
-            ?,
-            ?,
-            ?,
-            ?,
-            NOW(),
-            NOW()
-        )
-    ");
-
-    if (!$stmt) {
-        return null;
-    }
-
-    $stmt->bind_param(
-        "isss",
-        $userId,
-        $sessionToken,
-        $ipAddress,
-        $userAgent
-    );
-
-    if (!$stmt->execute()) {
         $stmt->close();
-        return null;
+
+        $_SESSION['session_token'] = $sessionHash;
+
+        return $sessionHash;
     }
-
-    $stmt->close();
-
-    $_SESSION['session_token'] = $sessionToken;
-
-    return $sessionToken;
 }
 
 
-/*
-|--------------------------------------------------------------------------
-| LOGOUT
-|--------------------------------------------------------------------------
-*/
+if (!function_exists('logoutUser')) {
+    function logoutUser($databaseConnection = null)
+    {
+        global $conn;
 
-function logoutUser($databaseConnection = null)
-{
-    global $conn;
+        if ($databaseConnection instanceof mysqli) {
+            $conn = $databaseConnection;
+        }
 
-    /*
-     * If a connection was explicitly supplied,
-     * use it. Otherwise validate the global connection.
-     */
-    if ($databaseConnection instanceof mysqli) {
-        $conn = $databaseConnection;
-    } else {
-        $conn = authDatabase();
-    }
+        $userId = function_exists('getCurrentUserId')
+            ? getCurrentUserId()
+            : ($_SESSION['user_id'] ?? null);
 
-    /*
-     * Use the existing helper from functions.php.
-     */
-    if (function_exists('getCurrentUserId')) {
-        $userId = getCurrentUserId();
-    } else {
-        $userId = $_SESSION['user_id'] ?? null;
-    }
-
-    $userId = $userId
-        ? (int) $userId
-        : null;
-
-
-    /*
-     * Revoke persistent login session.
-     */
-    if (
-        $userId &&
-        !empty($_SESSION['session_token'])
-    ) {
-
-        $check = $conn->query(
-            "SHOW TABLES LIKE 'user_sessions'"
-        );
+        $userId = $userId ? (int)$userId : null;
 
         if (
-            $check &&
-            $check->num_rows > 0
+            $userId &&
+            !empty($_SESSION['session_token']) &&
+            $conn instanceof mysqli
         ) {
+            $check = $conn->query("SHOW TABLES LIKE 'user_sessions'");
 
-            $stmt = $conn->prepare("
-                UPDATE user_sessions
-                SET revoked_at = NOW()
-                WHERE session_token = ?
-                  AND user_id = ?
-            ");
+            if ($check && $check->num_rows > 0) {
+                $stmt = $conn->prepare("
+                    UPDATE user_sessions
+                    SET revoked_at = NOW()
+                    WHERE session_token = ?
+                      AND user_id = ?
+                ");
 
-            if ($stmt) {
-
-                $stmt->bind_param(
-                    "si",
-                    $_SESSION['session_token'],
-                    $userId
-                );
-
-                $stmt->execute();
-
-                $stmt->close();
+                if ($stmt) {
+                    $stmt->bind_param(
+                        'si',
+                        $_SESSION['session_token'],
+                        $userId
+                    );
+                    $stmt->execute();
+                    $stmt->close();
+                }
             }
         }
-    }
 
-
-    /*
-     * Audit logout if available.
-     */
-    if (
-        $userId &&
-        function_exists('logAudit')
-    ) {
-
-        try {
-
-            logAudit(
-                $conn,
-                'logout',
-                'users',
-                $userId,
-                null,
-                'User logged out'
-            );
-
-        } catch (Throwable $e) {
-            /*
-             * Do not prevent logout because
-             * audit logging failed.
-             */
+        if ($userId && function_exists('logAudit') && $conn instanceof mysqli) {
+            try {
+                logAudit(
+                    'LOGOUT',
+                    'AUTH',
+                    'User logged out of Flexihub.',
+                    'user',
+                    $userId
+                );
+            } catch (Throwable $e) {
+                // Audit failure must never block logout.
+            }
         }
+
+        $_SESSION = [];
+
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params['path'],
+                $params['domain'],
+                $params['secure'],
+                $params['httponly']
+            );
+        }
+
+        session_destroy();
+
+        header('Location: ../auth/login.php');
+        exit;
     }
-
-
-    /*
-     * Clear session.
-     */
-    $_SESSION = [];
-
-
-    /*
-     * Remove session cookie.
-     */
-    if (ini_get("session.use_cookies")) {
-
-        $params = session_get_cookie_params();
-
-        setcookie(
-            session_name(),
-            '',
-            time() - 42000,
-            $params["path"],
-            $params["domain"],
-            $params["secure"],
-            $params["httponly"]
-        );
-    }
-
-
-    /*
-     * Destroy session.
-     */
-    session_destroy();
-
-
-    /*
-     * Return to login.
-     */
-    header(
-        "Location: ../auth/login.php"
-    );
-
-    exit;
 }
 
 
-/*
-|--------------------------------------------------------------------------
-| CURRENT USER DISPLAY NAME
-|--------------------------------------------------------------------------
-*/
+if (!function_exists('getCurrentUserDisplayName')) {
+    function getCurrentUserDisplayName()
+    {
+        global $conn;
 
-function getCurrentUserDisplayName()
-{
-    if (function_exists('getCurrentUserId')) {
-        $userId = getCurrentUserId();
-    } else {
-        $userId = $_SESSION['user_id'] ?? null;
-    }
+        $userId = function_exists('getCurrentUserId')
+            ? getCurrentUserId()
+            : ($_SESSION['user_id'] ?? null);
 
-    if (!$userId) {
-        return 'Guest';
-    }
+        if (!$userId || !($conn instanceof mysqli)) {
+            return 'Guest';
+        }
 
-    $conn = authDatabase();
-
-    $userId = (int) $userId;
-
-    $stmt = $conn->prepare("
-        SELECT
-            COALESCE(
-                NULLIF(
-                    TRIM(
-                        CONCAT_WS(
-                            ' ',
-                            s.first_name,
-                            s.last_name
-                        )
+        $stmt = $conn->prepare("
+            SELECT
+                COALESCE(
+                    NULLIF(
+                        TRIM(CONCAT_WS(' ', s.first_name, s.last_name)),
+                        ''
                     ),
-                    ''
-                ),
-                u.username
-            ) AS display_name
+                    u.username
+                ) AS display_name
+            FROM users u
+            LEFT JOIN staffs s ON s.id = u.staff_id
+            WHERE u.id = ?
+            LIMIT 1
+        ");
 
-        FROM users u
+        if (!$stmt) {
+            return 'User';
+        }
 
-        LEFT JOIN staffs s
-            ON s.id = u.staff_id
+        $userId = (int)$userId;
+        $stmt->bind_param('i', $userId);
 
-        WHERE u.id = ?
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return 'User';
+        }
 
-        LIMIT 1
-    ");
-
-    if (!$stmt) {
-        return 'User';
-    }
-
-    $stmt->bind_param(
-        "i",
-        $userId
-    );
-
-    if (!$stmt->execute()) {
+        $row = $stmt->get_result()->fetch_assoc();
         $stmt->close();
-        return 'User';
+
+        return !empty($row['display_name'])
+            ? $row['display_name']
+            : 'User';
     }
-
-    $result = $stmt->get_result();
-
-    $row = $result->fetch_assoc();
-
-    $stmt->close();
-
-    return !empty($row['display_name'])
-        ? $row['display_name']
-        : 'User';
 }
