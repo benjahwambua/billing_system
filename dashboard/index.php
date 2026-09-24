@@ -187,22 +187,22 @@ if ($isHost) {
     */
 
     $totalTenants = dashboardCount(
-        $pdo,
+        $conn,
         "SELECT COUNT(*) FROM tenants"
     );
 
     $activeTenants = dashboardCount(
-        $pdo,
+        $conn,
         "SELECT COUNT(*) FROM tenants WHERE status = 'active'"
     );
 
     $trialTenants = dashboardCount(
-        $pdo,
+        $conn,
         "SELECT COUNT(*) FROM tenants WHERE status = 'trial'"
     );
 
     $suspendedTenants = dashboardCount(
-        $pdo,
+        $conn,
         "SELECT COUNT(*) FROM tenants WHERE status = 'suspended'"
     );
 
@@ -214,7 +214,7 @@ if ($isHost) {
     */
 
     $platformRevenueToday = dashboardAmount(
-        $pdo,
+        $conn,
         "
         SELECT COALESCE(SUM(amount), 0)
         FROM platform_transactions
@@ -223,7 +223,7 @@ if ($isHost) {
     );
 
     $platformRevenueMonth = dashboardAmount(
-        $pdo,
+        $conn,
         "
         SELECT COALESCE(SUM(amount), 0)
         FROM platform_transactions
@@ -240,7 +240,7 @@ if ($isHost) {
     */
 
     $walletBalance = dashboardAmount(
-        $pdo,
+        $conn,
         "
         SELECT COALESCE(SUM(balance), 0)
         FROM wallet_accounts
@@ -255,7 +255,7 @@ if ($isHost) {
     */
 
     $recentTenants = dashboardRows(
-        $pdo,
+        $conn,
         "
         SELECT
             id,
@@ -278,7 +278,7 @@ if ($isHost) {
     */
 
     $recentEvents = dashboardRows(
-        $pdo,
+        $conn,
         "
         SELECT *
         FROM system_events
@@ -328,7 +328,7 @@ if ($isHost) {
         */
 
         $totalCustomers = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM customers
@@ -338,7 +338,7 @@ if ($isHost) {
         );
 
         $activeCustomers = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM customers
@@ -349,7 +349,7 @@ if ($isHost) {
         );
 
         $suspendedCustomers = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM customers
@@ -360,7 +360,7 @@ if ($isHost) {
         );
 
         $expiredCustomers = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM customers
@@ -378,7 +378,7 @@ if ($isHost) {
         */
 
         $revenueToday = dashboardAmount(
-            $pdo,
+            $conn,
             "
             SELECT COALESCE(SUM(amount), 0)
             FROM payments
@@ -389,7 +389,7 @@ if ($isHost) {
         );
 
         $revenueMonth = dashboardAmount(
-            $pdo,
+            $conn,
             "
             SELECT COALESCE(SUM(amount), 0)
             FROM payments
@@ -408,7 +408,7 @@ if ($isHost) {
         */
 
         $activeAccounts = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM internet_accounts
@@ -426,7 +426,7 @@ if ($isHost) {
         */
 
         $onlineUsers = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM active_sessions
@@ -444,7 +444,7 @@ if ($isHost) {
         */
 
         $activeHotspotSessions = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM active_sessions
@@ -463,7 +463,7 @@ if ($isHost) {
         */
 
         $expiringServices = dashboardCount(
-            $pdo,
+            $conn,
             "
             SELECT COUNT(*)
             FROM internet_accounts
@@ -484,7 +484,7 @@ if ($isHost) {
         */
 
         $outstandingAmount = dashboardAmount(
-            $pdo,
+            $conn,
             "
             SELECT COALESCE(SUM(balance), 0)
             FROM invoices
@@ -503,7 +503,7 @@ if ($isHost) {
         */
 
         $recentPayments = dashboardRows(
-            $pdo,
+            $conn,
             "
             SELECT *
             FROM payments
@@ -522,7 +522,7 @@ if ($isHost) {
         */
 
         $routers = dashboardRows(
-            $pdo,
+            $conn,
             "
             SELECT *
             FROM mikrotik_routers
