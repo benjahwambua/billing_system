@@ -1,0 +1,15 @@
+<?php
+require_once __DIR__ . '/../config/database.php';require_once __DIR__.'/../includes/functions.php';require_once __DIR__.'/../includes/auth.php';
+requireLogin();requireTenant();requirePermission('plans.edit');$id=(int)($_GET['id']??0);$tenantId=getCurrentTenantId();
+$stmt=$conn->prepare("SELECT * FROM internet_plans WHERE id=? AND tenant_id=? LIMIT 1");$stmt->bind_param('ii',$id,$tenantId);$stmt->execute();$plan=$stmt->get_result()->fetch_assoc();$stmt->close();
+if(!$plan){http_response_code(404);die('Internet plan not found.');}
+$errors=[];$fields=['name','download_speed','upload_speed','unit','price','billing_cycle','billing_days','mikrotik_profile','data_limit'];
+if($_SERVER['REQUEST_METHOD']==='POST'){requireCsrf();foreach($fields as $f)$plan[$f]=trim($_POST[$f]??'');if($plan['name']===''||$plan['download_speed']===''||$plan['upload_speed']==='')$errors[]='Name, download speed and upload speed are required.';if(!is_numeric($plan['price'])||(float)$plan['price']<0)$errors[]='Enter a valid price.';
+if(!$errors){$stmt=$conn->prepare("UPDATE internet_plans SET name=?,download_speed=?,upload_speed=?,unit=?,price=?,billing_cycle=?,billing_days=?,mikrotik_profile=?,data_limit=?,updated_at=NOW() WHERE id=? AND tenant_id=?");$price=(float)$plan['price'];$days=$plan['billing_days']===''?null:(int)$plan['billing_days'];$stmt->bind_param('ssssdsssi ii',$plan['name'],$plan['download_speed'],$plan['upload_speed'],$plan['unit'],$price,$plan['billing_cycle'],$days,$plan['mikrotik_profile'],$plan['data_limit'],$id,$tenantId); }
+}
+if(isset($stmt)&&$stmt){ if($stmt->execute()){ $stmt->close();logAudit('UPDATE','INTERNET_PLAN','Updated plan '.$plan['plan_code'],'internet_plan',$id);$_SESSION['flash_success']='Internet plan updated successfully.';redirect('view.php?id='.$id);} $errors[]='Unable to update plan: '.$stmt->error;$stmt->close();}
+$pageTitle='Edit Internet Plan';require_once __DIR__.'/../includes/header.php'; ?>
+<div class="card"><h2>Edit <?=e($plan['plan_code'])?></h2><?php if($errors): ?><div class="alert alert-danger"><ul><?php foreach($errors as $x): ?><li><?=e($x)?></li><?php endforeach;?></ul></div><?php endif;?>
+<form method="post"><?=csrfField()?><div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+<?php foreach([['name','Plan Name'],['download_speed','Download Speed'],['upload_speed','Upload Speed'],['unit','Unit'],['price','Price'],['billing_cycle','Billing Cycle'],['billing_days','Billing Days'],['mikrotik_profile','MikroTik Profile'],['data_limit','Data Limit']] as $f): ?><div><label><?=e($f[1])?></label><input name="<?=e($f[0])?>" value="<?=e($plan[$f[0]])?>"></div><?php endforeach;?>
+</div><div style="margin-top:20px"><button class="btn btn-primary">Save Changes</button> <a class="btn btn-secondary" href="view.php?id=<?=$id?>">Cancel</a></div></form></div><?php require_once __DIR__.'/../includes/footer.php'; ?>
