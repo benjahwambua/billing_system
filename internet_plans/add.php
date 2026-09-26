@@ -15,7 +15,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   if(!$stmt)$errors[]='Unable to prepare plan: '.$conn->error;
   else{
    $price=(float)$d['price']; $days=$d['billing_days']===''?null:(int)$d['billing_days'];
-   $stmt->bind_param('issssdssiss',$tenantId,$planCode,$d['name'],$d['download_speed'],$d['upload_speed'],$d['unit'],$price,$d['billing_cycle'],$days,$d['mikrotik_profile'],$d['data_limit']);
+   $stmt->bind_param('isssssdsi ss',$tenantId,$planCode,$d['name'],$d['download_speed'],$d['upload_speed'],$d['unit'],$price,$d['billing_cycle'],$days,$d['mikrotik_profile'],$d['data_limit']);
    if($stmt->execute()){ $id=$stmt->insert_id;$stmt->close();logAudit('CREATE','INTERNET_PLAN','Created plan '.$planCode,'internet_plan',$id);$_SESSION['flash_success']='Internet plan created successfully.';redirect('view.php?id='.$id); }
    $errors[]='Unable to create plan: '.$stmt->error;$stmt->close();
   }
