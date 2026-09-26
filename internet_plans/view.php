@@ -1,0 +1,7 @@
+<?php
+require_once __DIR__.'/../config/database.php';require_once __DIR__.'/../includes/functions.php';require_once __DIR__.'/../includes/auth.php';requireLogin();requireTenant();requirePermission('plans.view');$id=(int)($_GET['id']??0);$tenantId=getCurrentTenantId();$stmt=$conn->prepare("SELECT * FROM internet_plans WHERE id=? AND tenant_id=? LIMIT 1");$stmt->bind_param('ii',$id,$tenantId);$stmt->execute();$plan=$stmt->get_result()->fetch_assoc();$stmt->close();if(!$plan){http_response_code(404);die('Internet plan not found.');}
+$pageTitle='Internet Plan';require_once __DIR__.'/../includes/header.php';?>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><div><h2><?=e($plan['name'])?></h2><p><?=e($plan['plan_code'])?></p></div><?php if(userHasPermission('plans.edit')):?><a class="btn btn-primary" href="edit.php?id=<?=$id?>">Edit Plan</a><?php endif;?></div>
+<div class="card"><table class="table"><tbody>
+<?php foreach(['plan_code'=>'Plan Code','name'=>'Name','download_speed'=>'Download Speed','upload_speed'=>'Upload Speed','unit'=>'Unit','price'=>'Price','billing_cycle'=>'Billing Cycle','billing_days'=>'Billing Days','mikrotik_profile'=>'MikroTik Profile','data_limit'=>'Data Limit','status'=>'Status'] as $k=>$label): ?><tr><th><?=e($label)?></th><td><?=e($k==='price'?'KES '.number_format((float)$plan[$k],2):($plan[$k]??'Unlimited'))?></td></tr><?php endforeach;?>
+</tbody></table></div><p><a href="index.php">← Back to Internet Plans</a></p><?php require_once __DIR__.'/../includes/footer.php'; ?>
