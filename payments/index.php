@@ -1,6 +1,6 @@
 <?php
-require_once '../includes/auth.php'; requireLogin(); $tenantId=getCurrentTenantId();$rows=[];$q=$conn->query("SHOW TABLES LIKE 'payments'");
+require_once '../includes/auth.php'; requireActiveUser(); requireTenantContext(); requireModulePermission('payments','view'); $tenantId=getCurrentTenantId();$rows=[];$q=$conn->query("SHOW TABLES LIKE 'payments'");
 if($q&&$q->num_rows){$sql="SELECT * FROM payments";if($tenantId)$sql.=" WHERE tenant_id=".(int)$tenantId;$sql.=" ORDER BY id DESC LIMIT 500";$r=$conn->query($sql);if($r)while($x=$r->fetch_assoc())$rows[]=$x;}
 $pageTitle='Payments';require_once '../includes/header.php';?>
-<div class="dashboard-card"><h2>Payments</h2><div class="table-responsive"><table><thead><tr><th>Reference</th><th>Invoice</th><th>Customer</th><th>Amount</th><th>Method</th><th>Date</th></tr></thead><tbody>
+<div class="dashboard-card"><div class="page-header"><div><h2>Payments</h2><p>Customer collections and payment records.</p></div><?php if(userCan('payments','create')): ?><a class="btn btn-primary" href="../payments/add.php">Record Payment</a><?php endif; ?></div><div class="table-responsive"><table><thead><tr><th>Reference</th><th>Invoice</th><th>Customer</th><th>Amount</th><th>Method</th><th>Date</th></tr></thead><tbody>
 <?php foreach($rows as $x):?><tr><td><?=e($x['payment_number']??$x['reference']??$x['id'])?></td><td><?=e($x['invoice_id']??'')?></td><td><?=e($x['customer_id']??'')?></td><td><?=e(formatMoney($x['amount']??0))?></td><td><?=e($x['payment_method']??$x['method']??'')?></td><td><?=e($x['payment_date']??$x['created_at']??'')?></td></tr><?php endforeach;if(!$rows):?><tr><td colspan="6">No payments found.</td></tr><?php endif;?></tbody></table></div></div><?php require_once '../includes/footer.php';?>
