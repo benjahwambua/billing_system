@@ -220,3 +220,36 @@ if (!function_exists('flexihubRenewInternetAccount')) {
         $ok=$stmt->execute();$stmt->close();return $ok;
     }
 }
+
+
+if (!function_exists('flexihubCreateServiceSubscription')) {
+    function flexihubCreateServiceSubscription($accountId, $tenantId, $invoiceId = null, $paymentId = null)
+    {
+        global $conn;
+        $accountId=(int)$accountId; $tenantId=(int)$tenantId;
+        if(!$accountId || !$tenantId) return false;
+        $cols=flexihubTableColumns('service_subscriptions');
+        if(!$cols) return false;
+
+        $sql="SELECT ia.id,ia.customer_id,ia.plan_id,ia.activation_date,ia.expiry_date,ip.billing_days,ip.billing_cycle
+              FROM internet_accounts ia
+              LEFT JOIN internet_plans ip ON ip.id=ia.plan_id AND ip.tenant_id=ia.tenant_id
+              WHERE ia.id=? AND ia.tenant_id=? LIMIT 1";
+        $stmt=$conn->prepare($sql); if(!$stmt) return false;
+        $stmt->bind_param('ii',$accountId,$tenantId); $stmt->execute();
+        $account=$stmt->get_result()->fetch_assoc(); $stmt->close();
+        if(!$account) return false;
+
+        $end=$account['expiry_date']??date('Y-m-d');
+        $start=$account['activation_date']??date('Y-m-d');
+        if(!$start || strtotime($start)===false) $start=date('Y-m-d');
+        if(!$end || strtotime($end)===false) $end=$start;
+
+        $data=[
+            'tenant_id'=>$tenantId,'account_id'=>$accountId,'customer_id'=>(int)$account['customer_id'],
+            'plan_id'=>(int)$account['plan_id'],'invoice_id'=>$invoiceId,'payment_id'=>$paymentId,
+            'start_date'=>$start,'end_date'=>$end,'status'=>'active'
+        ];
+        return flexihubWorkflowInsert('service_subscriptions',$data);
+    }
+}
