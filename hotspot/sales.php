@@ -1,0 +1,1 @@
+<?php require_once '../includes/auth.php';requireLogin();requireTenantContext();$pageTitle='Hotspot Sales';require_once '../includes/header.php';?><div class="dashboard-card"><h2>Hotspot Sales</h2><p>Timed Wi-Fi sales and collection records will appear here.</p></div><?php require_once '../includes/footer.php';?>
