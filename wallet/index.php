@@ -1,0 +1,3 @@
+<?php
+require_once '../includes/auth.php';requireLogin();requireTenantContext();$tenantId=getCurrentTenantId();$balance=0;$q=$conn->query("SHOW TABLES LIKE 'tenant_wallets'");if($q&&$q->num_rows){$st=$conn->prepare("SELECT COALESCE(balance,0) balance FROM tenant_wallets WHERE tenant_id=? LIMIT 1");$st->bind_param("i",$tenantId);$st->execute();$r=$st->get_result()->fetch_assoc();$balance=$r?(float)$r['balance']:0;}
+$pageTitle='Tenant Wallet';require_once '../includes/header.php';?><div class="dashboard-card"><h2>Tenant Wallet</h2><div class="stats-grid"><div class="stat-card"><h3><?=e(formatMoney($balance))?></h3><p>Available Balance</p></div></div><a class="btn" href="transactions.php">Wallet Transactions</a></div><?php require_once '../includes/footer.php';?>
