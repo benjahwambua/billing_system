@@ -155,7 +155,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                        
 
-                        $userScope = $user['user_scope'] ?? 'tenant';
+                        $userScope = strtolower(trim((string) ($user['user_scope'] ?? 'tenant')));
+                        if ($userScope === '') {
+                            $userScope = 'tenant';
+                        }
 
                         $tenantId = null;
 
@@ -263,11 +266,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $_SESSION['user_id'] =
                                 (int) $user['id'];
 
-                            $_SESSION['tenant_id'] =
-                                $tenantId;
-
-                            $_SESSION['user_scope'] =
-                                $userScope;
+                            $_SESSION['tenant_id'] = $tenantId;
+                            $_SESSION['user_scope'] = strtolower(trim($userScope));
 
                             $_SESSION['staff_id'] =
                                 !empty($user['staff_id'])
