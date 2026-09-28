@@ -1,0 +1,4 @@
+<?php
+require_once '../includes/auth.php'; requireLogin(); requireTenantContext(); $pageTitle='Roles & Permissions'; require_once '../includes/header.php';
+$modules=['Dashboard','Customers','Internet Plans','Internet Accounts','Routers','PPPoE','Network','Orders','Invoices','Payments','Receipts','Expenses','Reports','Communication','Staff','Settings','Hotspot','AI'];
+?><div class="dashboard-card"><h2>Roles & Permissions</h2><p>Permission framework: View, Create, Edit, Delete and Approve. Super users retain full access.</p><div class="table-responsive"><table><thead><tr><th>Module</th><th>View</th><th>Create</th><th>Edit</th><th>Delete</th><th>Approve</th></tr></thead><tbody><?php foreach($modules as $m):?><tr><td><?=e($m)?></td><?php for($i=0;$i<5;$i++):?><td><input type="checkbox" disabled></td><?php endfor;?></tr><?php endforeach;?></tbody></table></div></div><?php require_once '../includes/footer.php';?>
