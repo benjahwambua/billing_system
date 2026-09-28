@@ -1019,7 +1019,7 @@ ob_start();
 
 <?php
 $sidebarHtml = ob_get_clean();
-$sidebarHtml = preg_replace_callback('/<a\\b[^>]*href=(["\\'])(.*?)\\1[^>]*>.*?<\\/a>/is', function ($m) {
+$sidebarHtml = preg_replace_callback("~<a\\\\b[^>]*href=([\\\"'])(.*?)\\\\1[^>]*>.*?<\\\\/a>~is", function ($m) {
     return sidebarCanHref($m[2]) ? $m[0] : '';
 }, $sidebarHtml);
 echo $sidebarHtml;
