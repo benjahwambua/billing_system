@@ -528,7 +528,7 @@ ob_start();
                     class="sidebar-menu-link <?= sidebarActive('/hotspot/packages.php') ?>"
                 >
                     <span class="sidebar-menu-icon">▤</span>
-                    <span class="sidebar-menu-text">Packages</span>
+                    <span class="sidebar-menu-text">Hotspot Plans</span>
                 </a>
 
                 <a
