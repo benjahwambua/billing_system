@@ -20,7 +20,7 @@ $params = [];
 $types = '';
 if ($tenantId) { $where[] = 'tenant_id = ?'; $params[] = $tenantId; $types .= 'i'; }
 
-$search = trim($_GET['q'] ?? '');
+$statusFilter = strtolower(trim($GLOBALS['status'] ?? ($_GET['status'] ?? '')));\nif (in_array($statusFilter, ['active','suspended','expired','inactive'], true)) { $where[] = 'status = ?'; $params[] = $statusFilter; $types .= 's'; }\n\n$search = trim($_GET['q'] ?? '');
 if ($search !== '') {
     $parts = [];
     foreach (['customer_number','first_name','last_name','phone','email'] as $c) {
