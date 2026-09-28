@@ -24,6 +24,76 @@ if (!function_exists('isLoggedIn')) {
 }
 
 
+if (!function_exists('enforcePagePermission')) {
+    function enforcePagePermission()
+    {
+        if (!function_exists('userCan') || empty($_SESSION['user_id'])) return true;
+
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+        $path = str_replace('\\', '/', $path);
+        $segments = array_values(array_filter(explode('/', trim($path, '/'))));
+        if (!$segments) return true;
+
+        $directory = strtolower($segments[count($segments) - 2] ?? '');
+        $file = strtolower($segments[count($segments) - 1] ?? '');
+
+        $map = [
+            'dashboard'=>'dashboard',
+            'customers'=>'customers',
+            'internet_plans'=>'internet_plans',
+            'internet_accounts'=>'internet_accounts',
+            'subscriptions'=>'subscriptions',
+            'pppoe'=>'pppoe',
+            'pppoe_accounts'=>'pppoe',
+            'pppoe_servers'=>'pppoe',
+            'ip_pools'=>'pppoe',
+            'routers'=>'network',
+            'network'=>'network',
+            'network_sites'=>'network',
+            'hotspot'=>'hotspot',
+            'billing'=>'billing',
+            'invoices'=>'invoices',
+            'payments'=>'payments',
+            'receipts'=>'billing',
+            'transactions'=>'billing',
+            'expenses'=>'billing',
+            'revenue'=>'billing',
+            'reports'=>'reports',
+            'communication'=>'communication',
+            'ai'=>'ai',
+            'staffs'=>'staff',
+            'users'=>'staff',
+            'roles'=>'staff',
+            'sessions'=>'staff',
+            'settings'=>'settings',
+            'operations'=>'operations',
+            'wallet'=>'wallet',
+            'platform'=>'platform',
+            'tenants'=>'platform',
+            'platform_plans'=>'platform',
+            'platform_wallets'=>'platform',
+            'platform_transactions'=>'platform',
+            'platform_revenue'=>'platform',
+            'platform_users'=>'platform',
+            'support'=>'platform',
+            'system_events'=>'platform',
+            'audit_logs'=>'platform',
+            'platform_settings'=>'platform'
+        ];
+
+        $module = $map[$directory] ?? null;
+        if (!$module) return true;
+
+        $action = 'view';
+        if (in_array($file, ['add.php','create.php','new.php'], true)) $action = 'create';
+        elseif (in_array($file, ['edit.php','update.php'], true)) $action = 'edit';
+        elseif (in_array($file, ['delete.php','remove.php'], true)) $action = 'delete';
+        elseif (in_array($file, ['approve.php'], true)) $action = 'approve';
+
+        return userCan($module, $action) || (http_response_code(403) && exit('You do not have permission to access this module or perform this action.'));
+    }
+}
+
 if (!function_exists('requireLogin')) {
     function requireLogin()
     {
@@ -35,6 +105,8 @@ if (!function_exists('requireLogin')) {
         if (function_exists('updateUserActivity')) {
             updateUserActivity();
         }
+
+        enforcePagePermission();
     }
 }
 
