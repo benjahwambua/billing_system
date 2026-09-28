@@ -1,0 +1,1 @@
+<?php require_once '../includes/auth.php';requireLogin();requireTenantContext();$pageTitle='Billing Settings';require_once '../includes/header.php';?><div class="dashboard-card"><h2>Billing Settings</h2><p>Configure billing cycles, invoices, payment rules and account suspension policies.</p></div><?php require_once '../includes/footer.php';?>
