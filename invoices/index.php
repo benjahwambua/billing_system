@@ -1,0 +1,7 @@
+<?php
+require_once '../includes/auth.php'; requireLogin(); $tenantId=getCurrentTenantId(); $rows=[];
+$q=$conn->query("SHOW TABLES LIKE 'invoices'");
+if($q&&$q->num_rows){$sql="SELECT * FROM invoices";if($tenantId)$sql.=" WHERE tenant_id=".(int)$tenantId;$sql.=" ORDER BY id DESC LIMIT 500";$r=$conn->query($sql);if($r)while($x=$r->fetch_assoc())$rows[]=$x;}
+$pageTitle='Invoices';require_once '../includes/header.php';?>
+<div class="dashboard-card"><h2>Invoices</h2><div class="table-responsive"><table><thead><tr><th>Invoice</th><th>Customer</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead><tbody>
+<?php foreach($rows as $x): $total=(float)($x['total_amount']??$x['total']??0);$paid=(float)($x['paid_amount']??0);?><tr><td><?=e($x['invoice_number']??$x['number']??$x['id'])?></td><td><?=e($x['customer_id']??'')?></td><td><?=e(formatMoney($total))?></td><td><?=e(formatMoney($paid))?></td><td><?=e(formatMoney(max(0,$total-$paid)))?></td><td><?=e($x['status']??'')?></td></tr><?php endforeach;if(!$rows):?><tr><td colspan="6">No invoices found.</td></tr><?php endif;?></tbody></table></div></div><?php require_once '../includes/footer.php';?>
