@@ -1215,6 +1215,65 @@ if (!function_exists('userHasPermission')) {
 }
 
 
+if (!function_exists('userCan')) {
+    function userCan($module, $action = 'view')
+    {
+        if (isHostUser()) {
+            return true;
+        }
+
+        if (!isTenantUser() || !getCurrentTenantId()) {
+            return false;
+        }
+
+        $module = strtolower(trim((string)$module));
+        $action = strtolower(trim((string)$action));
+        $allowedActions = ['view','create','edit','delete','approve'];
+        if (!in_array($action, $allowedActions, true)) {
+            return false;
+        }
+
+        global $conn;
+        $tenantId = getCurrentTenantId();
+        $userId = getCurrentUserId();
+
+        /* New tenant role-permission model. */
+        if (flexihubTableHasColumn('users','role_id')
+            && flexihubTableHasColumn('roles','tenant_id')
+            && flexihubTableHasColumn('role_permissions','module_key')) {
+            $column = 'can_' . $action;
+            $sql = "SELECT rp.$column AS allowed
+                    FROM users u
+                    INNER JOIN roles r ON r.id=u.role_id AND r.tenant_id=?
+                    INNER JOIN role_permissions rp ON rp.role_id=r.id AND rp.tenant_id=? AND rp.module_key=?
+                    WHERE u.id=? LIMIT 1";
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param('iisi', $tenantId, $tenantId, $module, $userId);
+                $stmt->execute();
+                $row=$stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($row !== null) return !empty($row['allowed']);
+            }
+        }
+
+        /* Legacy permission-code model, retained for compatibility. */
+        $permissionCode = $module . '.' . $action;
+        return userHasPermission($permissionCode);
+    }
+}
+
+if (!function_exists('requireModulePermission')) {
+    function requireModulePermission($module, $action = 'view')
+    {
+        if (!userCan($module, $action)) {
+            http_response_code(403);
+            exit('You do not have permission to access this module or perform this action.');
+        }
+        return true;
+    }
+}
+
 if (!function_exists('requirePermission')) {
     function requirePermission($permissionCode)
     {
