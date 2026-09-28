@@ -1,0 +1,1 @@
+<?php require_once '../includes/auth.php';requireLogin();requireTenantContext();$pageTitle='API Settings';require_once '../includes/header.php';?><div class="dashboard-card"><h2>API Settings</h2><p>Manage tenant API integration settings. Credentials should never be displayed in plain text.</p></div><?php require_once '../includes/footer.php';?>
