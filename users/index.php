@@ -1,3 +1,10 @@
 <?php
-require_once '../includes/auth.php'; requireLogin(); requireTenantContext(); $pageTitle='Users'; require_once '../includes/header.php';
-?><div class="dashboard-card"><h2>Users</h2><p>Manage tenant system users and their module access.</p><a class="btn" href="../roles/index.php">Roles & Permissions</a></div><?php require_once '../includes/footer.php';?>
+require_once '../includes/auth.php';requireActiveUser();requireTenantContext();requireModulePermission('staff','view');
+global $conn;$tenantId=(int)getCurrentTenantId();
+if($_SERVER['REQUEST_METHOD']==='POST' && userCan('staff','edit')){requireCsrf();$uid=(int)($_POST['user_id']??0);$rid=(int)($_POST['role_id']??0);if($uid&&$rid){$q=$conn->prepare("INSERT IGNORE INTO access_user_roles(tenant_id,user_id,role_id) SELECT ?,?,id FROM access_roles WHERE id=? AND tenant_id=?");if($q){$q->bind_param('iiii',$tenantId,$uid,$rid,$tenantId);$q->execute();$q->close();}}}
+$users=[];$q=$conn->prepare("SELECT id,username,role,status FROM users WHERE tenant_id=? ORDER BY username");if($q){$q->bind_param('i',$tenantId);$q->execute();$z=$q->get_result();while($x=$z->fetch_assoc())$users[]=$x;$q->close();}
+$roles=[];$q=$conn->prepare("SELECT id,name FROM access_roles WHERE tenant_id=? AND status='active' ORDER BY name");if($q){$q->bind_param('i',$tenantId);$q->execute();$z=$q->get_result();while($x=$z->fetch_assoc())$roles[]=$x;$q->close();}
+$pageTitle='Users & Access';require_once '../includes/header.php';?>
+<div class="dashboard-card"><h2>Users & Access</h2><p>Assign tenant roles to users. Existing login accounts remain unchanged.</p>
+<?php foreach($users as $u):?><div style="padding:12px 0;border-bottom:1px solid #eee"><strong><?=e($u['username'])?></strong> — <?=e($u['role']??'')?><form method="post" style="display:inline;float:right"><?=csrfField()?><input type="hidden" name="user_id" value="<?=e($u['id'])?>"><select name="role_id" required><option value="">Assign role</option><?php foreach($roles as $r):?><option value="<?=e($r['id'])?>"><?=e($r['name'])?></option><?php endforeach;?></select><button type="submit">Assign</button></form><div style="clear:both"></div></div><?php endforeach;?>
+</div><?php require_once '../includes/footer.php';?>
