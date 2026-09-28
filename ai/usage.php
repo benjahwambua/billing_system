@@ -1,0 +1,1 @@
+<?php require_once '../includes/auth.php';requireLogin();requireTenantContext();$pageTitle='AI Usage';require_once '../includes/header.php';?><div class="dashboard-card"><h2>AI Usage</h2><p>AI usage and tenant consumption metrics will appear here once the AI service layer is enabled.</p></div><?php require_once '../includes/footer.php';?>
