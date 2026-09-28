@@ -1,0 +1,1 @@
+<?php require_once '../includes/auth.php';requireLogin();requireTenantContext();$pageTitle='Payment Settings';require_once '../includes/header.php';?><div class="dashboard-card"><h2>Payment Settings</h2><p>Configure payment methods and collection settings.</p></div><?php require_once '../includes/footer.php';?>
