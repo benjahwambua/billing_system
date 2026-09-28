@@ -1235,49 +1235,35 @@ if (!function_exists('userCan')) {
         $action = strtolower(trim((string)$action));
         $allowedActions = ['view','create','edit','delete','approve'];
         if ($module === '' || !in_array($action, $allowedActions, true)) return false;
-
-        if (isSuperUser()) {
-            return true;
-        }
-
-        if (!isTenantUser() || !getCurrentTenantId()) {
-            return false;
-        }
-
-        $module = strtolower(trim((string)$module));
-        $action = strtolower(trim((string)$action));
-        $allowedActions = ['view','create','edit','delete','approve'];
-        if (!in_array($action, $allowedActions, true)) {
-            return false;
-        }
+        if (isSuperUser()) return true;
+        if (!isTenantUser() || !getCurrentTenantId()) return false;
 
         global $conn;
-        $tenantId = getCurrentTenantId();
-        $userId = getCurrentUserId();
+        $tenantId = (int)getCurrentTenantId();
+        $userId = (int)getCurrentUserId();
+        $column = 'can_' . $action;
 
-        /* New tenant role-permission model. */
-        if (flexihubTableHasColumn('users','role_id')
-            && flexihubTableHasColumn('roles','tenant_id')
-            && flexihubTableHasColumn('role_permissions','module_key')) {
-            $column = 'can_' . $action;
-            $sql = "SELECT rp.$column AS allowed
-                    FROM users u
-                    INNER JOIN roles r ON r.id=u.role_id AND r.tenant_id=?
-                    INNER JOIN role_permissions rp ON rp.role_id=r.id AND rp.tenant_id=? AND rp.module_key=?
-                    WHERE u.id=? LIMIT 1";
-            $stmt = $conn->prepare($sql);
-            if ($stmt) {
-                $stmt->bind_param('iisi', $tenantId, $tenantId, $module, $userId);
+        /* Preferred Flexihub access-control tables. */
+        if (flexihubTableHasColumn('access_roles','tenant_id')
+            && flexihubTableHasColumn('access_role_permissions',$column)
+            && flexihubTableHasColumn('access_user_roles','role_id')) {
+            $sql = "SELECT arp.$column AS allowed
+                    FROM access_user_roles aur
+                    INNER JOIN access_roles ar ON ar.id=aur.role_id AND ar.tenant_id=? AND ar.status='active'
+                    INNER JOIN access_role_permissions arp ON arp.role_id=ar.id AND arp.tenant_id=? AND arp.module_key=?
+                    WHERE aur.user_id=? AND aur.tenant_id=? LIMIT 1";
+            $stmt=$conn->prepare($sql);
+            if($stmt){
+                $stmt->bind_param('iisii',$tenantId,$tenantId,$module,$userId,$tenantId);
                 $stmt->execute();
                 $row=$stmt->get_result()->fetch_assoc();
                 $stmt->close();
-                if ($row !== null) return !empty($row['allowed']);
+                if($row!==null) return !empty($row['allowed']);
             }
         }
 
-        /* Legacy permission-code model, retained for compatibility. */
-        $permissionCode = $module . '.' . $action;
-        return userHasPermission($permissionCode);
+        /* Legacy permission-code compatibility. */
+        return userHasPermission($module.'.'.$action);
     }
 }
 
