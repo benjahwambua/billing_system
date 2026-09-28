@@ -1,10 +1,4 @@
 <?php
-require_once '../includes/auth.php'; requireActiveUser(); requireTenantContext(); requireModulePermission('network','view');
-global $conn; $tenantId=(int)getCurrentTenantId(); $rows=[]; $table='network_sites'; $display='name';
-if(flexihubTableHasColumn($table,'tenant_id')){
- $sql="SELECT * FROM ".$table." WHERE tenant_id=? ORDER BY id DESC LIMIT 200"; $q=$conn->prepare($sql);
- if($q){$q->bind_param('i',$tenantId);$q->execute();$z=$q->get_result();while($r=$z->fetch_assoc())$rows[]=$r;$q->close();}
-}
-$pageTitle='Network Sites'; require_once '../includes/header.php';?>
-<div class="dashboard-card"><h2><?=e($pageTitle)?></h2><p>Tenant-scoped network sites workspace.</p>
-<?php if(!$rows):?><p>No records available yet.</p><?php else:?><div class="table-responsive"><table><thead><tr><?php foreach(array_keys($rows[0]) as $k):?><th><?=e(ucwords(str_replace('_',' ',$k)))?></th><?php endforeach;?></tr></thead><tbody><?php foreach($rows as $row):?><tr><?php foreach($row as $v):?><td><?=e($v)?></td><?php endforeach;?></tr><?php endforeach;?></tbody></table></div><?php endif;?></div><?php require_once '../includes/footer.php';?>
+require_once '../includes/auth.php';requireActiveUser();requireTenantContext();requireModulePermission('network','view');global $conn;$tenantId=(int)getCurrentTenantId();$rows=[];
+$q=$conn->prepare("SELECT * FROM network_sites WHERE tenant_id=? ORDER BY id DESC LIMIT 200");if($q){$q->bind_param('i',$tenantId);$q->execute();$z=$q->get_result();while($r=$z->fetch_assoc())$rows[]=$r;$q->close();}
+$pageTitle='Network Sites';require_once '../includes/header.php';?><div class="dashboard-card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>Network Sites</h2><?php if(userCan('network','create')):?><a href="add.php">Add Network Site</a><?php endif;?></div><?php if(!$rows):?><p>No network sites configured.</p><?php else:?><div class="table-responsive"><table><thead><tr><th>Name</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead><tbody><?php foreach($rows as $r):?><tr><td><?=e($r['name'])?></td><td><?=e($r['location']??'')?></td><td><?=e($r['status'])?></td><td><?php if(userCan('network','edit')):?><a href="edit.php?id=<?=e($r['id'])?>">Edit</a><?php endif;?></td></tr><?php endforeach;?></tbody></table></div><?php endif;?></div><?php require_once '../includes/footer.php';?>
