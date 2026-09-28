@@ -28,6 +28,24 @@ $conn->set_charset('utf8mb4');
 
 
 
+
+
+if (!function_exists('flexihubTableHasColumn')) {
+    function flexihubTableHasColumn($table, $column) {
+        global $conn;
+        if (!preg_match('/^[A-Za-z0-9_]+$/', $table) || !preg_match('/^[A-Za-z0-9_]+$/', $column)) return false;
+        $stmt=$conn->prepare("SELECT COUNT(*) c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?");
+        if(!$stmt)return false; $stmt->bind_param('ss',$table,$column); $stmt->execute(); $r=$stmt->get_result()->fetch_assoc(); $stmt->close(); return !empty($r['c']);
+    }
+}
+
+if (!function_exists('tenantWhere')) {
+    function tenantWhere($alias='') {
+        $id=getCurrentTenantId(); if(!$id)return '';
+        $prefix=$alias!=='' ? $alias.'.' : ''; return $prefix.'tenant_id='.(int)$id;
+    }
+}
+
 if (!function_exists('e')) {
     function e($value)
     {
