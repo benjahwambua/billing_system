@@ -1,0 +1,1 @@
+<?php require_once '../includes/auth.php';requireLogin();requireTenantContext();$pageTitle='MikroTik Settings';require_once '../includes/header.php';?><div class="dashboard-card"><h2>MikroTik Settings</h2><p>Configure router integration defaults and connection policies.</p></div><?php require_once '../includes/footer.php';?>
