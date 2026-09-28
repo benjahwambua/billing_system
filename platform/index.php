@@ -1,0 +1,1 @@
+<?php require_once '../includes/auth.php';requireLogin();requireHostContext();$pageTitle='Platform';require_once '../includes/header.php';?><div class="dashboard-card"><h2>Flexihub Platform</h2><p>Host-level tenant management, platform billing and wallet administration.</p><a class="btn" href="billing.php">Platform Billing</a></div><?php require_once '../includes/footer.php';?>
