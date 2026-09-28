@@ -6,7 +6,7 @@ $tenantId = requireTenant();
 
 $pageTitle = 'Edit Internet Plan';
 
-function internetPlanColumns()
+function internetPlanEditColumns()
 {
     global $conn;
     $columns = [];
@@ -19,21 +19,57 @@ function internetPlanColumns()
     return $columns;
 }
 
-$columns = internetPlanColumns();
-$errors = [];
+$columns = internetPlanEditColumns();
+$id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
 
-$id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);\nif ($id <= 0) { redirect('index.php'); }\n\n$lookupSql = 'SELECT * FROM internet_plans WHERE id = ?';\n$lookupTypes = 'i';\n$lookupParams = [$id];\nif (in_array('tenant_id', $columns, true)) { $lookupSql .= ' AND tenant_id = ?'; $lookupTypes .= 'i'; $lookupParams[] = $tenantId; }\n$lookupSql .= ' LIMIT 1';\n$lookup = $conn->prepare($lookupSql);\nif (!$lookup) { die('Unable to load the internet plan.'); }\n$lookup->bind_param($lookupTypes, ...$lookupParams);\n$lookup->execute();\n$existing = $lookup->get_result()->fetch_assoc();\n$lookup->close();\nif (!$existing) { die('Internet plan not found.'); }\n\n$values = [
-    'name' => '',
-    'price' => '',
-    'billing_cycle' => 'monthly',
-    'billing_days' => '',
-    'download_speed' => '',
-    'upload_speed' => '',
-    'description' => '',
-    'status' => 'active',
+if ($id <= 0) {
+    redirect('index.php');
+}
+
+$sql = 'SELECT * FROM internet_plans WHERE id = ?';
+$types = 'i';
+$params = [$id];
+
+if (in_array('tenant_id', $columns, true)) {
+    $sql .= ' AND tenant_id = ?';
+    $types .= 'i';
+    $params[] = $tenantId;
+}
+
+$sql .= ' LIMIT 1';
+
+$stmt = $conn->prepare($sql);
+if (!$stmt) {
+    die('Unable to load the internet plan.');
+}
+
+$bind = [$types];
+foreach ($params as $key => $value) {
+    $bind[] = &$params[$key];
+}
+call_user_func_array([$stmt, 'bind_param'], $bind);
+$stmt->execute();
+$existing = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+if (!$existing) {
+    die('Internet plan not found.');
+}
+
+$values = [
+    'name' => $existing['name'] ?? '',
+    'price' => $existing['price'] ?? '',
+    'billing_cycle' => $existing['billing_cycle'] ?? 'monthly',
+    'billing_days' => $existing['billing_days'] ?? '',
+    'download_speed' => $existing['download_speed'] ?? '',
+    'upload_speed' => $existing['upload_speed'] ?? '',
+    'description' => $existing['description'] ?? '',
+    'status' => $existing['status'] ?? 'active',
 ];
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {\n    foreach ($values as $field => $default) {\n        if (array_key_exists($field, $existing)) { $values[$field] = (string)$existing[$field]; }\n    }\n}\n\nif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+$errors = [];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrf();
 
     foreach ($values as $field => $default) {
@@ -48,38 +84,45 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {\n    foreach ($values as $field => 
         $errors[] = 'Price must be a valid amount of 0 or more.';
     }
 
-    if (in_array('billing_days', $columns, true) && $values['billing_days'] !== '' && (!ctype_digit($values['billing_days']) || (int)$values['billing_days'] < 1)) {
+    if (in_array('billing_days', $columns, true) && $values['billing_days'] !== '' &&
+        (!ctype_digit($values['billing_days']) || (int)$values['billing_days'] < 1)) {
         $errors[] = 'Billing days must be a positive whole number.';
     }
 
     if (!$errors) {
         $allowed = ['name','price','billing_cycle','billing_days','download_speed','upload_speed','description','status'];
-        $insert = [];
+        $updates = [];
+
         foreach ($allowed as $field) {
             if (in_array($field, $columns, true)) {
-                $insert[$field] = $values[$field];
+                $updates[$field] = $values[$field];
             }
         }
 
-        if (in_array('tenant_id', $columns, true)) {
-            $insert['tenant_id'] = $tenantId;
-        }
-
-        $fields = array_keys($insert);
-        $placeholders = implode(',', array_fill(0, count($fields), '?'));
-        $types = '';
+        $set = [];
         $bindValues = [];
+        $bindTypes = '';
 
-        foreach ($fields as $field) {
-            $types .= $field === 'tenant_id' ? 'i' : 's';
-            $bindValues[] = $insert[$field];
+        foreach ($updates as $field => $value) {
+            $set[] = $field . ' = ?';
+            $bindTypes .= 's';
+            $bindValues[] = $value;
         }
 
-        $setParts = [];\n        foreach ($fields as $field) { $setParts[] = $field . ' = ?'; }\n        $sql = 'UPDATE internet_plans SET ' . implode(',', $setParts) . ' WHERE id = ?';\n        $types .= 'i';\n        $bindValues[] = $id;
+        $sql = 'UPDATE internet_plans SET ' . implode(', ', $set) . ' WHERE id = ?';
+        $bindTypes .= 'i';
+        $bindValues[] = $id;
+
+        if (in_array('tenant_id', $columns, true)) {
+            $sql .= ' AND tenant_id = ?';
+            $bindTypes .= 'i';
+            $bindValues[] = $tenantId;
+        }
+
         $stmt = $conn->prepare($sql);
 
         if ($stmt) {
-            $bind = [$types];
+            $bind = [$bindTypes];
             foreach ($bindValues as $key => $value) {
                 $bind[] = &$bindValues[$key];
             }
@@ -90,10 +133,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {\n    foreach ($values as $field => 
                 redirect('index.php');
             }
 
-            $errors[] = 'Unable to save the plan: ' . $stmt->error;
+            $errors[] = 'Unable to update the plan: ' . $stmt->error;
             $stmt->close();
         } else {
-            $errors[] = 'Unable to prepare the plan.';
+            $errors[] = 'Unable to prepare the update.';
         }
     }
 }
@@ -103,13 +146,12 @@ require_once '../includes/header.php';
 
 <div class="dashboard-card">
     <?php if ($errors): ?>
-        <div class="alert alert-danger">
-            <?= e(implode(' ', $errors)) ?>
-        </div>
+        <div class="alert alert-danger"><?= e(implode(' ', $errors)) ?></div>
     <?php endif; ?>
 
     <form method="post">
-        <?= csrfField() ?>\n        <input type="hidden" name="id" value="<?= $id ?>">
+        <?= csrfField() ?>
+        <input type="hidden" name="id" value="<?= $id ?>">
 
         <div class="form-grid">
             <?php if (in_array('name', $columns, true)): ?>
@@ -130,7 +172,7 @@ require_once '../includes/header.php';
                 <div class="form-group">
                     <label>Billing Cycle</label>
                     <select name="billing_cycle">
-                        <?php foreach (['daily'=>'Daily','weekly'=>'Weekly','monthly'=>'Monthly','quarterly'=>'Quarterly','yearly'=>'Yearly'] as $key=>$label): ?>
+                        <?php foreach (['daily'=>'Daily','weekly'=>'Weekly','monthly'=>'Monthly','quarterly'=>'Quarterly','yearly'=>'Yearly'] as $key => $label): ?>
                             <option value="<?= $key ?>" <?= $values['billing_cycle'] === $key ? 'selected' : '' ?>><?= $label ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -140,21 +182,21 @@ require_once '../includes/header.php';
             <?php if (in_array('billing_days', $columns, true)): ?>
                 <div class="form-group">
                     <label>Billing Days</label>
-                    <input type="number" min="1" name="billing_days" value="<?= e($values['billing_days']) ?>" placeholder="e.g. 30">
+                    <input type="number" min="1" name="billing_days" value="<?= e($values['billing_days']) ?>">
                 </div>
             <?php endif; ?>
 
             <?php if (in_array('download_speed', $columns, true)): ?>
                 <div class="form-group">
                     <label>Download Speed</label>
-                    <input type="text" name="download_speed" value="<?= e($values['download_speed']) ?>" placeholder="e.g. 10 Mbps">
+                    <input type="text" name="download_speed" value="<?= e($values['download_speed']) ?>">
                 </div>
             <?php endif; ?>
 
             <?php if (in_array('upload_speed', $columns, true)): ?>
                 <div class="form-group">
                     <label>Upload Speed</label>
-                    <input type="text" name="upload_speed" value="<?= e($values['upload_speed']) ?>" placeholder="e.g. 5 Mbps">
+                    <input type="text" name="upload_speed" value="<?= e($values['upload_speed']) ?>">
                 </div>
             <?php endif; ?>
 
@@ -177,7 +219,7 @@ require_once '../includes/header.php';
         <?php endif; ?>
 
         <div style="margin-top:20px;">
-            <button type="submit" class="btn btn-primary">Save Plan</button>
+            <button type="submit" class="btn btn-primary">Update Plan</button>
             <a href="index.php" class="btn btn-light">Cancel</a>
         </div>
     </form>
