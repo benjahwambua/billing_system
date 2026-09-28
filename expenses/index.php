@@ -1,0 +1,6 @@
+<?php
+require_once '../includes/auth.php'; requireLogin();$tenantId=getCurrentTenantId();$rows=[];$q=$conn->query("SHOW TABLES LIKE 'expenses'");
+if($q&&$q->num_rows){$sql="SELECT * FROM expenses";if($tenantId)$sql.=" WHERE tenant_id=".(int)$tenantId;$sql.=" ORDER BY id DESC LIMIT 500";$r=$conn->query($sql);if($r)while($x=$r->fetch_assoc())$rows[]=$x;}
+$pageTitle='Expenses';require_once '../includes/header.php';?>
+<div class="dashboard-card"><h2>Expenses</h2><div class="table-responsive"><table><thead><tr><th>Description</th><th>Category</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead><tbody>
+<?php foreach($rows as $x):?><tr><td><?=e($x['description']??$x['name']??'')?></td><td><?=e($x['category']??$x['category_id']??'')?></td><td><?=e(formatMoney($x['amount']??$x['total']??0))?></td><td><?=e($x['expense_date']??$x['date']??$x['created_at']??'')?></td><td><?=e($x['status']??'')?></td></tr><?php endforeach;if(!$rows):?><tr><td colspan="5">No expenses found.</td></tr><?php endif;?></tbody></table></div></div><?php require_once '../includes/footer.php';?>
