@@ -1,0 +1,16 @@
+<?php
+require_once '../includes/auth.php';require_once '../includes/functions.php';if(isTenantUser())requireTenant();global $conn;
+$cols=[];$res=$conn->query("SHOW COLUMNS FROM mikrotik_routers");if(!$res)die('Unable to read MikroTik router configuration.');while($row=$res->fetch_assoc())$cols[]=$row['Field'];$has=fn($c)=>in_array($c,$cols,true);$tenantId=getCurrentTenantId();$errors=[];
+if($_SERVER['REQUEST_METHOD']==='POST'){requireCsrf();$name=trim($_POST['name']??'');$host=trim($_POST['host']??'');$username=trim($_POST['username']??'');$password=$_POST['password']??'';$status=$_POST['status']??'active';$description=trim($_POST['description']??'');$port=(int)($_POST['api_port']??8728);
+if(($has('name')||$has('router_name'))&&!$name)$errors[]='Router name is required.';if(($has('host')||$has('ip_address')||$has('ip'))&&!$host)$errors[]='Router host/IP is required.';
+if(!$errors){$map=['name'=>$name,'router_name'=>$name,'host'=>$host,'ip_address'=>$host,'ip'=>$host,'username'=>$username,'password'=>$password,'api_port'=>$port,'port'=>$port,'status'=>$status,'description'=>$description];$fields=[];$vals=[];$types='';foreach($map as $c=>$v)if($has($c)){$fields[]=$c;$vals[]=$v;$types.=is_int($v)?'i':'s';}if($has('tenant_id')){$fields[]='tenant_id';$vals[]=$tenantId;$types.='i';}$stmt=$conn->prepare("INSERT INTO mikrotik_routers (".implode(',',$fields).") VALUES (".implode(',',array_fill(0,count($fields),'?')).")");if($stmt){$stmt->bind_param($types,...$vals);if($stmt->execute())redirect('index.php');$errors[]=$stmt->error;$stmt->close();}else$errors[]=$conn->error;}}
+?>
+<?php require '../includes/header.php';?><div class="page-content"><div class="page-header"><div><h1>Add MikroTik Router</h1><p>Register a router for this tenant.</p></div><a class="btn btn-secondary" href="index.php">Back</a></div>
+<?php if($errors):?><div class="alert alert-danger"><?=e(implode(' ',$errors))?></div><?php endif;?><div class="card" style="max-width:760px;padding:22px"><form method="post"><?=csrfField()?><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+<?php if($has('name')||$has('router_name')):?><label>Router Name<input name="name" required value="<?=e($_POST['name']??'')?>"></label><?php endif;?>
+<?php if($has('host')||$has('ip_address')||$has('ip')):?><label>Host / IP<input name="host" required value="<?=e($_POST['host']??'')?>" placeholder="192.168.88.1"></label><?php endif;?>
+<?php if($has('api_port')||$has('port')):?><label>API Port<input type="number" name="api_port" value="<?=e($_POST['api_port']??8728)?>"></label><?php endif;?>
+<?php if($has('username')):?><label>Username<input name="username" value="<?=e($_POST['username']??'')?>"></label><?php endif;?>
+<?php if($has('password')):?><label>Password<input type="password" name="password" autocomplete="new-password"></label><?php endif;?>
+<?php if($has('status')):?><label>Status<select name="status"><?php foreach(['active','inactive','disabled'] as $v):?><option value="<?=$v?>"><?=ucfirst($v)?></option><?php endforeach;?></select></label><?php endif;?></div>
+<?php if($has('description')):?><label>Description<textarea name="description"><?=e($_POST['description']??'')?></textarea></label><?php endif;?><div style="margin-top:18px"><button class="btn btn-primary">Save Router</button></div></form></div></div><?php require '../includes/footer.php';?>
