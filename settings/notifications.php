@@ -1,0 +1,1 @@
+<?php require_once '../includes/auth.php';requireLogin();requireTenantContext();$pageTitle='Notification Settings';require_once '../includes/header.php';?><div class="dashboard-card"><h2>Notification Settings</h2><p>Configure SMS, email and WhatsApp notification preferences.</p></div><?php require_once '../includes/footer.php';?>
