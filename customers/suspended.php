@@ -1,0 +1,1 @@
+<?php $status='suspended'; require __DIR__.'/index.php'; ?>
