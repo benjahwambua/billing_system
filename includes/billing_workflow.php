@@ -239,6 +239,10 @@ if (!function_exists('flexihubCreateServiceSubscription')) {
         $stmt->bind_param('ii',$accountId,$tenantId); $stmt->execute();
         $account=$stmt->get_result()->fetch_assoc(); $stmt->close();
         if(!$account) return false;
+        if($paymentId && in_array('payment_id',$cols,true)){
+            $check=$conn->prepare("SELECT id FROM service_subscriptions WHERE tenant_id=? AND payment_id=? LIMIT 1");
+            if($check){$check->bind_param('ii',$tenantId,$paymentId);$check->execute();$existing=$check->get_result()->fetch_assoc();$check->close();if($existing)return (int)$existing['id'];}
+        }
 
         $end=$account['expiry_date']??date('Y-m-d');
         $start=$account['activation_date']??date('Y-m-d');
