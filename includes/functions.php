@@ -1215,10 +1215,28 @@ if (!function_exists('userHasPermission')) {
 }
 
 
+if (!function_exists('isSuperUser')) {
+    function isSuperUser()
+    {
+        if (isHostUser()) {
+            return hasRole('HOST_SUPER_ADMIN') || (($_SESSION['legacy_role'] ?? '') === 'Administrator');
+        }
+        $legacyRole = strtolower(trim((string)($_SESSION['legacy_role'] ?? '')));
+        return in_array($legacyRole, ['administrator','super user','super_user','superuser'], true)
+            || hasRole('SUPER_ADMIN')
+            || hasRole('TENANT_SUPER_ADMIN');
+    }
+}
+
 if (!function_exists('userCan')) {
     function userCan($module, $action = 'view')
     {
-        if (isHostUser()) {
+        $module = strtolower(trim((string)$module));
+        $action = strtolower(trim((string)$action));
+        $allowedActions = ['view','create','edit','delete','approve'];
+        if ($module === '' || !in_array($action, $allowedActions, true)) return false;
+
+        if (isSuperUser()) {
             return true;
         }
 
