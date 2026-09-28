@@ -1,0 +1,1 @@
+<?php header('Location: ../pppoe_accounts/index.php'); exit; ?>
