@@ -1,0 +1,1 @@
+<?php header('Location: ../billing/transactions.php'); exit; ?>
