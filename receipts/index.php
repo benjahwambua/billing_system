@@ -1,0 +1,6 @@
+<?php
+require_once '../includes/auth.php'; requireLogin(); $tenantId=getCurrentTenantId();$rows=[];$q=$conn->query("SHOW TABLES LIKE 'receipts'");
+if($q&&$q->num_rows){$sql="SELECT * FROM receipts";if($tenantId)$sql.=" WHERE tenant_id=".(int)$tenantId;$sql.=" ORDER BY id DESC LIMIT 500";$r=$conn->query($sql);if($r)while($x=$r->fetch_assoc())$rows[]=$x;}
+$pageTitle='Receipts';require_once '../includes/header.php';?>
+<div class="dashboard-card"><h2>Receipts</h2><div class="table-responsive"><table><thead><tr><th>Receipt</th><th>Payment</th><th>Customer</th><th>Amount</th><th>Date</th></tr></thead><tbody>
+<?php foreach($rows as $x):?><tr><td><?=e($x['receipt_number']??$x['number']??$x['id'])?></td><td><?=e($x['payment_id']??'')?></td><td><?=e($x['customer_id']??'')?></td><td><?=e(formatMoney($x['amount']??0))?></td><td><?=e($x['receipt_date']??$x['created_at']??'')?></td></tr><?php endforeach;if(!$rows):?><tr><td colspan="5">No receipts found.</td></tr><?php endif;?></tbody></table></div></div><?php require_once '../includes/footer.php';?>
