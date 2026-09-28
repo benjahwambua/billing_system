@@ -73,6 +73,46 @@ $sidebarUsername = $_SESSION['username'] ?? 'User';
  * Current tenant name.
  */
 $sidebarTenantName = $_SESSION['tenant_name'] ?? 'ISP Account';
+
+/**
+ * Permission-aware sidebar filtering.
+ */
+if (!function_exists('sidebarCanHref')) {
+    function sidebarCanHref($href)
+    {
+        if (!function_exists('userCan')) return true;
+        $path = parse_url($href, PHP_URL_PATH) ?: $href;
+        $path = str_replace('\\', '/', $path);
+        $parts = array_values(array_filter(explode('/', trim($path, '/'))));
+        $dir = strtolower($parts[count($parts)-2] ?? '');
+        $file = strtolower($parts[count($parts)-1] ?? '');
+
+        $map = [
+            'dashboard'=>'dashboard','customers'=>'customers','internet_plans'=>'internet_plans',
+            'internet_accounts'=>'internet_accounts','subscriptions'=>'subscriptions',
+            'pppoe'=>'pppoe','pppoe_accounts'=>'pppoe','pppoe_servers'=>'pppoe','ip_pools'=>'pppoe',
+            'routers'=>'network','network'=>'network','network_sites'=>'network',
+            'hotspot'=>'hotspot','billing'=>'billing','invoices'=>'invoices','payments'=>'payments',
+            'receipts'=>'billing','transactions'=>'billing','expenses'=>'billing','revenue'=>'billing',
+            'reports'=>'reports','communication'=>'communication','ai'=>'ai','staffs'=>'staff',
+            'users'=>'staff','roles'=>'staff','sessions'=>'staff','settings'=>'settings',
+            'operations'=>'operations','wallet'=>'wallet','platform'=>'platform','tenants'=>'platform',
+            'platform_plans'=>'platform','platform_wallets'=>'platform','platform_transactions'=>'platform',
+            'platform_revenue'=>'platform','platform_users'=>'platform','support'=>'platform',
+            'system_events'=>'platform','audit_logs'=>'platform','platform_settings'=>'platform'
+        ];
+        $module = $map[$dir] ?? null;
+        if (!$module || !is_callable('userCan')) return true;
+
+        $action = 'view';
+        if (in_array($file, ['add.php','create.php','new.php'], true)) $action='create';
+        elseif (in_array($file, ['edit.php','update.php'], true)) $action='edit';
+        return userCan($module, $action);
+    }
+}
+
+ob_start();
+
 ?>
 
 <aside class="sidebar" id="flexihubSidebar">
@@ -977,6 +1017,14 @@ $sidebarTenantName = $_SESSION['tenant_name'] ?? 'ISP Account';
 
     </nav>
 
+<?php
+$sidebarHtml = ob_get_clean();
+$sidebarHtml = preg_replace_callback('/<a\\b[^>]*href=(["\\'])(.*?)\\1[^>]*>.*?<\\/a>/is', function ($m) {
+    return sidebarCanHref($m[2]) ? $m[0] : '';
+}, $sidebarHtml);
+echo $sidebarHtml;
+?>
+
 </aside>
 
 
@@ -1102,6 +1150,11 @@ $sidebarTenantName = $_SESSION['tenant_name'] ?? 'ISP Account';
 
 .sidebar-menu-section {
     margin-bottom: 20px;
+}
+
+/* Hide permission-filtered sections that have no remaining links. */
+.sidebar-menu-section:not(:has(.sidebar-menu-link)) {
+    display: none;
 }
 
 .sidebar-menu-heading {
