@@ -823,19 +823,27 @@ if (!function_exists('getCurrentTenantId')) {
     {
         global $conn;
 
-        if (isset($_SESSION['tenant_id']) && $_SESSION['tenant_id'] !== null && $_SESSION['tenant_id'] !== '') {
-            return (int) $_SESSION['tenant_id'];
-        }
-
         $userId = !empty($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 0;
+
         if ($userId > 0 && $conn instanceof mysqli) {
-            $stmt = $conn->prepare("SELECT tenant_id FROM users WHERE id=? LIMIT 1");
+            $stmt = $conn->prepare("SELECT tenant_id, user_scope FROM users WHERE id=? LIMIT 1");
             if ($stmt) {
                 $stmt->bind_param('i', $userId);
                 if ($stmt->execute()) {
                     $row = $stmt->get_result()->fetch_assoc();
                     $stmt->close();
-                    if (isset($row['tenant_id']) && $row['tenant_id'] !== null && $row['tenant_id'] !== '') {
+
+                    $scope = strtolower(trim((string) ($row['user_scope'] ?? '')));
+                    if ($scope !== '') {
+                        $_SESSION['user_scope'] = $scope;
+                    }
+
+                    if ($scope === 'host') {
+                        $_SESSION['tenant_id'] = null;
+                        return null;
+                    }
+
+                    if (isset($row['tenant_id']) && $row['tenant_id'] !== null && (int)$row['tenant_id'] > 0) {
                         $_SESSION['tenant_id'] = (int) $row['tenant_id'];
                         return (int) $row['tenant_id'];
                     }
@@ -843,6 +851,10 @@ if (!function_exists('getCurrentTenantId')) {
                     $stmt->close();
                 }
             }
+        }
+
+        if (isset($_SESSION['tenant_id']) && (int)$_SESSION['tenant_id'] > 0) {
+            return (int) $_SESSION['tenant_id'];
         }
 
         return null;
@@ -855,27 +867,36 @@ if (!function_exists('getCurrentUserScope')) {
     {
         global $conn;
 
-        if (!empty($_SESSION['user_scope'])) {
-            return strtolower(trim((string) $_SESSION['user_scope']));
-        }
-
         $userId = !empty($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 0;
+
         if ($userId > 0 && $conn instanceof mysqli) {
-            $stmt = $conn->prepare("SELECT user_scope FROM users WHERE id=? LIMIT 1");
+            $stmt = $conn->prepare("SELECT user_scope, tenant_id FROM users WHERE id=? LIMIT 1");
             if ($stmt) {
                 $stmt->bind_param('i', $userId);
                 if ($stmt->execute()) {
                     $row = $stmt->get_result()->fetch_assoc();
                     $stmt->close();
+
                     $scope = strtolower(trim((string) ($row['user_scope'] ?? '')));
                     if ($scope !== '') {
                         $_SESSION['user_scope'] = $scope;
-                        return $scope;
                     }
+
+                    if ($scope === 'host') {
+                        $_SESSION['tenant_id'] = null;
+                    } elseif (isset($row['tenant_id']) && $row['tenant_id'] !== null && (int)$row['tenant_id'] > 0) {
+                        $_SESSION['tenant_id'] = (int) $row['tenant_id'];
+                    }
+
+                    return $scope !== '' ? $scope : null;
                 } else {
                     $stmt->close();
                 }
             }
+        }
+
+        if (!empty($_SESSION['user_scope'])) {
+            return strtolower(trim((string) $_SESSION['user_scope']));
         }
 
         return null;
@@ -903,8 +924,9 @@ if (!function_exists('requireTenantContext')) {
     function requireTenantContext()
     {
         $tenantId = getCurrentTenantId();
+        $scope = getCurrentUserScope();
 
-        if (!$tenantId || !isTenantUser()) {
+        if (!$tenantId || $scope !== 'tenant') {
             http_response_code(403);
             die('Tenant context is required.');
         }
