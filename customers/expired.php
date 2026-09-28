@@ -1,0 +1,1 @@
+<?php $status='expired'; require __DIR__.'/index.php'; ?>
