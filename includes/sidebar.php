@@ -406,7 +406,7 @@ ob_start();
                     class="sidebar-menu-link <?= sidebarActive('/internet_plans/') ?>"
                 >
                     <span class="sidebar-menu-icon">▤</span>
-                    <span class="sidebar-menu-text">Internet Plans</span>
+                    <span class="sidebar-menu-text">PPPoE Plans</span>
                 </a>
 
                 <a
