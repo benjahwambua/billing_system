@@ -1,7 +1,7 @@
 <?php
 require_once '../includes/auth.php';requireActiveUser();requireTenantContext();requireModulePermission('staff','view');
 $tenantId=(int)getCurrentTenantId();$total=0;$active=0;$users=0;
-$q=$conn->query("SHOW TABLES LIKE 'staffs');");
+$q=$conn->query("SHOW TABLES LIKE 'staffs'");
 if($q&&$q->num_rows){$st=$conn->prepare("SELECT COUNT(*) total,COALESCE(SUM(LOWER(status)='active'),0) active FROM staffs WHERE tenant_id=?");if($st){$st->bind_param('i',$tenantId);$st->execute();$x=$st->get_result()->fetch_assoc();$total=(int)($x['total']??0);$active=(int)($x['active']??0);$st->close();}}
 $q=$conn->query("SHOW TABLES LIKE 'users'");
 if($q&&$q->num_rows){$st=$conn->prepare("SELECT COUNT(*) total FROM users WHERE tenant_id=?");if($st){$st->bind_param('i',$tenantId);$st->execute();$x=$st->get_result()->fetch_assoc();$users=(int)($x['total']??0);$st->close();}}
