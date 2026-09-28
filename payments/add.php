@@ -32,8 +32,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     }
 
     if(!$errors && $aid){
-        $q=$conn->prepare("SELECT id FROM internet_accounts WHERE id=? AND tenant_id=? LIMIT 1");
-        if($q){$q->bind_param('ii',$aid,$tid);$q->execute();$ok=(bool)$q->get_result()->fetch_assoc();$q->close();if(!$ok)$errors[]='Internet account not found.';}
+        $q=$conn->prepare("SELECT id,customer_id FROM internet_accounts WHERE id=? AND tenant_id=? LIMIT 1");
+        if($q){$q->bind_param('ii',$aid,$tid);$q->execute();$accountCheck=$q->get_result()->fetch_assoc();$q->close();if(!$accountCheck)$errors[]='Internet account not found.';elseif((int)($accountCheck['customer_id']??0)!==(int)($invoice['customer_id']??0))$errors[]='The selected internet account does not belong to the invoice customer.';}
     }
 
     if(!$errors){
