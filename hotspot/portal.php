@@ -1,0 +1,1 @@
+<?php require_once '../includes/auth.php';requireLogin();requireTenantContext();$pageTitle='Captive Portal';require_once '../includes/header.php';?><div class="dashboard-card"><h2>Captive Portal</h2><p>Portal configuration and customer access experience.</p></div><?php require_once '../includes/footer.php';?>
