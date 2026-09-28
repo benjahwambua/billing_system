@@ -1,0 +1,1 @@
+<?php $status='active'; require __DIR__.'/index.php'; ?>
