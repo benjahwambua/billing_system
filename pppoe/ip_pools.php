@@ -1,0 +1,1 @@
+<?php header('Location: ../ip_pools/index.php'); exit; ?>
