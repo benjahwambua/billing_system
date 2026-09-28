@@ -821,12 +821,28 @@ if (!function_exists('getCurrentUserId')) {
 if (!function_exists('getCurrentTenantId')) {
     function getCurrentTenantId()
     {
-        if (
-            isset($_SESSION['tenant_id']) &&
-            $_SESSION['tenant_id'] !== null &&
-            $_SESSION['tenant_id'] !== ''
-        ) {
-            return (int)$_SESSION['tenant_id'];
+        global $conn;
+
+        if (isset($_SESSION['tenant_id']) && $_SESSION['tenant_id'] !== null && $_SESSION['tenant_id'] !== '') {
+            return (int) $_SESSION['tenant_id'];
+        }
+
+        $userId = !empty($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 0;
+        if ($userId > 0 && $conn instanceof mysqli) {
+            $stmt = $conn->prepare("SELECT tenant_id FROM users WHERE id=? LIMIT 1");
+            if ($stmt) {
+                $stmt->bind_param('i', $userId);
+                if ($stmt->execute()) {
+                    $row = $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+                    if (isset($row['tenant_id']) && $row['tenant_id'] !== null && $row['tenant_id'] !== '') {
+                        $_SESSION['tenant_id'] = (int) $row['tenant_id'];
+                        return (int) $row['tenant_id'];
+                    }
+                } else {
+                    $stmt->close();
+                }
+            }
         }
 
         return null;
@@ -837,7 +853,32 @@ if (!function_exists('getCurrentTenantId')) {
 if (!function_exists('getCurrentUserScope')) {
     function getCurrentUserScope()
     {
-        return $_SESSION['user_scope'] ?? null;
+        global $conn;
+
+        if (!empty($_SESSION['user_scope'])) {
+            return strtolower(trim((string) $_SESSION['user_scope']));
+        }
+
+        $userId = !empty($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 0;
+        if ($userId > 0 && $conn instanceof mysqli) {
+            $stmt = $conn->prepare("SELECT user_scope FROM users WHERE id=? LIMIT 1");
+            if ($stmt) {
+                $stmt->bind_param('i', $userId);
+                if ($stmt->execute()) {
+                    $row = $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+                    $scope = strtolower(trim((string) ($row['user_scope'] ?? '')));
+                    if ($scope !== '') {
+                        $_SESSION['user_scope'] = $scope;
+                        return $scope;
+                    }
+                } else {
+                    $stmt->close();
+                }
+            }
+        }
+
+        return null;
     }
 }
 
