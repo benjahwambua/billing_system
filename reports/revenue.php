@@ -1,3 +1,6 @@
 <?php
 require_once '../includes/auth.php'; requireLogin();$tenantId=getCurrentTenantId();$income=0;$expense=0;
-$q=$conn->query("SHOW TABLES LIKE 'payments');");
+$q=$conn->query("SHOW TABLES LIKE 'payments'");if($q&&$q->num_rows){$sql="SELECT COALESCE(SUM(amount),0) total FROM payments";if($tenantId)$sql.=" WHERE tenant_id=".(int)$tenantId;$r=$conn->query($sql);$income=$r?(float)$r->fetch_assoc()['total']:0;}
+$q=$conn->query("SHOW TABLES LIKE 'expenses'");if($q&&$q->num_rows){$sql="SELECT COALESCE(SUM(amount),0) total FROM expenses";if($tenantId)$sql.=" WHERE tenant_id=".(int)$tenantId;$r=$conn->query($sql);$expense=$r?(float)$r->fetch_assoc()['total']:0;}
+$pageTitle='Revenue';require_once '../includes/header.php';?>
+<div class="dashboard-card"><h2>Revenue & Financial Summary</h2><div class="stats-grid"><div class="stat-card"><h3><?=e(formatMoney($income))?></h3><p>Collections</p></div><div class="stat-card"><h3><?=e(formatMoney($expense))?></h3><p>Expenses</p></div><div class="stat-card"><h3><?=e(formatMoney($income-$expense))?></h3><p>Net</p></div></div></div><?php require_once '../includes/footer.php';?>
