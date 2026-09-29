@@ -247,3 +247,173 @@ if (!function_exists('flexihubMpesaStkPush')) {
         );
     }
 }
+
+
+if (!function_exists('flexihubCreateMpesaStkTransaction')) {
+    function flexihubCreateMpesaStkTransaction(
+        $tenantId,
+        $gatewayId,
+        $amount,
+        $phoneNumber,
+        $flow,
+        $accountReference,
+        $description,
+        $callbackUrl,
+        $idempotencyKey,
+        $invoiceId = null,
+        $hotspotSaleId = null
+    ) {
+        global $conn;
+
+        $tenantId = (int)$tenantId;
+        $gatewayId = (int)$gatewayId;
+        $amount = round((float)$amount, 2);
+        $flow = trim((string)$flow);
+        $accountReference = trim((string)$accountReference);
+        $description = trim((string)$description);
+        $idempotencyKey = trim((string)$idempotencyKey);
+
+        if ($tenantId <= 0 || $gatewayId <= 0 || $amount <= 0 || $flow === '' || $idempotencyKey === '') {
+            throw new InvalidArgumentException('Invalid M-Pesa transaction parameters.');
+        }
+
+        $stmt = $conn->prepare("
+            SELECT *
+            FROM payment_gateway_transactions
+            WHERE tenant_id = ? AND idempotency_key = ?
+            LIMIT 1
+        ");
+        if (!$stmt) {
+            throw new RuntimeException('Unable to inspect existing M-Pesa transaction.');
+        }
+        $stmt->bind_param('is', $tenantId, $idempotencyKey);
+        $stmt->execute();
+        $existing = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $stmt = $conn->prepare("
+            SELECT *
+            FROM payment_gateways
+            WHERE id = ? AND tenant_id = ? AND provider = 'mpesa' AND status = 'active'
+            LIMIT 1
+        ");
+        if (!$stmt) {
+            throw new RuntimeException('Unable to load M-Pesa gateway.');
+        }
+        $stmt->bind_param('ii', $gatewayId, $tenantId);
+        $stmt->execute();
+        $gateway = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$gateway) {
+            throw new RuntimeException('Active tenant M-Pesa gateway not found.');
+        }
+
+        $phoneNumber = flexihubMpesaNormalizePhone($phoneNumber);
+
+        $stmt = $conn->prepare("
+            INSERT INTO payment_gateway_transactions
+                (tenant_id, gateway_id, provider, flow, status, amount, phone_number,
+                 account_reference, transaction_description, idempotency_key, invoice_id,
+                 hotspot_sale_id, initiated_at)
+            VALUES (?, ?, 'mpesa', ?, 'initiated', ?, ?, ?, ?, ?, ?, ?, NOW())
+        ");
+        if (!$stmt) {
+            throw new RuntimeException('Unable to create M-Pesa transaction.');
+        }
+
+        $stmt->bind_param(
+            'iisdsssii',
+            $tenantId,
+            $gatewayId,
+            $flow,
+            $amount,
+            $phoneNumber,
+            $accountReference,
+            $description,
+            $idempotencyKey,
+            $invoiceId,
+            $hotspotSaleId
+        );
+
+        if (!$stmt->execute()) {
+            $error = $stmt->error;
+            $stmt->close();
+            throw new RuntimeException('Unable to create M-Pesa transaction: ' . $error);
+        }
+
+        $transactionId = (int)$conn->insert_id;
+        $stmt->close();
+
+        try {
+            $response = flexihubMpesaStkPush(
+                $gateway,
+                $amount,
+                $phoneNumber,
+                $accountReference,
+                $description,
+                $callbackUrl
+            );
+        } catch (Throwable $e) {
+            $stmt = $conn->prepare("
+                UPDATE payment_gateway_transactions
+                SET status = 'failed', failure_reason = ?
+                WHERE id = ? AND tenant_id = ?
+            ");
+            if ($stmt) {
+                $message = substr($e->getMessage(), 0, 500);
+                $stmt->bind_param('sii', $message, $transactionId, $tenantId);
+                $stmt->execute();
+                $stmt->close();
+            }
+            throw $e;
+        }
+
+        $merchantRequestId = (string)($response['MerchantRequestID'] ?? '');
+        $checkoutRequestId = (string)($response['CheckoutRequestID'] ?? '');
+        $responseCode = isset($response['ResponseCode']) ? (string)$response['ResponseCode'] : null;
+        $responseDescription = isset($response['ResponseDescription'])
+            ? (string)$response['ResponseDescription']
+            : null;
+        $status = ($checkoutRequestId !== '' && $responseCode === '0') ? 'pending' : 'failed';
+        $requestJson = json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $stmt = $conn->prepare("
+            UPDATE payment_gateway_transactions
+            SET status = ?,
+                merchant_request_id = ?,
+                checkout_request_id = ?,
+                result_code = ?,
+                result_description = ?,
+                request_payload = ?,
+                expires_at = DATE_ADD(NOW(), INTERVAL 5 MINUTE)
+            WHERE id = ? AND tenant_id = ?
+        ");
+        if ($stmt) {
+            $stmt->bind_param(
+                'ssssssii',
+                $status,
+                $merchantRequestId,
+                $checkoutRequestId,
+                $responseCode,
+                $responseDescription,
+                $requestJson,
+                $transactionId,
+                $tenantId
+            );
+            $stmt->execute();
+            $stmt->close();
+        }
+
+        return dbFetchOne(
+            "SELECT * FROM payment_gateway_transactions WHERE id = ? AND tenant_id = ? LIMIT 1",
+            'ii',
+            $transactionId,
+            $tenantId
+        ) ?: [];
+    }
+}
