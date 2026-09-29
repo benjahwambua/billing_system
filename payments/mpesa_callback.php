@@ -96,7 +96,7 @@ $update = $conn->prepare("
 if ($update) {
     $txId = (int)$transaction['id'];
     $update->bind_param(
-        'ssssis',
+        'ssssii',
         $newStatus,
         $resultCode,
         $resultDescription,
