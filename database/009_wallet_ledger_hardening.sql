@@ -23,8 +23,4 @@ ALTER TABLE wallet_transactions
     ADD KEY idx_wallet_tx_external_ref (tenant_id, external_reference),
     ADD KEY idx_wallet_tx_gateway (tenant_id, gateway_transaction_id),
     ADD UNIQUE KEY uq_wallet_tx_idempotency (tenant_id, idempotency_key);
-
-ALTER TABLE wallet_transactions
-    ADD CONSTRAINT fk_wallet_tx_user
-    FOREIGN KEY (user_id) REFERENCES users(id)
-    ON UPDATE CASCADE ON DELETE SET NULL;
+ 
