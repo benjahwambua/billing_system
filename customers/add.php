@@ -1,7 +1,8 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-requireLogin();
+requireActiveUser();
 $tenantId = requireTenant();
+requireModulePermission('customers', 'create');
 $pageTitle = 'Add Customer';
 $errors = [];
 
@@ -27,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($first === '' && $last === '') $errors[] = 'Enter the customer first name or last name.';
     if ($phone !== '' && !isValidPhone($phone)) $errors[] = 'Enter a valid phone number.';
     if ($email !== '' && !isValidEmail($email)) $errors[] = 'Enter a valid email address.';
+    if (!in_array($status, ['active','inactive','suspended'], true)) $status = 'active';
 
     if (!$errors) {
         $values = [];
@@ -51,7 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $types = '';
                 foreach ($values as $v) $types .= is_int($v) ? 'i' : 's';
                 $stmt->bind_param($types,...$values);
-                if ($stmt->execute()) { $id=$stmt->insert_id; $stmt->close(); redirect('view.php?id='.(int)$id); }
+                if ($stmt->execute()) {
+                    $id=$stmt->insert_id;
+                    $stmt->close();
+                    logAudit('CREATE','customers','Customer created.','customer',$id,null,$values);
+                    redirect('view.php?id='.(int)$id);
+                }
                 $errors[] = 'Unable to save customer: ' . $stmt->error;
                 $stmt->close();
             }

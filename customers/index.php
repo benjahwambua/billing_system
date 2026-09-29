@@ -1,7 +1,8 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-requireLogin();
+requireActiveUser();
 $tenantId = isTenantUser() ? requireTenant() : null;
+requireModulePermission('customers', 'view');
 $pageTitle = 'Customers';
 
 function customerColumnExists($column) {
@@ -18,10 +19,18 @@ function customerColumnExists($column) {
 $where = [];
 $params = [];
 $types = '';
-if ($tenantId) { $where[] = 'tenant_id = ?'; $params[] = $tenantId; $types .= 'i'; }
+if ($tenantId) {
+    $where[] = 'tenant_id = ?';
+    $params[] = $tenantId;
+    $types .= 'i';
+}
 
 $statusFilter = strtolower(trim($GLOBALS['status'] ?? ($_GET['status'] ?? '')));
-if (in_array($statusFilter, ['active','suspended','expired','inactive'], true)) { $where[] = 'status = ?'; $params[] = $statusFilter; $types .= 's'; }
+if (in_array($statusFilter, ['active','suspended','expired','inactive'], true)) {
+    $where[] = 'status = ?';
+    $params[] = $statusFilter;
+    $types .= 's';
+}
 
 $search = trim($_GET['q'] ?? '');
 if ($search !== '') {
@@ -31,7 +40,10 @@ if ($search !== '') {
     }
     if ($parts) {
         $where[] = '(' . implode(' OR ', $parts) . ')';
-        foreach ($parts as $_) { $params[] = '%' . $search . '%'; $types .= 's'; }
+        foreach ($parts as $_) {
+            $params[] = '%' . $search . '%';
+            $types .= 's';
+        }
     }
 }
 
@@ -41,6 +53,7 @@ $sql .= ' ORDER BY id DESC LIMIT 100';
 
 $stmt = $conn->prepare($sql);
 if ($stmt && $params) $stmt->bind_param($types, ...$params);
+
 $customers = [];
 if ($stmt && $stmt->execute()) {
     $result = $stmt->get_result();
@@ -54,7 +67,9 @@ require_once __DIR__ . '/../includes/sidebar.php';
 <div class="main-content">
     <div class="page-header">
         <div><h1>Customers</h1><p>Manage subscribers and their internet service accounts.</p></div>
-        <a href="add.php" class="btn btn-primary">+ Add Customer</a>
+        <?php if (userCan('customers', 'create')): ?>
+            <a href="add.php" class="btn btn-primary">+ Add Customer</a>
+        <?php endif; ?>
     </div>
 
     <div class="card" style="margin-bottom:20px;">
