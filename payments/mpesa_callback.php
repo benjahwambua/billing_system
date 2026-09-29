@@ -10,6 +10,8 @@
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/payment_gateway.php';
+require_once __DIR__ . '/../includes/mpesa_finalization.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -106,6 +108,20 @@ if ($update) {
     );
     $update->execute();
     $update->close();
+}
+
+// Never trust the callback alone for accounting. Re-query the provider,
+// then finalize only after the provider confirms the transaction.
+if ($resultCode === '0') {
+    try {
+        $reconciled = flexihubReconcileMpesaTransaction((int)$transaction['id']);
+        if (($reconciled['status'] ?? '') === 'confirmed') {
+            flexihubFinalizeMpesaTransaction((int)$transaction['id']);
+        }
+    } catch (Throwable $e) {
+        // Keep the callback successful. The transaction remains pending/callback_received
+        // and can be reconciled manually or by the scheduled reconciliation worker.
+    }
 }
 
 http_response_code(200);
