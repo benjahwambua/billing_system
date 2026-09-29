@@ -22,7 +22,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $codeId=(int)($_POST['access_code_id']??0);
     $method=trim((string)($_POST['payment_method']??'cash'));
     $reference=trim((string)($_POST['reference']??''));
-    $allowed=['cash','mpesa','bank','card'];
+    $allowed=['cash','bank','card'];
     if(!in_array($method,$allowed,true))$method='cash';
 
     $q=$conn->prepare("SELECT c.id,c.code,c.package_id,c.status,c.expires_at,p.price
@@ -66,14 +66,14 @@ $q=$conn->prepare("SELECT s.id,s.amount,s.payment_method,s.reference,s.sold_at,s
                    JOIN hotspot_packages p ON p.id=s.package_id AND p.tenant_id=s.tenant_id
                    WHERE s.tenant_id=? ORDER BY s.id DESC LIMIT 200");
 if($q){$q->bind_param('i',$tenantId);$q->execute();$r=$q->get_result();while($x=$r->fetch_assoc())$sales[]=$x;$q->close();}
-$total=0;foreach($sales as $s)$total+=(float)$s['amount'];
+$total=0;foreach($sales as $s){if(in_array($s['status'],['completed','paid_pending_access','access_active'],true))$total+=(float)$s['amount'];}
 
 $pageTitle='Hotspot Sales';
 require_once '../includes/header.php';
 require_once '../includes/sidebar.php';
 ?>
 <div class="main-content">
-<div class="page-header"><div><h1>Hotspot Sales</h1><p>Sell unused access codes and track hotspot revenue.</p></div></div>
+<div class="page-header"><div><h1>Hotspot Sales</h1><p>Track hotspot sales and payment status.</p></div><div><a class="btn btn-primary" href="mpesa.php">M-Pesa STK Push</a></div></div>
 <?php if($error):?><div class="alert alert-danger"><?=e($error)?></div><?php endif;?>
 <div class="card" style="padding:20px;margin-bottom:20px">
 <h3>Record Sale</h3>
@@ -81,7 +81,7 @@ require_once '../includes/sidebar.php';
 <form method="post"><?=csrfField()?>
 <div class="form-grid">
 <label>Access Code *<select name="access_code_id" required><option value="">Select code</option><?php foreach($codes as $c):?><option value="<?=$c['id']?>"><?=e($c['code'].' — '.$c['package_name'].' — '.formatMoney($c['price']))?></option><?php endforeach;?></select></label>
-<label>Payment Method<select name="payment_method"><option value="cash">Cash</option><option value="mpesa">M-Pesa</option><option value="bank">Bank</option><option value="card">Card</option></select></label>
+<label>Payment Method<select name="payment_method"><option value="cash">Cash</option><option value="bank">Bank</option><option value="card">Card</option></select></label>
 <label>Reference<input name="reference" maxlength="100"></label>
 </div><button class="btn btn-primary">Record Sale</button>
 </form>
