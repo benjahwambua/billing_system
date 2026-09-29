@@ -327,7 +327,7 @@ if (!function_exists('flexihubCreateMpesaStkTransaction')) {
         }
 
         $stmt->bind_param(
-            'iisdsssii',
+            'iisdssssii',
             $tenantId,
             $gatewayId,
             $flow,
