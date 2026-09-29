@@ -108,7 +108,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 
         $id=flexihubWorkflowInsert('invoices',$data);
         if($id){
-            if(function_exists('logAudit'))logAudit('invoice_created',(int)$id,'invoices',['customer_id'=>$cid,'account_id'=>$aid,'amount'=>$amount]);
+            if(function_exists('logAudit'))logAudit('invoice_created','invoices','Invoice created','invoice',(int)$id,null,['customer_id'=>$cid,'account_id'=>$aid,'amount'=>$amount]);
             setFlash('success','Invoice created successfully.');
             redirect('view.php?id='.(int)$id);
         }
