@@ -417,3 +417,120 @@ if (!function_exists('flexihubCreateMpesaStkTransaction')) {
         ) ?: [];
     }
 }
+
+if (!function_exists('flexihubMpesaStkQuery')) {
+    function flexihubMpesaStkQuery(array $gateway, $checkoutRequestId)
+    {
+        $checkoutRequestId = trim((string)$checkoutRequestId);
+        $passkey = flexihubGatewayDecrypt($gateway['passkey_encrypted'] ?? null);
+        $shortcode = trim((string)($gateway['shortcode'] ?? ''));
+
+        if ($checkoutRequestId === '' || !$passkey || !$shortcode) {
+            throw new InvalidArgumentException('M-Pesa shortcode, passkey and CheckoutRequestID are required.');
+        }
+
+        $timestamp = date('YmdHis');
+        $password = base64_encode($shortcode . $passkey . $timestamp);
+        $token = flexihubMpesaAccessToken($gateway);
+
+        return flexihubMpesaRequest(
+            flexihubMpesaBaseUrl($gateway['environment'] ?? 'sandbox') . '/mpesa/stkpushquery/v1/query',
+            [
+                'BusinessShortCode' => $shortcode,
+                'Password' => $password,
+                'Timestamp' => $timestamp,
+                'CheckoutRequestID' => $checkoutRequestId
+            ],
+            $token
+        );
+    }
+}
+
+if (!function_exists('flexihubReconcileMpesaTransaction')) {
+    function flexihubReconcileMpesaTransaction($transactionId)
+    {
+        global $conn;
+
+        $transactionId = (int)$transactionId;
+        if ($transactionId <= 0) {
+            throw new InvalidArgumentException('Invalid gateway transaction.');
+        }
+
+        $stmt = $conn->prepare("
+            SELECT t.*, g.environment, g.shortcode, g.shortcode_type,
+                   g.passkey_encrypted, g.consumer_key_encrypted, g.consumer_secret_encrypted
+            FROM payment_gateway_transactions t
+            JOIN payment_gateways g ON g.id = t.gateway_id AND g.tenant_id = t.tenant_id
+            WHERE t.id = ?
+            LIMIT 1
+        ");
+        if (!$stmt) throw new RuntimeException('Unable to load M-Pesa transaction.');
+        $stmt->bind_param('i', $transactionId);
+        $stmt->execute();
+        $tx = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$tx) throw new RuntimeException('M-Pesa transaction not found.');
+
+        if (in_array($tx['status'], ['completed', 'failed', 'cancelled', 'expired'], true)) {
+            return $tx;
+        }
+
+        if (empty($tx['checkout_request_id'])) {
+            throw new RuntimeException('M-Pesa CheckoutRequestID is not available.');
+        }
+
+        $response = flexihubMpesaStkQuery($tx, $tx['checkout_request_id']);
+        $resultCode = isset($response['ResultCode']) ? (string)$response['ResultCode'] : null;
+        $resultDescription = isset($response['ResultDesc']) ? (string)$response['ResultDesc'] : null;
+        $responseJson = json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        if ($resultCode === '0') {
+            $status = 'confirmed';
+            $confirmedAt = date('Y-m-d H:i:s');
+        } elseif ($resultCode !== null && $resultCode !== '') {
+            $status = 'failed';
+            $confirmedAt = null;
+        } else {
+            $status = 'pending';
+            $confirmedAt = null;
+        }
+
+        $stmt = $conn->prepare("
+            UPDATE payment_gateway_transactions
+            SET status = ?,
+                result_code = ?,
+                result_description = ?,
+                callback_payload = CASE
+                    WHEN callback_payload IS NULL THEN ?
+                    ELSE callback_payload
+                END,
+                confirmed_at = ?
+            WHERE id = ?
+              AND tenant_id = ?
+        ");
+        if (!$stmt) throw new RuntimeException('Unable to update M-Pesa transaction.');
+
+        $tenantId = (int)$tx['tenant_id'];
+        $stmt->bind_param(
+            'sssssii',
+            $status,
+            $resultCode,
+            $resultDescription,
+            $responseJson,
+            $confirmedAt,
+            $transactionId,
+            $tenantId
+        );
+        $stmt->execute();
+        $stmt->close();
+
+        return dbFetchOne(
+            "SELECT * FROM payment_gateway_transactions WHERE id = ? AND tenant_id = ? LIMIT 1",
+            'ii',
+            $transactionId,
+            $tenantId
+        ) ?: $tx;
+    }
+}
+\n
