@@ -60,6 +60,18 @@ CREATE TABLE IF NOT EXISTS hotspot_sessions (
         ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Extend the legacy hotspot_sales table created by 008_operational_workflows.sql.
+ALTER TABLE hotspot_sales
+    ADD COLUMN phone_number VARCHAR(30) NULL AFTER amount,
+    ADD COLUMN device_mac VARCHAR(50) NULL AFTER phone_number,
+    ADD COLUMN gateway_transaction_id BIGINT UNSIGNED NULL AFTER reference,
+    ADD COLUMN payment_id BIGINT UNSIGNED NULL AFTER gateway_transaction_id,
+    ADD COLUMN started_at DATETIME NULL AFTER sold_at,
+    ADD COLUMN expires_at DATETIME NULL AFTER started_at,
+    ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at,
+    ADD KEY idx_hs_gateway (tenant_id, gateway_transaction_id),
+    ADD KEY idx_hs_payment (tenant_id, payment_id);
+
 -- The gateway transaction needs an explicit target account for future PPPoE/invoice
 -- finalization; hotspot sales use hotspot_sale_id instead.
 ALTER TABLE payment_gateway_transactions
