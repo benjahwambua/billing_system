@@ -5,33 +5,16 @@
 ALTER TABLE hotspot_packages MODIFY tenant_id INT UNSIGNED NOT NULL;
 ALTER TABLE hotspot_access_codes MODIFY tenant_id INT UNSIGNED NOT NULL;
 
-CREATE TABLE IF NOT EXISTS hotspot_sales (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id INT UNSIGNED NOT NULL,
-    package_id BIGINT UNSIGNED NOT NULL,
-    amount DECIMAL(14,2) NOT NULL DEFAULT 0,
-    phone_number VARCHAR(30) NULL,
-    device_mac VARCHAR(50) NULL,
-    payment_method VARCHAR(30) NOT NULL DEFAULT 'mpesa',
-    reference VARCHAR(150) NULL,
-    gateway_transaction_id BIGINT UNSIGNED NULL,
-    payment_id BIGINT UNSIGNED NULL,
-    status VARCHAR(30) NOT NULL DEFAULT 'pending',
-    started_at DATETIME NULL,
-    expires_at DATETIME NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    KEY idx_hs_tenant_created (tenant_id, created_at),
-    KEY idx_hs_tenant_status (tenant_id, status),
-    KEY idx_hs_gateway (tenant_id, gateway_transaction_id),
-    KEY idx_hs_payment (tenant_id, payment_id),
-    CONSTRAINT fk_hs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id)
-        ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT fk_hs_package FOREIGN KEY (package_id) REFERENCES hotspot_packages(id)
-        ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT fk_hs_gateway FOREIGN KEY (gateway_transaction_id) REFERENCES payment_gateway_transactions(id)
-        ON UPDATE CASCADE ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ALTER TABLE hotspot_sales
+    ADD COLUMN phone_number VARCHAR(30) NULL AFTER amount,
+    ADD COLUMN device_mac VARCHAR(50) NULL AFTER phone_number,
+    ADD COLUMN gateway_transaction_id BIGINT UNSIGNED NULL AFTER reference,
+    ADD COLUMN payment_id BIGINT UNSIGNED NULL AFTER gateway_transaction_id,
+    ADD COLUMN started_at DATETIME NULL AFTER sold_at,
+    ADD COLUMN expires_at DATETIME NULL AFTER started_at,
+    ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER status,
+    ADD KEY idx_hs_gateway (tenant_id, gateway_transaction_id),
+    ADD KEY idx_hs_payment (tenant_id, payment_id);
 
 CREATE TABLE IF NOT EXISTS hotspot_sessions (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
