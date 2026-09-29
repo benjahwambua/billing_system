@@ -3,12 +3,11 @@
 -- M-Pesa is a payment rail. Customer collections, tenant wallet activity,
 -- and platform subscription revenue remain separate accounting flows.
 --
--- Tenant IDs intentionally use BIGINT UNSIGNED to match tenants.id and
--- the tenant-isolated operational tables.
+-- Tenant IDs use INT UNSIGNED to match the current tenants.id schema.
 
 CREATE TABLE IF NOT EXISTS payment_gateways (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id BIGINT UNSIGNED NOT NULL,
+    tenant_id INT UNSIGNED NOT NULL,
     provider VARCHAR(40) NOT NULL DEFAULT 'mpesa',
     name VARCHAR(150) NOT NULL,
     environment VARCHAR(20) NOT NULL DEFAULT 'sandbox',
@@ -37,7 +36,7 @@ CREATE TABLE IF NOT EXISTS payment_gateways (
 
 CREATE TABLE IF NOT EXISTS payment_gateway_transactions (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id BIGINT UNSIGNED NOT NULL,
+    tenant_id INT UNSIGNED NOT NULL,
     gateway_id BIGINT UNSIGNED NOT NULL,
     provider VARCHAR(40) NOT NULL DEFAULT 'mpesa',
     flow VARCHAR(30) NOT NULL,
@@ -81,7 +80,7 @@ CREATE TABLE IF NOT EXISTS payment_gateway_transactions (
 
 CREATE TABLE IF NOT EXISTS payment_gateway_events (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id BIGINT UNSIGNED NULL,
+    tenant_id INT UNSIGNED NULL,
     gateway_id BIGINT UNSIGNED NULL,
     gateway_transaction_id BIGINT UNSIGNED NULL,
     event_type VARCHAR(40) NOT NULL,
