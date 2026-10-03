@@ -72,7 +72,6 @@ if (!function_exists('flexihubMpesaStkPush')) {
     function flexihubMpesaStkPush(array $gateway,$amount,$phone,$reference,$description,$callbackUrl) {
         $passkey=flexihubGatewayDecrypt($gateway['passkey_encrypted']??null);
         $shortcode=trim((string)($gateway['shortcode']??''));
-        if(!$passkey||$shortcode){} 
         if(!$passkey||!$shortcode)throw new RuntimeException('M-Pesa shortcode and passkey are required for STK Push.');
         $phone=flexihubMpesaNormalizePhone($phone);
         $timestamp=date('YmdHis');
