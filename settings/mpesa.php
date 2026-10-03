@@ -43,7 +43,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
    $stmt=$conn->prepare("INSERT INTO payment_gateways (tenant_id,provider,name,environment,shortcode_type,shortcode,consumer_key_encrypted,consumer_secret_encrypted,passkey_encrypted,callback_token,status,is_default) VALUES (?,'mpesa','M-Pesa',?,?,?,?,?,?,?,1)");
    if(!$stmt)throw new RuntimeException('Unable to create M-Pesa gateway.');
    $a=flexihubGatewayEncrypt($consumerKey);$b=flexihubGatewayEncrypt($consumerSecret);$c=flexihubGatewayEncrypt($passkey);
-   $stmt->bind_param('isssssss',$tenantId,$environment,$shortcodeType,$shortcode,$a,$b,$c,$token,$status);$stmt->execute();$id=(int)$conn->insert_id;$stmt->close();
+   $stmt->bind_param('issssssss',$tenantId,$environment,$shortcodeType,$shortcode,$a,$b,$c,$token,$status);$stmt->execute();$id=(int)$conn->insert_id;$stmt->close();
    $url=baseUrl().'/payments/mpesa_callback.php?gateway='.$id.'&token='.rawurlencode($token);
    $stmt=$conn->prepare("UPDATE payment_gateways SET callback_url=? WHERE id=? AND tenant_id=?");$stmt->bind_param('sii',$url,$id,$tenantId);$stmt->execute();$stmt->close();
   }
