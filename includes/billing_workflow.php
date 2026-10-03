@@ -186,6 +186,77 @@ if (!function_exists('flexihubCreatePaymentArtifacts')) {
     }
 }
 
+
+if (!function_exists('flexihubQueueServiceActivation')) {
+    function flexihubQueueServiceActivation($accountId, $tenantId, $paymentId = null, $subscriptionId = null, $action = 'activate')
+    {
+        global $conn;
+        $accountId=(int)$accountId; $tenantId=(int)$tenantId;
+        if(!$accountId || !$tenantId) return false;
+        if(!flexihubTableColumns('service_activation_queue')) return false;
+        $check=$conn->prepare("SELECT id FROM service_activation_queue WHERE tenant_id=? AND account_id=? AND action=? AND status IN ('pending','processing') LIMIT 1");
+        if($check){$check->bind_param('iis',$tenantId,$accountId,$action);$check->execute();$existing=$check->get_result()->fetch_assoc();$check->close();if($existing)return (int)$existing['id'];}
+        return flexihubWorkflowInsert('service_activation_queue',[
+            'tenant_id'=>$tenantId,'service_type'=>'internet','account_id'=>$accountId,
+            'payment_id'=>$paymentId,'subscription_id'=>$subscriptionId,'action'=>$action,
+            'status'=>'pending','attempts'=>0,'available_at'=>date('Y-m-d H:i:s'),
+            'payload'=>json_encode(['source'=>'payment'],JSON_UNESCAPED_SLASHES)
+        ]);
+    }
+}
+
+if (!function_exists('flexihubProcessServiceActivationQueue')) {
+    function flexihubProcessServiceActivationQueue($tenantId, $limit=25)
+    {
+        global $conn; $tenantId=(int)$tenantId; $limit=max(1,min(100,(int)$limit));
+        $stats=['processed'=>0,'completed'=>0,'failed'=>0]; if(!$tenantId)return $stats;
+        $stmt=$conn->prepare("SELECT * FROM service_activation_queue WHERE tenant_id=? AND status='pending' AND (available_at IS NULL OR available_at<=NOW()) ORDER BY id ASC LIMIT {$limit}");
+        if(!$stmt)return $stats;
+        $stmt->bind_param('i',$tenantId);$stmt->execute();$res=$stmt->get_result();$items=[];
+        while($row=$res->fetch_assoc())$items[]=$row;$stmt->close();
+        foreach($items as $item){
+            $id=(int)$item['id'];$stats['processed']++;
+            $claim=$conn->prepare("UPDATE service_activation_queue SET status='processing',attempts=attempts+1 WHERE id=? AND tenant_id=? AND status='pending'");
+            if(!$claim){$stats['failed']++;continue;}
+            $claim->bind_param('ii',$id,$tenantId);$claim->execute();$claimed=$claim->affected_rows>0;$claim->close();if(!$claimed)continue;
+            $ok=false;$error='';
+            try{
+                $accountId=(int)($item['account_id']??0);if(!$accountId)throw new Exception('Internet account is missing.');
+                $q=$conn->prepare("SELECT id,status FROM internet_accounts WHERE id=? AND tenant_id=? LIMIT 1");
+                if(!$q)throw new Exception('Unable to load internet account.');
+                $q->bind_param('ii',$accountId,$tenantId);$q->execute();$account=$q->get_result()->fetch_assoc();$q->close();
+                if(!$account)throw new Exception('Internet account not found.');
+                $action=(string)($item['action']??'activate');
+                $newStatus=$action==='suspend'?'suspended':($action==='expire'?'expired':'active');
+                $u=$conn->prepare("UPDATE internet_accounts SET status=? WHERE id=? AND tenant_id=?");
+                if(!$u)throw new Exception('Unable to update internet account.');
+                $u->bind_param('sii',$newStatus,$accountId,$tenantId);$ok=$u->execute();$u->close();
+                if(!$ok)throw new Exception('Internet account activation failed.');
+                if($conn->query("SHOW TABLES LIKE 'pppoe_accounts'")->num_rows){
+                    $p=$conn->prepare("UPDATE pppoe_accounts SET status=? WHERE internet_account_id=? AND tenant_id=?");
+                    if($p){$p->bind_param('sii',$newStatus,$accountId,$tenantId);$p->execute();$p->close();}
+                }
+                if($ok&&$action==='activate'){
+                    flexihubWorkflowInsert('service_events',[
+                        'tenant_id'=>$tenantId,'account_id'=>$accountId,'subscription_id'=>$item['subscription_id']??null,
+                        'event_type'=>'service_activated','old_status'=>$account['status']??null,'new_status'=>'active',
+                        'source'=>'queue','reference'=>'QUEUE-'.$id,
+                        'details'=>json_encode(['payment_id'=>$item['payment_id']??null],JSON_UNESCAPED_SLASHES)
+                    ]);
+                }
+            }catch(Throwable $e){$error=$e->getMessage();}
+            if($ok){
+                $done=$conn->prepare("UPDATE service_activation_queue SET status='completed',processed_at=NOW(),last_error=NULL WHERE id=? AND tenant_id=?");
+                if($done){$done->bind_param('ii',$id,$tenantId);$done->execute();$done->close();}$stats['completed']++;
+            }else{
+                $retry=$conn->prepare("UPDATE service_activation_queue SET status=IF(attempts>=5,'failed','pending'),available_at=DATE_ADD(NOW(),INTERVAL LEAST(attempts*5,60) MINUTE),last_error=? WHERE id=? AND tenant_id=?");
+                if($retry){$retry->bind_param('sii',$error,$id,$tenantId);$retry->execute();$retry->close();}$stats['failed']++;
+            }
+        }
+        return $stats;
+    }
+}
+
 if (!function_exists('flexihubRenewInternetAccount')) {
     function flexihubRenewInternetAccount($accountId, $tenantId)
     {
