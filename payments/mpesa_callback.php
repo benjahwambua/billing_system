@@ -12,30 +12,30 @@ if(!$gateway){http_response_code(404);echo json_encode(['ResultCode'=>1,'ResultD
 $stk=$payload['Body']['stkCallback']??null;$checkout=is_array($stk)?trim((string)($stk['CheckoutRequestID']??'')):'';$resultCode=is_array($stk)?(string)($stk['ResultCode']??''):'';$resultDesc=is_array($stk)?(string)($stk['ResultDesc']??''):'';if($checkout===''){http_response_code(400);echo json_encode(['ResultCode'=>1,'ResultDesc'=>'Missing CheckoutRequestID']);exit;}
 $q=$conn->prepare("SELECT * FROM payment_gateway_transactions WHERE tenant_id=? AND gateway_id=? AND checkout_request_id=? LIMIT 1");$q->bind_param('iis',$gateway['tenant_id'],$gatewayId,$checkout);$q->execute();$tx=$q->get_result()->fetch_assoc();$q->close();
 if(!$tx){http_response_code(404);echo json_encode(['ResultCode'=>1,'ResultDesc'=>'Transaction not found']);exit;}
-$tenantId=(int)$tx['tenant_id'];$txId=(int)$tx['id'];$meta=[];$items=$stk['CallbackMetadata']['Item']??[];if(is_array($items))foreach($items as $item){if(isset($item['Name']))$meta[(string)$item['Name']=$item['Value']??null];}
+$tenantId=(int)$tx['tenant_id'];$txId=(int)$tx['id'];$meta=[];$items=$stk['CallbackMetadata']['Item']??[];if(is_array($items))foreach($items as $item){if(isset($item['Name']))$meta[(string)$item['Name']]=$item['Value']??null;}
 $receipt=(string)($meta['MpesaReceiptNumber']??'');$paidAmount=isset($meta['Amount'])?(float)$meta['Amount']:null;$paidPhone=(string)($meta['PhoneNumber']??'');
-$callbackJson=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-$external=$receipt!==''?$receipt:$checkout;
-$stmt=$conn->prepare("INSERT INTO payment_callbacks (tenant_id,provider,event_type,transaction_reference,external_transaction_id,phone_number,amount,callback_payload,processing_status) VALUES (?,'mpesa','stk_callback',?,?,?,?,?,'received') ON DUPLICATE KEY UPDATE callback_payload=VALUES(callback_payload),processing_status='received',error_message=NULL");
-if($stmt){$ref=$tx['account_reference'];$stmt->bind_param('isssds',$tenantId,$ref,$external,$paidPhone,$paidAmount,$callbackJson);$stmt->execute();$stmt->close();}
+$callbackJson=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$external=$receipt!==''?$receipt:$checkout;
+$stmt=$conn->prepare("INSERT INTO payment_callbacks (tenant_id,provider,event_type,transaction_reference,external_transaction_id,phone_number,amount,callback_payload,processing_status) VALUES (?,'mpesa','stk_callback',?,?,?,?,?,'received') ON DUPLICATE KEY UPDATE callback_payload=VALUES(callback_payload),processing_status='received',error_message=NULL");if($stmt){$ref=$tx['account_reference'];$stmt->bind_param('isssds',$tenantId,$ref,$external,$paidPhone,$paidAmount,$callbackJson);$stmt->execute();$stmt->close();}
 $eventKey='mpesa:'.$gatewayId.':'.$checkout;$stmt=$conn->prepare("INSERT INTO payment_gateway_events (tenant_id,gateway_id,gateway_transaction_id,event_type,event_key,payload,processed) VALUES (?,?,?,'stk_callback',?,?,0) ON DUPLICATE KEY UPDATE id=id");if($stmt){$stmt->bind_param('iiiss',$tenantId,$gatewayId,$txId,$eventKey,$callbackJson);$stmt->execute();$stmt->close();}
 if($resultCode!=='0'){
  $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='failed',result_code=?,result_description=?,callback_payload=? WHERE id=? AND tenant_id=?");if($stmt){$stmt->bind_param('sssii',$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);$stmt->execute();$stmt->close();}
+ $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW(),error_message=? WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$msg=$resultDesc!==''?$resultDesc:'M-Pesa payment failed.';$stmt->bind_param('sis',$msg,$tenantId,$external);$stmt->execute();$stmt->close();}
  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;
 }
 if($paidAmount===null||abs($paidAmount-(float)$tx['amount'])>0.01||($paidPhone!==''&&$paidPhone!==(string)$tx['phone_number'])){
  $err='Callback amount or phone does not match the initiated transaction.';
  $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='failed',result_code=?,result_description=?,callback_payload=?,failure_reason=? WHERE id=? AND tenant_id=?");if($stmt){$code='VALIDATION_FAILED';$stmt->bind_param('ssssii',$code,$resultDesc,$callbackJson,$err,$txId,$tenantId);$stmt->execute();$stmt->close();}
+ $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='failed',error_message=? WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('sis',$err,$tenantId,$external);$stmt->execute();$stmt->close();}
  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;
 }
 $conn->begin_transaction();
 try{
  $stmt=$conn->prepare("SELECT * FROM payment_gateway_transactions WHERE id=? AND tenant_id=? FOR UPDATE");$stmt->bind_param('ii',$txId,$tenantId);$stmt->execute();$tx=$stmt->get_result()->fetch_assoc();$stmt->close();
- if(($tx['status']??'')==='completed'){$conn->commit();echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback already processed']);exit;}
+ if(($tx['status']??'')==='completed'){$conn->commit();$stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback already processed']);exit;}
  $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='confirmed',provider_receipt=?,provider_transaction_id=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW() WHERE id=? AND tenant_id=?");$stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);$stmt->execute();$stmt->close();
  $saleId=(int)($tx['hotspot_sale_id']??0);if($saleId<=0)throw new RuntimeException('Hotspot sale is not linked.');
  $stmt=$conn->prepare("SELECT * FROM hotspot_sales WHERE id=? AND tenant_id=? FOR UPDATE");$stmt->bind_param('ii',$saleId,$tenantId);$stmt->execute();$sale=$stmt->get_result()->fetch_assoc();$stmt->close();if(!$sale)throw new RuntimeException('Hotspot sale not found.');
- if(in_array($sale['status'],['access_active','completed'],true)){$conn->commit();echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Payment already finalized']);exit;}
+ if(in_array($sale['status'],['access_active','completed'],true)){$conn->commit();$stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Payment already finalized']);exit;}
  $username='HS'.strtoupper(substr(hash('sha256',$tenantId.':'.$saleId),0,10));$password=substr(strtoupper(bin2hex(random_bytes(6))),0,12);
  $auth=flexihubAuthorizeHotspot($tenantId,(int)$sale['package_id'],$username,$password,(string)($sale['device_mac']??''));
  $enc=flexihubGatewayEncrypt($password);$status='access_active';$stmt=$conn->prepare("UPDATE hotspot_sales SET status=?,hotspot_username=?,hotspot_password_encrypted=?,started_at=NOW(),expires_at=? WHERE id=? AND tenant_id=?");$stmt->bind_param('ssssii',$status,$username,$enc,$auth['expires_at'],$saleId,$tenantId);$stmt->execute();$stmt->close();
@@ -43,7 +43,7 @@ try{
  $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}
  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received and hotspot authorization completed']);exit;
 }catch(Throwable $e){
- $conn->rollback();$err=substr($e->getMessage(),0,500);$stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='confirmed',failure_reason=? WHERE id=? AND tenant_id=?");if($stmt){$stmt->bind_param('sii',$err,$txId,$tenantId);$stmt->execute();$stmt->close();}
+ if($conn->errno===0){} $conn->rollback();$err=substr($e->getMessage(),0,500);$stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='confirmed',failure_reason=? WHERE id=? AND tenant_id=?");if($stmt){$stmt->bind_param('sii',$err,$txId,$tenantId);$stmt->execute();$stmt->close();}
  $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='failed',error_message=? WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('sis',$err,$tenantId,$external);$stmt->execute();$stmt->close();}
  http_response_code(200);echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received; finalization pending']);exit;
 }
