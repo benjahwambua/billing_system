@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/mikrotik_api.php';
 /**
  * Flexihub billing workflow helpers.
  * These helpers adapt to the existing legacy billing schema while enforcing tenant scope.
@@ -233,8 +234,49 @@ if (!function_exists('flexihubProcessServiceActivationQueue')) {
                 $u->bind_param('sii',$newStatus,$accountId,$tenantId);$ok=$u->execute();$u->close();
                 if(!$ok)throw new Exception('Internet account activation failed.');
                 if($conn->query("SHOW TABLES LIKE 'pppoe_accounts'")->num_rows){
-                    $p=$conn->prepare("UPDATE pppoe_accounts SET status=? WHERE internet_account_id=? AND tenant_id=?");
-                    if($p){$p->bind_param('sii',$newStatus,$accountId,$tenantId);$p->execute();$p->close();}
+                    $p=$conn->prepare("SELECT pa.*, ps.router_id FROM pppoe_accounts pa LEFT JOIN pppoe_servers ps ON ps.id=pa.pppoe_server_id AND ps.tenant_id=pa.tenant_id WHERE pa.internet_account_id=? AND pa.tenant_id=? LIMIT 1");
+                    $pppoe=null;
+                    if($p){$p->bind_param('ii',$accountId,$tenantId);$p->execute();$pppoe=$p->get_result()->fetch_assoc();$p->close();}
+                    if($pppoe){
+                        $psql=$conn->prepare("UPDATE pppoe_accounts SET status=? WHERE id=? AND tenant_id=?");
+                        if($psql){$psql->bind_param('sii',$newStatus,$pppoe['id'],$tenantId);$psql->execute();$psql->close();}
+                        $routerId=(int)($pppoe['router_id']??0); $username=trim((string)($pppoe['username']??''));
+                        if($routerId && $username && $conn->query("SHOW TABLES LIKE 'router_service_authorizations'")->num_rows){
+                            $router=null;
+                            $rq=$conn->prepare("SELECT * FROM mikrotik_routers WHERE id=? AND tenant_id=? LIMIT 1");
+                            if($rq){$rq->bind_param('ii',$routerId,$tenantId);$rq->execute();$router=$rq->get_result()->fetch_assoc();$rq->close();}
+                            if(!$router) throw new Exception('Assigned MikroTik router was not found.');
+                            $routerCols=flexihubTableColumns('mikrotik_routers');
+                            $host=''; foreach(['host','ip_address','ip'] as $hc) if(in_array($hc,$routerCols,true) && !empty($router[$hc])){$host=$router[$hc];break;}
+                            $ruser=''; foreach(['username','user'] as $uc) if(in_array($uc,$routerCols,true) && isset($router[$uc])){$ruser=$router[$uc];break;}
+                            $rpass=''; foreach(['password','api_password'] as $pc) if(in_array($pc,$routerCols,true) && isset($router[$pc])){$rpass=$router[$pc];break;}
+                            $rport=8728; foreach(['api_port','port'] as $pc) if(in_array($pc,$routerCols,true) && !empty($router[$pc])){$rport=(int)$router[$pc];break;}
+                            if($host==='' || $ruser==='') throw new Exception('Router connection details are incomplete.');
+                            $ros=new FlexihubRouterOS($host,$ruser,$rpass,$rport,8);
+                            $secret=$ros->findPppSecret($username);
+                            if(!$secret) throw new Exception('PPPoE username was not found on the assigned MikroTik router.');
+                            $disable=($newStatus!=='active');
+                            $ros->setPppSecretDisabled($secret['.id'],$disable);
+                            if($disable) $ros->disconnectPppActive($username);
+                            $ros->close();
+                            $authId=flexihubWorkflowInsert('router_service_authorizations',[
+                                'tenant_id'=>$tenantId,'pppoe_account_id'=>$pppoe['id'],'router_id'=>$routerId,
+                                'service_type'=>'pppoe','external_username'=>$username,'desired_status'=>$newStatus,
+                                'applied_status'=>$newStatus,'last_synced_at'=>date('Y-m-d H:i:s'),'last_error'=>null
+                            ]);
+                            if(!$authId){
+                                $upd=$conn->prepare("UPDATE router_service_authorizations SET desired_status=?,applied_status=?,last_synced_at=NOW(),last_error=NULL WHERE tenant_id=? AND pppoe_account_id=?");
+                                if($upd){$upd->bind_param('ssii',$newStatus,$newStatus,$tenantId,$pppoe['id']);$upd->execute();$upd->close();}
+                            }
+                            flexihubWorkflowInsert('router_sync_logs',[
+                                'tenant_id'=>$tenantId,'router_id'=>$routerId,'service_type'=>'pppoe',
+                                'external_username'=>$username,'action'=>$action,'status'=>'success',
+                                'message'=>'RouterOS PPPoE authorization synchronized.'
+                            ]);
+                        } elseif($routerId || $username) {
+                            throw new Exception('PPPoE account is missing its router assignment or username.');
+                        }
+                    }
                 }
                 if($ok&&$action==='activate'){
                     flexihubWorkflowInsert('service_events',[
