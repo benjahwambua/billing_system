@@ -56,7 +56,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $receiptId=flexihubCreatePaymentArtifacts($paymentId,$payment,$invoice,$tid);
             if($aid){
                 $renewed=flexihubRenewInternetAccount($aid,$tid);
-                if($renewed) flexihubCreateServiceSubscription($aid,$tid,$iid,$paymentId);
+                if($renewed){
+                    $subscriptionId=flexihubCreateServiceSubscription($aid,$tid,$iid,$paymentId);
+                    flexihubQueueServiceActivation($aid,$tid,$paymentId,$subscriptionId,'activate');
+                }
             }
             setFlash('success','Payment recorded successfully'.($receiptId?' and receipt generated.':'.'));
             redirect('../payments/index.php');
