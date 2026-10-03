@@ -2,6 +2,7 @@
 require_once '../config/database.php';
 require_once '../includes/functions.php';
 require_once '../includes/payment_gateway.php';
+require_once '../includes/billing_workflow.php';
 
 header('Cache-Control: no-store');
 $token=trim((string)($_GET['token']??$_POST['token']??''));
