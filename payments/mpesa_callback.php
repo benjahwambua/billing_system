@@ -16,7 +16,7 @@ $tenantId=(int)$tx['tenant_id'];$txId=(int)$tx['id'];$meta=[];$items=$stk['Callb
 $receipt=(string)($meta['MpesaReceiptNumber']??'');$paidAmount=isset($meta['Amount'])?(float)$meta['Amount']:null;$paidPhone=(string)($meta['PhoneNumber']??'');
 $callbackJson=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
 $external=$receipt!==''?$receipt:$checkout;
-$stmt=$conn->prepare("INSERT INTO payment_callbacks (tenant_id,provider,event_type,transaction_reference,external_transaction_id,phone_number,amount,callback_payload,processing_status) VALUES (?,'mpesa','stk_callback',?,?,?,?,?,'received') ON DUPLICATE KEY UPDATE callback_payload=VALUES(callback_payload),updated_at=created_at");
+$stmt=$conn->prepare("INSERT INTO payment_callbacks (tenant_id,provider,event_type,transaction_reference,external_transaction_id,phone_number,amount,callback_payload,processing_status) VALUES (?,'mpesa','stk_callback',?,?,?,?,?,'received') ON DUPLICATE KEY UPDATE callback_payload=VALUES(callback_payload),processing_status='received',error_message=NULL");
 if($stmt){$ref=$tx['account_reference'];$stmt->bind_param('isssds',$tenantId,$ref,$external,$paidPhone,$paidAmount,$callbackJson);$stmt->execute();$stmt->close();}
 $eventKey='mpesa:'.$gatewayId.':'.$checkout;$stmt=$conn->prepare("INSERT INTO payment_gateway_events (tenant_id,gateway_id,gateway_transaction_id,event_type,event_key,payload,processed) VALUES (?,?,?,'stk_callback',?,?,0) ON DUPLICATE KEY UPDATE id=id");if($stmt){$stmt->bind_param('iiiss',$tenantId,$gatewayId,$txId,$eventKey,$callbackJson);$stmt->execute();$stmt->close();}
 if($resultCode!=='0'){
