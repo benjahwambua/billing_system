@@ -52,9 +52,12 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         $paymentId=flexihubWorkflowInsert('payments',$data);
         if($paymentId){
             $payment=['id'=>$paymentId]+$data;
+            $invoicePaidBefore=flexihubInvoicePaid($iid,$tid);
+            $invoiceTotal=flexihubInvoiceTotal($invoice);
             flexihubRefreshInvoiceStatus($iid,$tid);
+            $invoiceFullyPaid=($invoicePaidBefore+$amount+0.00001 >= $invoiceTotal);
             $receiptId=flexihubCreatePaymentArtifacts($paymentId,$payment,$invoice,$tid);
-            if($aid){
+            if($aid && $invoiceFullyPaid){
                 $renewed=flexihubRenewInternetAccount($aid,$tid);
                 if($renewed){
                     $subscriptionId=flexihubCreateServiceSubscription($aid,$tid,$iid,$paymentId);
