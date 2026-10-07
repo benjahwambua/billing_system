@@ -63,7 +63,7 @@ try{
  $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}
  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received and hotspot authorization completed']);exit;
 }catch(Throwable $e){
- if($conn->errno===0){} $conn->rollback();$err=substr($e->getMessage(),0,500);$stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='confirmed',failure_reason=? WHERE id=? AND tenant_id=?");if($stmt){$stmt->bind_param('sii',$err,$txId,$tenantId);$stmt->execute();$stmt->close();}
+ if($conn->errno===0){} $conn->rollback();$err=substr($e->getMessage(),0,500);flexihubQueueHotspotFinalization($tenantId,(int)($tx['hotspot_sale_id']??0),$txId);$stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='confirmed',failure_reason=? WHERE id=? AND tenant_id=?");if($stmt){$stmt->bind_param('sii',$err,$txId,$tenantId);$stmt->execute();$stmt->close();}
  $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='failed',error_message=? WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('sis',$err,$tenantId,$external);$stmt->execute();$stmt->close();}
  http_response_code(200);echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received; finalization pending']);exit;
 }
