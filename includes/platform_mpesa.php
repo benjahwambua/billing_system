@@ -8,6 +8,7 @@ if (!function_exists('flexihubCreatePlatformMpesaPayment')) {
         $tenantId=(int)$tenantId;$invoiceId=(int)$invoiceId;
         $invoice=dbFetchOne("SELECT pi.*,s.status subscription_status FROM platform_invoices pi JOIN tenant_platform_subscriptions s ON s.id=pi.subscription_id WHERE pi.id=? AND pi.tenant_id=? LIMIT 1",'ii',$invoiceId,$tenantId);
         if(!$invoice) throw new RuntimeException('SaaS invoice not found.');
+        if(in_array((string)$invoice['status'], ['cancelled','draft'], true)) throw new RuntimeException('This SaaS invoice is not payable in its current status.');
         $balance=max(0,(float)$invoice['total_amount']-(float)$invoice['paid_amount']);
         if($balance<=0.0001) throw new RuntimeException('SaaS invoice is already paid.');
 
