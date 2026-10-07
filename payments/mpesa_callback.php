@@ -12,6 +12,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/payment_gateway.php';
 require_once __DIR__ . '/../includes/mpesa_finalization.php';
+require_once __DIR__ . '/../includes/hotspot_service.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -112,16 +113,38 @@ if ($update) {
 
 // Never trust the callback alone for accounting. Re-query the provider,
 // then finalize only after the provider confirms the transaction.
+$processingError = null;
+
 if ($resultCode === '0') {
     try {
         $reconciled = flexihubReconcileMpesaTransaction((int)$transaction['id']);
         if (($reconciled['status'] ?? '') === 'confirmed') {
-            flexihubFinalizeMpesaTransaction((int)$transaction['id']);
+            if ((int)($reconciled['hotspot_sale_id'] ?? 0) > 0 && ($reconciled['flow'] ?? '') === 'hotspot') {
+                flexihubFinalizeHotspotMpesaTransaction((int)$transaction['id']);
+            } else {
+                flexihubFinalizeMpesaTransaction((int)$transaction['id']);
+            }
         }
     } catch (Throwable $e) {
-        // Keep the callback successful. The transaction remains pending/callback_received
-        // and can be reconciled manually or by the scheduled reconciliation worker.
+        $processingError = substr($e->getMessage(), 0, 500);
+        // Keep the callback successful. A confirmed transaction that could not be
+        // finalized remains available for manual or scheduled reconciliation.
     }
+}
+
+$eventUpdate = $conn->prepare("
+    UPDATE payment_gateway_events
+    SET processed = ?,
+        processed_at = CASE WHEN ? = 1 THEN NOW() ELSE NULL END,
+        error_message = ?
+    WHERE event_key = ?
+    LIMIT 1
+");
+if ($eventUpdate) {
+    $processed = $processingError === null ? 1 : 0;
+    $eventUpdate->bind_param('iiss', $processed, $processed, $processingError, $eventKey);
+    $eventUpdate->execute();
+    $eventUpdate->close();
 }
 
 http_response_code(200);
