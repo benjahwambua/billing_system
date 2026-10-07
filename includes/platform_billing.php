@@ -76,7 +76,7 @@ if (!function_exists('flexihubGeneratePlatformInvoice')) {
         $stmt = $conn->prepare("INSERT INTO platform_invoices (tenant_id,subscription_id,invoice_number,period_start,period_end,issue_date,due_date,subtotal,total_amount,status) VALUES (?,?,?,?,?,?,?,?,?,'unpaid')");
         if (!$stmt) return false;
         $amount=(float)$sub['price'];
-        $stmt->bind_param('iissssssd',(int)$sub['tenant_id'],(int)$subscriptionId,$number,$periodStart,$periodEnd,$issue,$due,$amount,$amount);
+        $tenantId=(int)$sub['tenant_id']; $subscriptionIdValue=(int)$subscriptionId; $stmt->bind_param('iissssssd',$tenantId,$subscriptionIdValue,$number,$periodStart,$periodEnd,$issue,$due,$amount,$amount);
         $ok=$stmt->execute(); $id=$ok?$conn->insert_id:false; $stmt->close();
         if ($id) {
             $conn->query("UPDATE tenant_platform_subscriptions SET last_invoice_id=".(int)$id.", updated_at=NOW() WHERE id=".(int)$subscriptionId);
