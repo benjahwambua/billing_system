@@ -237,7 +237,13 @@ if (!function_exists('flexihubProcessServiceActivationQueue')) {
                 if(!$u)throw new Exception('Unable to update internet account.');
                 $u->bind_param('sii',$dbStatus,$accountId,$tenantId);$ok=$u->execute();$u->close();
                 if(!$ok)throw new Exception('Unable to update internet account status.');
-                if($conn->query("SHOW TABLES LIKE 'pppoe_accounts'")->num_rows){
+                $connectionType='pppoe';
+                if(in_array('connection_type',flexihubTableColumns('internet_accounts'),true)){
+                    $ct=$conn->prepare("SELECT connection_type FROM internet_accounts WHERE id=? AND tenant_id=? LIMIT 1");
+                    if($ct){$ct->bind_param('ii',$accountId,$tenantId);$ct->execute();$connectionRow=$ct->get_result()->fetch_assoc();$ct->close();$connectionType=strtolower(trim((string)($connectionRow['connection_type']??'pppoe')));}
+                }
+                if(!in_array($connectionType,['pppoe','hotspot','static','other'],true)) $connectionType='other';
+                if($connectionType==='pppoe' && $conn->query("SHOW TABLES LIKE 'pppoe_accounts'")->num_rows){
                     $p=$conn->prepare("SELECT pa.*, ps.router_id FROM pppoe_accounts pa LEFT JOIN pppoe_servers ps ON ps.id=pa.pppoe_server_id AND ps.tenant_id=pa.tenant_id WHERE pa.internet_account_id=? AND pa.tenant_id=? LIMIT 1");
                     $pppoe=null;
                     if($p){$p->bind_param('ii',$accountId,$tenantId);$p->execute();$pppoe=$p->get_result()->fetch_assoc();$p->close();}
@@ -300,7 +306,7 @@ if (!function_exists('flexihubProcessServiceActivationQueue')) {
                     // Non-PPPoE accounts have no RouterOS authorization step. Finalize them here.
                     if($action==='activate'){
                         $hasP=false;
-                        if($conn->query("SHOW TABLES LIKE 'pppoe_accounts'")->num_rows){
+                        if($connectionType==='pppoe' && $conn->query("SHOW TABLES LIKE 'pppoe_accounts'")->num_rows){
                             $checkP=$conn->prepare("SELECT id FROM pppoe_accounts WHERE internet_account_id=? AND tenant_id=? LIMIT 1");
                             if($checkP){$checkP->bind_param('ii',$accountId,$tenantId);$checkP->execute();$hasP=(bool)$checkP->get_result()->fetch_assoc();$checkP->close();}
                         }
