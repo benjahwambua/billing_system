@@ -61,8 +61,33 @@ try {
     foreach ($tenants as $tenantId) {
         $totals['tenants']++;
 
+        flexihubSeedNotificationTemplates($tenantId);
         $billing = flexihubGenerateRecurringInvoices($tenantId, 200);
         $overdue = flexihubProcessOverdueSuspensions($tenantId, 200);
+
+        // Queue overdue notices. Delivery is intentionally separated from billing
+        // state changes so an unavailable SMS provider cannot block suspension.
+        $nq = $conn->prepare("SELECT i.id,i.account_id,i.customer_id,i.invoice_number,i.due_date,
+                                    COALESCE(i.total_amount,i.total,i.amount,0) total,
+                                    COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id=i.id AND p.tenant_id=i.tenant_id),0) paid,
+                                    c.phone
+                             FROM invoices i
+                             INNER JOIN customers c ON c.id=i.customer_id AND c.tenant_id=i.tenant_id
+                             WHERE i.tenant_id=? AND i.account_id IS NOT NULL AND i.due_date IS NOT NULL
+                               AND i.status IN ('unpaid','partial','overdue') AND c.phone IS NOT NULL AND c.phone<>''
+                               AND i.due_date < CURDATE() LIMIT 200");
+        if($nq){
+            $nq->bind_param('i',$tenantId);$nq->execute();$nr=$nq->get_result();
+            while($n=$nr->fetch_assoc()){
+                $balance=max(0,(float)$n['total']-(float)$n['paid']);
+                if($balance<=0) continue;
+                $event=(($n['status']??'')==='overdue')?'invoice_overdue':'invoice_due';
+                flexihubQueueNotification($tenantId,$event,(int)$n['customer_id'],(int)$n['account_id'],(int)$n['id'],'sms',(string)$n['phone'],[
+                    'invoice_number'=>$n['invoice_number']??$n['id'],'balance'=>number_format($balance,2,'.',''),'due_date'=>$n['due_date']
+                ]);
+            }
+            $nq->close();
+        }
         $accountExpiry = flexihubProcessAccountExpiry($tenantId, 200);
         $subscriptionExpiry = flexihubProcessSubscriptionExpiry($tenantId, 200);
 
