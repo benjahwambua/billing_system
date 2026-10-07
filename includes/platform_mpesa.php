@@ -15,6 +15,6 @@ if (!function_exists('flexihubCreatePlatformMpesaPayment')) {
         $phone=flexihubMpesaNormalizePhone($phone);
         $reference=(string)$invoice['invoice_number'];
         $idempotency='platform-'.$invoiceId.'-'.$phone.'-'.date('YmdHi');
-        return flexihubCreateMpesaStkTransaction($tenantId,(int)$gateway['id'],$balance,$phone,'platform',$reference,'Flexihub SaaS '.$reference,(string)$callbackUrl,$idempotency,null);
+        return flexihubCreateMpesaStkTransaction($tenantId,(int)$gateway['id'],$balance,$phone,'platform',$reference,'Flexihub SaaS '.$reference,(string)$callbackUrl,$idempotency,null,$invoiceId);
     }
 }
