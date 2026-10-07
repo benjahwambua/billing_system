@@ -12,6 +12,12 @@ if(!$gateway){http_response_code(404);echo json_encode(['ResultCode'=>1,'ResultD
 $stk=$payload['Body']['stkCallback']??null;$checkout=is_array($stk)?trim((string)($stk['CheckoutRequestID']??'')):'';$resultCode=is_array($stk)?(string)($stk['ResultCode']??''):'';$resultDesc=is_array($stk)?(string)($stk['ResultDesc']??''):'';if($checkout===''){http_response_code(400);echo json_encode(['ResultCode'=>1,'ResultDesc'=>'Missing CheckoutRequestID']);exit;}
 $q=$conn->prepare("SELECT * FROM payment_gateway_transactions WHERE tenant_id=? AND gateway_id=? AND checkout_request_id=? LIMIT 1");$q->bind_param('iis',$gateway['tenant_id'],$gatewayId,$checkout);$q->execute();$tx=$q->get_result()->fetch_assoc();$q->close();
 if(!$tx){http_response_code(404);echo json_encode(['ResultCode'=>1,'ResultDesc'=>'Transaction not found']);exit;}
+$txStatus=(string)($tx['status']??'');
+// A completed transaction must never be downgraded by a replayed or tampered callback.
+if($txStatus==='completed'){
+ echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback already processed']);exit;
+}
+
 $tenantId=(int)$tx['tenant_id'];$txId=(int)$tx['id'];$meta=[];$items=$stk['CallbackMetadata']['Item']??[];if(is_array($items))foreach($items as $item){if(isset($item['Name']))$meta[(string)$item['Name']]=$item['Value']??null;}
 $receipt=(string)($meta['MpesaReceiptNumber']??'');$paidAmount=isset($meta['Amount'])?(float)$meta['Amount']:null;$paidPhone=(string)($meta['PhoneNumber']??'');
 $callbackJson=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$external=$receipt!==''?$receipt:$checkout;
@@ -22,9 +28,20 @@ if($resultCode!=='0'){
  $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW(),error_message=? WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$msg=$resultDesc!==''?$resultDesc:'M-Pesa payment failed.';$stmt->bind_param('sis',$msg,$tenantId,$external);$stmt->execute();$stmt->close();}
  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;
 }
+if($receipt!==''){
+ $dup=$conn->prepare("SELECT id FROM payment_gateway_transactions WHERE tenant_id=? AND provider='mpesa' AND provider_receipt=? AND id<>? LIMIT 1");
+ if($dup){$dup->bind_param('isi',$tenantId,$receipt,$txId);$dup->execute();$duplicateReceipt=$dup->get_result()->fetch_assoc();$dup->close();
+  if($duplicateReceipt){
+   $err='M-Pesa receipt has already been associated with another transaction.';
+   $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='failed',result_code='DUPLICATE_RECEIPT',result_description=?,callback_payload=?,failure_reason=? WHERE id=? AND tenant_id=? AND status<>'completed'");
+   if($stmt){$stmt->bind_param('sssii',$err,$callbackJson,$err,$txId,$tenantId);$stmt->execute();$stmt->close();}
+   echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;
+  }
+ }
+}
 if($paidAmount===null||abs($paidAmount-(float)$tx['amount'])>0.01||($paidPhone!==''&&$paidPhone!==(string)$tx['phone_number'])){
  $err='Callback amount or phone does not match the initiated transaction.';
- $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='failed',result_code=?,result_description=?,callback_payload=?,failure_reason=? WHERE id=? AND tenant_id=?");if($stmt){$code='VALIDATION_FAILED';$stmt->bind_param('ssssii',$code,$resultDesc,$callbackJson,$err,$txId,$tenantId);$stmt->execute();$stmt->close();}
+ $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='failed',result_code=?,result_description=?,callback_payload=?,failure_reason=? WHERE id=? AND tenant_id=? AND status<>'completed'");if($stmt){$code='VALIDATION_FAILED';$stmt->bind_param('ssssii',$code,$resultDesc,$callbackJson,$err,$txId,$tenantId);$stmt->execute();$stmt->close();}
  $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='failed',error_message=? WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('sis',$err,$tenantId,$external);$stmt->execute();$stmt->close();}
  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;
 }
