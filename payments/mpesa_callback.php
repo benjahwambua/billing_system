@@ -49,7 +49,7 @@ try{
          AND hs.hotspot_username<>'' AND hs.expires_at IS NOT NULL AND hs.expires_at>NOW()
          AND ((?<>'' AND hs.device_mac=?) OR (?<>'' AND hs.phone_number=?))
        ORDER BY CASE WHEN ?<>'' AND hs.device_mac=? THEN 0 ELSE 1 END, hs.id DESC LIMIT 1";
- $stmt=$conn->prepare($sql);$stmt->bind_param('iiissssss',$tenantId,$saleId,$mac,$mac,$phone,$phone,$mac,$mac);$stmt->execute();$previous=$stmt->get_result()->fetch_assoc();$stmt->close();
+ $stmt=$conn->prepare($sql);$stmt->bind_param('iissssss',$tenantId,$saleId,$mac,$mac,$phone,$phone,$mac,$mac);$stmt->execute();$previous=$stmt->get_result()->fetch_assoc();$stmt->close();
  $password=substr(strtoupper(bin2hex(random_bytes(6))),0,12);$username=$previous?(string)$previous['hotspot_username']:'HS'.strtoupper(substr(hash('sha256',$tenantId.':'.$saleId),0,10));
  if($previous){$previousSessionId=(int)($previous['previous_session_id']??0);$previousExpiresAt=$previous['previous_expires_at']??$previous['expires_at'];$auth=flexihubRenewHotspotAuthorization($tenantId,(int)$sale['package_id'],$username,$password,$mac,$previousSessionId,$previousExpiresAt);}
  else{$auth=flexihubAuthorizeHotspot($tenantId,(int)$sale['package_id'],$username,$password,$mac);}
