@@ -515,6 +515,120 @@ if (!function_exists('flexihubProcessAccountExpiry')) {
 }
 
 
+
+if (!function_exists('flexihubProcessOverdueSuspensions')) {
+    /**
+     * Suspend active internet accounts after an invoice remains unpaid/partial
+     * beyond the plan's configured grace period. This only changes service state;
+     * payment remains the sole path to renewal/reconnection.
+     */
+    function flexihubProcessOverdueSuspensions($tenantId, $limit=100)
+    {
+        global $conn;
+        $tenantId=(int)$tenantId;
+        $limit=max(1,min(500,(int)$limit));
+        $stats=['processed'=>0,'marked_overdue'=>0,'suspended'=>0,'failed'=>0];
+        if(!$tenantId || !flexihubTableColumns('invoices')) return $stats;
+
+        $stmt=$conn->prepare("SELECT i.*, ia.id AS account_id, ia.status AS account_status,
+                                     ia.customer_id AS account_customer_id,
+                                     ip.name AS plan_name,
+                                     COALESCE(ip.grace_period_days,3) AS grace_period_days
+                              FROM invoices i
+                              INNER JOIN internet_accounts ia
+                                ON ia.id=i.account_id AND ia.tenant_id=i.tenant_id
+                              LEFT JOIN internet_plans ip
+                                ON ip.id=ia.plan_id AND ip.tenant_id=ia.tenant_id
+                              WHERE i.tenant_id=?
+                                AND i.account_id IS NOT NULL
+                                AND i.due_date IS NOT NULL
+                                AND i.due_date < CURDATE()
+                                AND i.status IN ('unpaid','partial','overdue')
+                                AND ia.status NOT IN ('inactive','expired')
+                              ORDER BY i.due_date ASC,i.id ASC
+                              LIMIT {$limit}");
+        if(!$stmt) return $stats;
+        $stmt->bind_param('i',$tenantId);
+        $stmt->execute();
+        $res=$stmt->get_result();
+        $items=[];
+        while($row=$res->fetch_assoc()) $items[]=$row;
+        $stmt->close();
+
+        foreach($items as $invoice){
+            $stats['processed']++;
+            $invoiceId=(int)($invoice['id']??0);
+            $accountId=(int)($invoice['account_id']??0);
+            $grace=max(0,(int)($invoice['grace_period_days']??3));
+            $due=(string)($invoice['due_date']??'');
+            if(!$invoiceId || !$accountId || !$due){$stats['failed']++;continue;}
+
+            $graceEnds=date('Y-m-d',strtotime($due." +{$grace} days"));
+            if(strtotime(date('Y-m-d')) <= strtotime($graceEnds)) continue;
+
+            $paid=flexihubInvoicePaid($invoiceId,$tenantId);
+            $total=flexihubInvoiceTotal($invoice);
+            if($total>0 && $paid+0.00001 >= $total) continue;
+
+            $invCols=flexihubTableColumns('invoices');
+            $sets=[];$vals=[];$types='';
+            if(in_array('status',$invCols,true)){ $sets[]="status='overdue'"; }
+            if(in_array('overdue_since',$invCols,true)){ $sets[]='overdue_since=?';$vals[]=$graceEnds;$types.='s'; }
+            if(in_array('suspension_triggered_at',$invCols,true)){ $sets[]='suspension_triggered_at=NOW()'; }
+            if($sets){
+                $sql="UPDATE invoices SET ".implode(',',$sets)." WHERE id=? AND tenant_id=? AND status IN ('unpaid','partial','overdue')";
+                $vals[]=$invoiceId;$vals[]=$tenantId;$types.='ii';
+                $u=$conn->prepare($sql);
+                if($u){
+                    $bind=[$types];foreach($vals as $k=>$v)$bind[]=&$vals[$k];
+                    call_user_func_array([$u,'bind_param'],$bind);$u->execute();$u->close();
+                    $stats['marked_overdue']++;
+                }else{$stats['failed']++;continue;}
+            }
+
+            // Only one suspension action is needed for an account even when
+            // multiple invoices are overdue.
+            if(($invoice['account_status']??'')==='suspended') continue;
+
+            $u=$conn->prepare("UPDATE internet_accounts SET status='suspended'
+                               WHERE id=? AND tenant_id=? AND status NOT IN ('inactive','expired','suspended')");
+            if(!$u){$stats['failed']++;continue;}
+            $u->bind_param('ii',$accountId,$tenantId);
+            $changed=$u->execute() && $u->affected_rows>0;
+            $u->close();
+            if(!$changed) continue;
+
+            if(!flexihubQueueServiceActivation($accountId,$tenantId,null,null,'suspend')){
+                $stats['failed']++;
+                flexihubWorkflowInsert('service_events',[
+                    'tenant_id'=>$tenantId,'account_id'=>$accountId,
+                    'customer_id'=>$invoice['account_customer_id']??$invoice['customer_id']??null,
+                    'event_type'=>'service_suspension_queue_failed',
+                    'old_status'=>'active','new_status'=>'suspended','source'=>'billing',
+                    'reference'=>'INV-'.$invoiceId,
+                    'details'=>json_encode(['invoice_id'=>$invoiceId,'due_date'=>$due,'grace_ends'=>$graceEnds],JSON_UNESCAPED_SLASHES)
+                ]);
+                continue;
+            }
+
+            flexihubWorkflowInsert('service_events',[
+                'tenant_id'=>$tenantId,'account_id'=>$accountId,
+                'customer_id'=>$invoice['account_customer_id']??$invoice['customer_id']??null,
+                'event_type'=>'service_suspended_overdue',
+                'old_status'=>'active','new_status'=>'suspended','source'=>'billing',
+                'reference'=>'INV-'.$invoiceId,
+                'details'=>json_encode([
+                    'invoice_id'=>$invoiceId,'due_date'=>$due,
+                    'grace_period_days'=>$grace,'grace_ends'=>$graceEnds,
+                    'outstanding'=>max(0,$total-$paid)
+                ],JSON_UNESCAPED_SLASHES)
+            ]);
+            $stats['suspended']++;
+        }
+        return $stats;
+    }
+}
+
 if (!function_exists('flexihubGenerateRecurringInvoices')) {
     /**
      * Generate one invoice for each customer internet account whose next invoice
