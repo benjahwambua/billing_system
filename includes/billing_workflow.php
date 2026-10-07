@@ -517,6 +517,26 @@ if (!function_exists('flexihubProcessAccountExpiry')) {
 
 
 
+
+if (!function_exists('flexihubAccountHasOverdueBalance')) {
+    function flexihubAccountHasOverdueBalance($accountId, $tenantId)
+    {
+        global $conn;
+        $stmt=$conn->prepare("SELECT i.id,i.total_amount,i.total,i.amount,
+                                     COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id=i.id AND p.tenant_id=i.tenant_id),0) paid
+                              FROM invoices i
+                              WHERE i.tenant_id=? AND i.account_id=? AND i.due_date < CURDATE()
+                                AND i.status IN ('unpaid','partial','overdue')");
+        if(!$stmt)return true;
+        $stmt->bind_param('ii',$tenantId,$accountId);$stmt->execute();$res=$stmt->get_result();
+        while($row=$res->fetch_assoc()){
+            $total=flexihubInvoiceTotal($row);
+            if($total>0 && (float)$row['paid']+0.00001<$total){$stmt->close();return true;}
+        }
+        $stmt->close();return false;
+    }
+}
+
 if (!function_exists('flexihubQueueNotification')) {
     function flexihubQueueNotification($tenantId, $eventType, $customerId=null, $accountId=null, $invoiceId=null, $channel='sms', $recipient='', array $vars=[])
     {
