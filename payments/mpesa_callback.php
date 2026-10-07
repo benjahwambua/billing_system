@@ -3,6 +3,7 @@ require_once __DIR__.'/../config/database.php';
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/payment_gateway.php';
 require_once __DIR__.'/../includes/hotspot_workflow.php';
+require_once __DIR__.'/../includes/platform_billing.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $gatewayId=(int)($_GET['gateway']??0);$token=trim((string)($_GET['token']??''));$raw=file_get_contents('php://input');$payload=json_decode($raw,true);
@@ -50,7 +51,19 @@ try{
  $stmt=$conn->prepare("SELECT * FROM payment_gateway_transactions WHERE id=? AND tenant_id=? FOR UPDATE");$stmt->bind_param('ii',$txId,$tenantId);$stmt->execute();$tx=$stmt->get_result()->fetch_assoc();$stmt->close();
  if(($tx['status']??'')==='completed'){$conn->commit();$stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback already processed']);exit;}
  $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='confirmed',provider_receipt=?,provider_transaction_id=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW() WHERE id=? AND tenant_id=?");$stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);$stmt->execute();$stmt->close();
- $saleId=(int)($tx['hotspot_sale_id']??0);if($saleId<=0)throw new RuntimeException('Hotspot sale is not linked.');
+ if (($tx['flow']??'')==='platform') {
+  $invoice=dbFetchOne("SELECT * FROM platform_invoices WHERE tenant_id=? AND invoice_number=? LIMIT 1",'is',$tenantId,$tx['account_reference']);
+  if(!$invoice) throw new RuntimeException('Flexihub SaaS invoice is not linked to this payment.');
+  $payment=flexihubRecordPlatformPayment($tenantId,(int)$invoice['id'],(float)$tx['amount'],'mpesa',$receipt,'mpesa',$receipt);
+  if(!$payment['ok']) throw new RuntimeException($payment['message']??'Unable to allocate SaaS payment.');
+  $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='completed',provider_receipt=?,provider_transaction_id=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW() WHERE id=? AND tenant_id=?");
+  if($stmt){$stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);$stmt->execute();$stmt->close();}
+  $conn->commit();
+  $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");
+  if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}
+  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'SaaS payment received and allocated']);exit;
+}
+$saleId=(int)($tx['hotspot_sale_id']??0);if($saleId<=0)throw new RuntimeException('Hotspot sale is not linked.');
  $stmt=$conn->prepare("SELECT * FROM hotspot_sales WHERE id=? AND tenant_id=? FOR UPDATE");$stmt->bind_param('ii',$saleId,$tenantId);$stmt->execute();$sale=$stmt->get_result()->fetch_assoc();$stmt->close();if(!$sale)throw new RuntimeException('Hotspot sale not found.');
  if(in_array($sale['status'],['access_active','completed'],true)){$conn->commit();$stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Payment already finalized']);exit;}
  $phone=(string)($sale['phone_number']??$tx['phone_number']??'');$mac=trim((string)($sale['device_mac']??''));
