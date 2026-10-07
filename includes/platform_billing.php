@@ -32,11 +32,8 @@ if (!function_exists('flexihubEnsurePlatformSubscription')) {
         $existing = dbFetchOne("SELECT * FROM tenant_platform_subscriptions WHERE tenant_id=? LIMIT 1", 'i', $tenantId);
         if ($existing) return (int)$existing['id'];
 
-        if ($planId === null) {
-            $plan = dbFetchOne("SELECT * FROM platform_plans WHERE status='active' ORDER BY price ASC,id ASC LIMIT 1");
-        } else {
-            $plan = dbFetchOne("SELECT * FROM platform_plans WHERE id=? AND status='active' LIMIT 1", 'i', (int)$planId);
-        }
+        if ($planId === null) return false;
+        $plan = dbFetchOne("SELECT * FROM platform_plans WHERE id=? AND status='active' LIMIT 1", 'i', (int)$planId);
         if (!$plan) return false;
 
         $tenant = dbFetchOne("SELECT status FROM tenants WHERE id=? LIMIT 1", 'i', $tenantId);
