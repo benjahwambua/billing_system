@@ -6,7 +6,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/platform_billing.php';
 
-$lockFile=sys_get_temp_dir().'/flexihub_platform_billing.lock';
+$lockFile=__DIR__.'/service_worker.lock';
 $fp=fopen($lockFile,'c');
 if(!$fp || !flock($fp,LOCK_EX|LOCK_NB)){fwrite(STDERR,"Another platform billing worker is running.\n");exit(2);}
 try{
