@@ -422,6 +422,92 @@ if (!function_exists('flexihubProcessSubscriptionExpiry')) {
     }
 }
 
+
+if (!function_exists('flexihubProcessAccountExpiry')) {
+    function flexihubProcessAccountExpiry($tenantId, $limit=100)
+    {
+        global $conn;
+        $tenantId=(int)$tenantId;
+        $limit=max(1,min(500,(int)$limit));
+        $stats=['processed'=>0,'expired'=>0,'failed'=>0];
+        if(!$tenantId || !flexihubTableColumns('internet_accounts')) return $stats;
+
+        $cols=flexihubTableColumns('internet_accounts');
+        if(!in_array('expiry_date',$cols,true) || !in_array('status',$cols,true)) return $stats;
+
+        // Legacy/transition accounts may not yet have a subscription history.
+        // Expire only accounts whose own service date has passed and which do
+        // not have a current active subscription protecting the service.
+        $stmt=$conn->prepare("SELECT ia.* FROM internet_accounts ia
+            WHERE ia.tenant_id=?
+              AND ia.expiry_date IS NOT NULL
+              AND ia.expiry_date < CURDATE()
+              AND ia.status NOT IN ('suspended','expired')
+              AND NOT EXISTS (
+                  SELECT 1 FROM service_subscriptions ss
+                  WHERE ss.tenant_id=ia.tenant_id
+                    AND ss.account_id=ia.id
+                    AND ss.status='active'
+                    AND (ss.end_date IS NULL OR ss.end_date >= CURDATE())
+              )
+            ORDER BY ia.expiry_date ASC, ia.id ASC
+            LIMIT {$limit}");
+        if(!$stmt) return $stats;
+        $stmt->bind_param('i',$tenantId);
+        $stmt->execute();
+        $res=$stmt->get_result();
+        $items=[];
+        while($row=$res->fetch_assoc()) $items[]=$row;
+        $stmt->close();
+
+        foreach($items as $account){
+            $stats['processed']++;
+            $accountId=(int)($account['id']??0);
+            if(!$accountId){$stats['failed']++;continue;}
+
+            $u=$conn->prepare("UPDATE internet_accounts SET status='expired'
+                WHERE id=? AND tenant_id=? AND expiry_date < CURDATE()
+                  AND status NOT IN ('suspended','expired')");
+            if(!$u){$stats['failed']++;continue;}
+            $u->bind_param('ii',$accountId,$tenantId);
+            $changed=$u->execute() && $u->affected_rows>0;
+            $u->close();
+            if(!$changed) continue;
+
+            if(!flexihubQueueServiceActivation($accountId,$tenantId,null,null,'expire')){
+                $stats['failed']++;
+                flexihubWorkflowInsert('service_events',[
+                    'tenant_id'=>$tenantId,
+                    'account_id'=>$accountId,
+                    'customer_id'=>$account['customer_id']??null,
+                    'event_type'=>'service_expiry_queue_failed',
+                    'old_status'=>$account['status']??null,
+                    'new_status'=>'expired',
+                    'source'=>'system',
+                    'reference'=>'ACC-'.$accountId,
+                    'details'=>json_encode(['expiry_date'=>$account['expiry_date']??null,'source'=>'account_expiry'],JSON_UNESCAPED_SLASHES)
+                ]);
+                continue;
+            }
+
+            flexihubWorkflowInsert('service_events',[
+                'tenant_id'=>$tenantId,
+                'account_id'=>$accountId,
+                'customer_id'=>$account['customer_id']??null,
+                'event_type'=>'account_expired',
+                'old_status'=>$account['status']??null,
+                'new_status'=>'expired',
+                'source'=>'system',
+                'reference'=>'ACC-'.$accountId,
+                'details'=>json_encode(['expiry_date'=>$account['expiry_date']??null,'source'=>'account_expiry'],JSON_UNESCAPED_SLASHES)
+            ]);
+            $stats['expired']++;
+        }
+
+        return $stats;
+    }
+}
+
 if (!function_exists('flexihubRenewInternetAccount')) {
     function flexihubRenewInternetAccount($accountId, $tenantId)
     {
