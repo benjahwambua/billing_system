@@ -299,9 +299,11 @@ if (!function_exists('flexihubProcessServiceActivationQueue')) {
                 if($ok&&$action==='activate'){
                     // Non-PPPoE accounts have no RouterOS authorization step. Finalize them here.
                     if($action==='activate'){
-                        $checkP=$conn->prepare("SELECT id FROM pppoe_accounts WHERE internet_account_id=? AND tenant_id=? LIMIT 1");
                         $hasP=false;
-                        if($checkP){$checkP->bind_param('ii',$accountId,$tenantId);$checkP->execute();$hasP=(bool)$checkP->get_result()->fetch_assoc();$checkP->close();}
+                        if($conn->query("SHOW TABLES LIKE 'pppoe_accounts'")->num_rows){
+                            $checkP=$conn->prepare("SELECT id FROM pppoe_accounts WHERE internet_account_id=? AND tenant_id=? LIMIT 1");
+                            if($checkP){$checkP->bind_param('ii',$accountId,$tenantId);$checkP->execute();$hasP=(bool)$checkP->get_result()->fetch_assoc();$checkP->close();}
+                        }
                         if(!$hasP){
                             $activate=$conn->prepare("UPDATE internet_accounts SET status='active' WHERE id=? AND tenant_id=?");
                             if($activate){$activate->bind_param('ii',$accountId,$tenantId);$ok=$activate->execute();$activate->close();}
