@@ -61,6 +61,7 @@ $values = [
     'price' => $existing['price'] ?? '',
     'billing_cycle' => $existing['billing_cycle'] ?? 'monthly',
     'billing_days' => $existing['billing_days'] ?? '',
+    'grace_period_days' => $existing['grace_period_days'] ?? '3',
     'download_speed' => $existing['download_speed'] ?? '',
     'upload_speed' => $existing['upload_speed'] ?? '',
     'description' => $existing['description'] ?? '',
@@ -84,13 +85,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Price must be a valid amount of 0 or more.';
     }
 
+    if (in_array('grace_period_days', $columns, true) && (!ctype_digit($values['grace_period_days']) || (int)$values['grace_period_days'] < 0)) {
+        $errors[] = 'Grace period must be 0 or more days.';
+    }
+
     if (in_array('billing_days', $columns, true) && $values['billing_days'] !== '' &&
         (!ctype_digit($values['billing_days']) || (int)$values['billing_days'] < 1)) {
         $errors[] = 'Billing days must be a positive whole number.';
     }
 
     if (!$errors) {
-        $allowed = ['name','price','billing_cycle','billing_days','download_speed','upload_speed','description','status'];
+        $allowed = ['name','price','billing_cycle','billing_days','grace_period_days','download_speed','upload_speed','description','status'];
         $updates = [];
 
         foreach ($allowed as $field) {
@@ -176,6 +181,14 @@ require_once '../includes/header.php';
                             <option value="<?= $key ?>" <?= $values['billing_cycle'] === $key ? 'selected' : '' ?>><?= $label ?></option>
                         <?php endforeach; ?>
                     </select>
+                </div>
+            <?php endif; ?>
+
+            <?php if (in_array('grace_period_days', $columns, true)): ?>
+                <div class="form-group">
+                    <label>Grace Period (Days)</label>
+                    <input type="number" min="0" name="grace_period_days" value="<?= e($values['grace_period_days']) ?>">
+                    <small>Days after the invoice due date before automatic service suspension.</small>
                 </div>
             <?php endif; ?>
 
