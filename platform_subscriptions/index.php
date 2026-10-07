@@ -8,7 +8,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     if($tenantId<=0 || $planId<=0){
         setFlash('error','Tenant and SaaS plan are required.');
     } else {
-        $plan=dbFetchOne("SELECT id,trial_days FROM platform_plans WHERE id=? AND status='active' LIMIT 1",'i',$planId);
+        $plan=dbFetchOne("SELECT id,trial_days,billing_cycle FROM platform_plans WHERE id=? AND status='active' LIMIT 1",'i',$planId);
         $tenant=dbFetchOne("SELECT id,status FROM tenants WHERE id=? LIMIT 1",'i',$tenantId);
         if(!$plan || !$tenant){
             setFlash('error','Invalid tenant or inactive SaaS plan.');
@@ -23,7 +23,9 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
                 $trialEnds=$trial>0?date('Y-m-d H:i:s',strtotime("+{$trial} days")):null;
                 $status=$trial>0?'trial':'active';
                 $start=date('Y-m-d');
-                dbExecute("INSERT INTO tenant_platform_subscriptions (tenant_id,plan_id,status,started_at,trial_ends_at,current_period_start,current_period_end,created_at,updated_at) VALUES (?,?,?,?,?,NULL,NULL,?,?)",'iisssss',$tenantId,$planId,$status,$now,$trialEnds,$now,$now);
+                $periodStart=$trial>0?null:$start;
+                $periodEnd=$trial>0?null:calculateBillingEndDate($start,$plan['billing_cycle']);
+                dbExecute("INSERT INTO tenant_platform_subscriptions (tenant_id,plan_id,status,started_at,trial_ends_at,current_period_start,current_period_end,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",'iisssssss',$tenantId,$planId,$status,$now,$trialEnds,$periodStart,$periodEnd,$now,$now);
                 setFlash('success','SaaS plan assigned and subscription created.');
             }
         }
