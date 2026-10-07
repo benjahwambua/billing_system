@@ -93,6 +93,9 @@ if (!function_exists('flexihubRecordPlatformPayment')) {
         try {
             $invoice=dbFetchOne("SELECT * FROM platform_invoices WHERE id=? AND tenant_id=? FOR UPDATE",'ii',$invoiceId,$tenantId);
             if(!$invoice) throw new Exception('SaaS invoice not found for this tenant.');
+            if(in_array((string)$invoice['status'], ['cancelled','draft'], true)) {
+                throw new Exception('This SaaS invoice is not payable in its current status.');
+            }
             $balance=max(0,(float)$invoice['total_amount']-(float)$invoice['paid_amount']);
             if($balance<=0.0001) throw new Exception('This SaaS invoice is already fully paid.');
             if($amount>$balance+0.0001) throw new Exception('Payment exceeds the outstanding SaaS invoice balance.');
