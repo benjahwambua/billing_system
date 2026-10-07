@@ -16,6 +16,8 @@ require_once '../includes/header.php';
 <a class="btn" href="usage.php">Usage</a>
 <a class="btn" href="network.php">Network</a>
 <a class="btn" href="financial.php">Financial</a>
+<a class="btn" href="aged_receivables.php">Aged Receivables</a>
+<a class="btn" href="customer_statement.php">Customer Statement</a>
 </div>
 </div>
 <?php require_once '../includes/footer.php'; ?>
