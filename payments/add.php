@@ -54,11 +54,19 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $payment=['id'=>$paymentId]+$data;
             flexihubRefreshInvoiceStatus($iid,$tid);
             $receiptId=flexihubCreatePaymentArtifacts($paymentId,$payment,$invoice,$tid);
-            if($aid){
+
+            // A partial invoice payment must not renew or activate the service.
+            $paidAfterPayment=flexihubInvoicePaid($iid,$tid);
+            $totalAfterPayment=flexihubInvoiceTotal($invoice);
+            $invoiceFullyPaid=($totalAfterPayment<=0 || $paidAfterPayment+0.00001 >= $totalAfterPayment);
+
+            if($aid && $invoiceFullyPaid){
                 $renewed=flexihubRenewInternetAccount($aid,$tid);
                 if($renewed){
                     $subscriptionId=flexihubCreateServiceSubscription($aid,$tid,$iid,$paymentId);
-                    flexihubQueueServiceActivation($aid,$tid,$paymentId,$subscriptionId,'activate');
+                    if($subscriptionId){
+                        flexihubQueueServiceActivation($aid,$tid,$paymentId,$subscriptionId,'activate');
+                    }
                 }
             }
             setFlash('success','Payment recorded successfully'.($receiptId?' and receipt generated.':'.'));
