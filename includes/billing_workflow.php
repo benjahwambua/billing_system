@@ -514,6 +514,174 @@ if (!function_exists('flexihubProcessAccountExpiry')) {
     }
 }
 
+
+if (!function_exists('flexihubGenerateRecurringInvoices')) {
+    /**
+     * Generate one invoice for each customer internet account whose next invoice
+     * date is due. Invoice creation never activates or renews service.
+     */
+    function flexihubGenerateRecurringInvoices($tenantId, $limit=100)
+    {
+        global $conn;
+        $tenantId=(int)$tenantId;
+        $limit=max(1,min(500,(int)$limit));
+        $stats=['processed'=>0,'generated'=>0,'skipped'=>0,'failed'=>0];
+        if(!$tenantId) return $stats;
+
+        $accountCols=flexihubTableColumns('internet_accounts');
+        $invoiceCols=flexihubTableColumns('invoices');
+        if(!$accountCols || !$invoiceCols) return $stats;
+        if(!in_array('next_invoice_date',$accountCols,true)) return $stats;
+        if(!in_array('tenant_id',$invoiceCols,true) || !in_array('customer_id',$invoiceCols,true)) return $stats;
+
+        $sql="SELECT ia.*, ip.name AS plan_name, ip.price AS plan_price,
+                     ip.billing_days, ip.billing_cycle
+              FROM internet_accounts ia
+              INNER JOIN internet_plans ip
+                ON ip.id=ia.plan_id AND ip.tenant_id=ia.tenant_id
+              WHERE ia.tenant_id=?
+                AND ia.next_invoice_date IS NOT NULL
+                AND ia.next_invoice_date <= CURDATE()
+                AND ia.status NOT IN ('inactive','pending_activation')
+                AND (ip.status IS NULL OR ip.status='active')
+              ORDER BY ia.next_invoice_date ASC, ia.id ASC
+              LIMIT {$limit}";
+        $stmt=$conn->prepare($sql);
+        if(!$stmt) return $stats;
+        $stmt->bind_param('i',$tenantId);
+        $stmt->execute();
+        $res=$stmt->get_result();
+        $accounts=[];
+        while($row=$res->fetch_assoc()) $accounts[]=$row;
+        $stmt->close();
+
+        $invoiceItemCols=flexihubTableColumns('invoice_items');
+
+        foreach($accounts as $account){
+            $stats['processed']++;
+            $accountId=(int)($account['id']??0);
+            $customerId=(int)($account['customer_id']??0);
+            $periodStart=(string)($account['next_invoice_date']??'');
+            if(!$accountId || !$customerId || !$periodStart){
+                $stats['failed']++;
+                continue;
+            }
+
+            $days=(int)($account['billing_days']??0);
+            if($days<1){
+                $cycle=strtolower((string)($account['billing_cycle']??'monthly'));
+                $days=['daily'=>1,'weekly'=>7,'monthly'=>30,'quarterly'=>90,'yearly'=>365][$cycle]??30;
+            }
+            $periodEnd=date('Y-m-d',strtotime($periodStart." +".max(1,$days)." days -1 day"));
+            $price=(float)($account['plan_price']??0);
+            if($price<=0){
+                $stats['skipped']++;
+                continue;
+            }
+
+            // Idempotency: the same tenant/account/service period can only have
+            // one automated invoice. The database index in migration 020 also
+            // makes this safe against concurrent workers.
+            $dup=$conn->prepare("SELECT id FROM invoices
+                                 WHERE tenant_id=? AND account_id=?
+                                   AND billing_period_start=? AND billing_period_end=?
+                                 LIMIT 1");
+            if($dup){
+                $dup->bind_param('iiss',$tenantId,$accountId,$periodStart,$periodEnd);
+                $dup->execute();
+                $exists=$dup->get_result()->fetch_assoc();
+                $dup->close();
+                if($exists){
+                    $stats['skipped']++;
+                    $next=date('Y-m-d',strtotime($periodEnd.' +1 day'));
+                    $up=$conn->prepare("UPDATE internet_accounts SET next_invoice_date=? WHERE id=? AND tenant_id=? AND next_invoice_date=?");
+                    if($up){$up->bind_param('siis',$next,$accountId,$tenantId,$periodStart);$up->execute();$up->close();}
+                    continue;
+                }
+            }
+
+            $invoiceDate=date('Y-m-d');
+            $dueDate=$invoiceDate;
+            $number='INV-'.date('YmdHis').'-'.random_int(100,999);
+            $description='Internet service - '.($account['plan_name']??'Internet Plan').' ('.$periodStart.' to '.$periodEnd.')';
+
+            $data=[
+                'tenant_id'=>$tenantId,
+                'customer_id'=>$customerId,
+                'account_id'=>$accountId,
+                'invoice_number'=>$number,
+                'invoice_date'=>$invoiceDate,
+                'due_date'=>$dueDate,
+                'billing_period_start'=>$periodStart,
+                'billing_period_end'=>$periodEnd,
+                'invoice_source'=>'recurring',
+                'description'=>$description,
+                'total_amount'=>$price,
+                'amount'=>$price,
+                'total'=>$price,
+                'status'=>'unpaid',
+                'paid_amount'=>0,
+                'balance'=>$price
+            ];
+
+            $invoiceId=flexihubWorkflowInsert('invoices',$data);
+            if(!$invoiceId){
+                $stats['failed']++;
+                continue;
+            }
+
+            // Preserve the plan name and price on the invoice. This is best-effort
+            // because legacy invoice_items schemas differ between installations.
+            if($invoiceItemCols){
+                $itemData=[
+                    'tenant_id'=>$tenantId,
+                    'invoice_id'=>$invoiceId,
+                    'customer_id'=>$customerId,
+                    'account_id'=>$accountId,
+                    'description'=>$description,
+                    'item_description'=>$description,
+                    'quantity'=>1,
+                    'unit_price'=>$price,
+                    'price'=>$price,
+                    'amount'=>$price,
+                    'total'=>$price,
+                    'line_total'=>$price
+                ];
+                flexihubWorkflowInsert('invoice_items',$itemData);
+            }
+
+            $next=date('Y-m-d',strtotime($periodEnd.' +1 day'));
+            $up=$conn->prepare("UPDATE internet_accounts SET next_invoice_date=? WHERE id=? AND tenant_id=? AND next_invoice_date=?");
+            if(!$up || !$up->bind_param('siis',$next,$accountId,$tenantId,$periodStart) || !$up->execute()){
+                if($up) $up->close();
+                $stats['failed']++;
+                continue;
+            }
+            $up->close();
+
+            flexihubWorkflowInsert('service_events',[
+                'tenant_id'=>$tenantId,
+                'account_id'=>$accountId,
+                'customer_id'=>$customerId,
+                'event_type'=>'invoice_generated',
+                'old_status'=>$account['status']??null,
+                'new_status'=>$account['status']??null,
+                'source'=>'billing',
+                'reference'=>'INV-'.$invoiceId,
+                'details'=>json_encode([
+                    'invoice_id'=>$invoiceId,
+                    'period_start'=>$periodStart,
+                    'period_end'=>$periodEnd,
+                    'amount'=>$price
+                ],JSON_UNESCAPED_SLASHES)
+            ]);
+
+            $stats['generated']++;
+        }
+        return $stats;
+    }
+}
+
 if (!function_exists('flexihubRenewInternetAccount')) {
     function flexihubRenewInternetAccount($accountId, $tenantId)
     {
