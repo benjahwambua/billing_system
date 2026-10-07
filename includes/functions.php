@@ -2988,15 +2988,45 @@ if (!function_exists('tenantData')) {
 if (!function_exists('canOperateTenant')) {
     function canOperateTenant()
     {
+        global $conn;
+
         if (isHostUser()) {
             return true;
         }
 
-        if (!isTenantUser()) {
+        if (!isTenantUser() || !isCurrentTenantActive()) {
             return false;
         }
 
-        return isCurrentTenantActive();
+        $tenantId = getCurrentTenantId();
+        if (!$tenantId || !($conn instanceof mysqli)) {
+            return false;
+        }
+
+        // If the platform SaaS subscription tables are installed, they become
+        // the authoritative billing gate for tenant operations.
+        $tableCheck = $conn->query("SHOW TABLES LIKE 'tenant_platform_subscriptions'");
+        if ($tableCheck && $tableCheck->num_rows > 0) {
+            $sub = dbFetchOne(
+                "SELECT status FROM tenant_platform_subscriptions WHERE tenant_id=? LIMIT 1",
+                'i',
+                (int)$tenantId
+            );
+
+            // No subscription yet: preserve onboarding access. The platform
+            // billing worker will provision it when SaaS billing is enabled.
+            if (!$sub) {
+                return true;
+            }
+
+            return in_array(
+                strtolower((string)$sub['status']),
+                ['trial', 'active', 'past_due'],
+                true
+            );
+        }
+
+        return true;
     }
 }
 
