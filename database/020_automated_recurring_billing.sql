@@ -16,7 +16,7 @@ ALTER TABLE invoices
 CREATE INDEX IF NOT EXISTS idx_internet_accounts_next_invoice
     ON internet_accounts (tenant_id, next_invoice_date, status);
 
-CREATE INDEX IF NOT EXISTS idx_invoices_account_period
+CREATE UNIQUE INDEX IF NOT EXISTS uq_invoices_account_billing_period
     ON invoices (tenant_id, account_id, billing_period_start, billing_period_end);
 
 -- Existing accounts already use billing_date as the next service/billing boundary.
