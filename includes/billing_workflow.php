@@ -387,15 +387,46 @@ if (!function_exists('flexihubCreateServiceSubscription')) {
             if($check){$check->bind_param('ii',$tenantId,$paymentId);$check->execute();$existing=$check->get_result()->fetch_assoc();$check->close();if($existing)return (int)$existing['id'];}
         }
 
+        // A payment can only create one subscription period.
+        if($paymentId && in_array('payment_id',$cols,true)){
+            $check=$conn->prepare("SELECT id FROM service_subscriptions WHERE tenant_id=? AND payment_id=? LIMIT 1");
+            if($check){$check->bind_param('ii',$tenantId,$paymentId);$check->execute();$existing=$check->get_result()->fetch_assoc();$check->close();if($existing)return (int)$existing['id'];}
+        }
+
         $end=$account['expiry_date']??date('Y-m-d');
-        $start=$account['activation_date']??date('Y-m-d');
-        if(!$start || strtotime($start)===false) $start=date('Y-m-d');
-        if(!$end || strtotime($end)===false) $end=$start;
+        if(!$end || strtotime($end)===false) $end=date('Y-m-d');
+
+        // The account has already been renewed by the payment workflow. Build this
+        // subscription period from the previous subscription instead of reusing the
+        // original activation date, preventing overlapping/duplicate periods.
+        $previousId=null;
+        $start=date('Y-m-d');
+        if(in_array('previous_subscription_id',$cols,true)){
+            $prev=$conn->prepare("SELECT id,start_date,end_date,status FROM service_subscriptions WHERE tenant_id=? AND account_id=? AND status IN ('active','renewed') ORDER BY end_date DESC,id DESC LIMIT 1");
+            if($prev){
+                $prev->bind_param('ii',$tenantId,$accountId);$prev->execute();$previous=$prev->get_result()->fetch_assoc();$prev->close();
+                if($previous){
+                    $previousId=(int)$previous['id'];
+                    if(!empty($previous['end_date']) && strtotime($previous['end_date'])!==false){
+                        $start=date('Y-m-d',strtotime($previous['end_date'].' +1 day'));
+                    }
+                    // Close the previous period before creating its renewal.
+                    $close=$conn->prepare("UPDATE service_subscriptions SET status='renewed' WHERE id=? AND tenant_id=? AND status='active'");
+                    if($close){$close->bind_param('ii',$previousId,$tenantId);$close->execute();$close->close();}
+                }
+            }
+        }else{
+            $start=$account['activation_date']??date('Y-m-d');
+            if(!$start || strtotime($start)===false) $start=date('Y-m-d');
+        }
+
+        if(strtotime($start)===false) $start=date('Y-m-d');
+        if(strtotime($start)>strtotime($end)) $start=date('Y-m-d');
 
         $data=[
             'tenant_id'=>$tenantId,'account_id'=>$accountId,'customer_id'=>(int)$account['customer_id'],
             'plan_id'=>(int)$account['plan_id'],'invoice_id'=>$invoiceId,'payment_id'=>$paymentId,
-            'start_date'=>$start,'end_date'=>$end,'status'=>'active'
+            'previous_subscription_id'=>$previousId,'start_date'=>$start,'end_date'=>$end,'status'=>'active'
         ];
         return flexihubWorkflowInsert('service_subscriptions',$data);
     }
