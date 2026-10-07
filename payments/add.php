@@ -49,30 +49,52 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                'payment_date'=>$v['payment_date'],'reference'=>$v['reference'],
                'payment_number'=>'PAY-'.date('YmdHis').'-'.random_int(100,999)];
         if($aid)$data['account_id']=$aid;
-        $paymentId=flexihubWorkflowInsert('payments',$data);
-        if($paymentId){
+
+        // Keep the financial workflow atomic. RouterOS/network work is deliberately
+        // deferred to the activation queue and therefore happens after commit.
+        $transactionStarted=$conn->begin_transaction();
+        $workflowError='';
+        $paymentId=false;
+        $receiptId=false;
+        try{
+            $paymentId=flexihubWorkflowInsert('payments',$data);
+            if(!$paymentId) throw new Exception('Unable to record the payment.');
+
             $payment=['id'=>$paymentId]+$data;
-            flexihubRefreshInvoiceStatus($iid,$tid);
+
+            if(!flexihubRefreshInvoiceStatus($iid,$tid)){
+                throw new Exception('Unable to refresh the invoice status.');
+            }
+
             $receiptId=flexihubCreatePaymentArtifacts($paymentId,$payment,$invoice,$tid);
 
-            // A partial invoice payment must not renew or activate the service.
+            // A partial invoice payment must never renew or activate the service.
             $paidAfterPayment=flexihubInvoicePaid($iid,$tid);
             $totalAfterPayment=flexihubInvoiceTotal($invoice);
             $invoiceFullyPaid=($totalAfterPayment<=0 || $paidAfterPayment+0.00001 >= $totalAfterPayment);
 
             if($aid && $invoiceFullyPaid){
-                $renewed=flexihubRenewInternetAccount($aid,$tid);
-                if($renewed){
-                    $subscriptionId=flexihubCreateServiceSubscription($aid,$tid,$iid,$paymentId);
-                    if($subscriptionId){
-                        flexihubQueueServiceActivation($aid,$tid,$paymentId,$subscriptionId,'activate');
-                    }
+                if(!flexihubRenewInternetAccount($aid,$tid)){
+                    throw new Exception('Payment recorded, but service renewal could not be prepared.');
+                }
+
+                $subscriptionId=flexihubCreateServiceSubscription($aid,$tid,$iid,$paymentId);
+                if(!$subscriptionId){
+                    throw new Exception('Payment recorded, but the service subscription could not be created.');
+                }
+
+                if(!flexihubQueueServiceActivation($aid,$tid,$paymentId,$subscriptionId,'activate')){
+                    throw new Exception('Payment recorded, but service activation could not be queued.');
                 }
             }
+
+            if($transactionStarted) $conn->commit();
             setFlash('success','Payment recorded successfully'.($receiptId?' and receipt generated.':'.'));
             redirect('../payments/index.php');
+        }catch(Throwable $e){
+            if($transactionStarted) $conn->rollback();
+            $errors[]=$e->getMessage();
         }
-        $errors[]='Unable to record payment. Please check the payment table fields and try again.';
     }
 }
 
