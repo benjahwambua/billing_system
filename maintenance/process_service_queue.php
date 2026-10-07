@@ -7,7 +7,7 @@ require_once '../includes/hotspot_workflow.php';
 
 $tenantId=(int)getCurrentTenantId();
 $result=flexihubProcessServiceActivationQueue($tenantId,50);
-$hotspotExpiry=flexihubProcessHotspotExpiry($tenantId,100);
+$hotspotFinalization=flexihubProcessHotspotFinalizationQueue($tenantId,25);$hotspotExpiry=flexihubProcessHotspotExpiry($tenantId,100);
 
 $pageTitle='Service Activation Queue';
 require_once '../includes/header.php';
@@ -19,7 +19,7 @@ require_once '../includes/header.php';
         <div class="card"><strong>Processed</strong><div style="font-size:28px"><?=e($result['processed'])?></div></div>
         <div class="card"><strong>Completed</strong><div style="font-size:28px"><?=e($result['completed'])?></div></div>
         <div class="card"><strong>Failed</strong><div style="font-size:28px"><?=e($result['failed'])?></div></div>
-        <div class="card"><strong>Hotspot Expired</strong><div style="font-size:28px"><?=e($hotspotExpiry['expired'])?></div></div>
+        <div class="card"><strong>Hotspot Finalized</strong><div style="font-size:28px"><?=e($hotspotFinalization['completed'])?></div></div>\n        <div class="card"><strong>Hotspot Finalization Failed</strong><div style="font-size:28px"><?=e($hotspotFinalization['failed'])?></div></div>\n        <div class="card"><strong>Hotspot Expired</strong><div style="font-size:28px"><?=e($hotspotExpiry['expired'])?></div></div>
         <div class="card"><strong>Hotspot Expiry Failed</strong><div style="font-size:28px"><?=e($hotspotExpiry['failed'])?></div></div>
     </div>
     <p style="margin-top:20px">For production, run this endpoint from a scheduled job/cron after the billing and M-Pesa callback workflows are enabled.</p>
