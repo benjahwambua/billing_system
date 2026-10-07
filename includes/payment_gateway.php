@@ -90,7 +90,7 @@ if (!function_exists('flexihubMpesaStkPush')) {
     }
 }
 if (!function_exists('flexihubCreateMpesaStkTransaction')) {
-    function flexihubCreateMpesaStkTransaction($tenantId,$gatewayId,$amount,$phone,$flow,$reference,$description,$callbackUrl,$idempotencyKey,$hotspotSaleId=null) {
+    function flexihubCreateMpesaStkTransaction($tenantId,$gatewayId,$amount,$phone,$flow,$reference,$description,$callbackUrl,$idempotencyKey,$hotspotSaleId=null,$platformInvoiceId=null) {
         global $conn;
         $tenantId=(int)$tenantId;$gatewayId=(int)$gatewayId;$amount=round((float)$amount,2);
         if($tenantId<=0||$gatewayId<=0||$amount<=0||trim((string)$flow)===''||trim((string)$idempotencyKey)==='')throw new InvalidArgumentException('Invalid M-Pesa transaction parameters.');
@@ -103,9 +103,9 @@ if (!function_exists('flexihubCreateMpesaStkTransaction')) {
         $stmt->bind_param('ii',$gatewayId,$tenantId);$stmt->execute();$gateway=$stmt->get_result()->fetch_assoc();$stmt->close();
         if(!$gateway)throw new RuntimeException('Active tenant M-Pesa gateway not found.');
         $phone=flexihubMpesaNormalizePhone($phone);
-        $stmt=$conn->prepare("INSERT INTO payment_gateway_transactions (tenant_id,gateway_id,provider,flow,status,amount,phone_number,account_reference,transaction_description,idempotency_key,hotspot_sale_id,initiated_at) VALUES (?,?,'mpesa',?,'initiated',?,?,?,?,?,?,NOW())");
+        $stmt=$conn->prepare("INSERT INTO payment_gateway_transactions (tenant_id,gateway_id,provider,flow,status,amount,phone_number,account_reference,transaction_description,idempotency_key,hotspot_sale_id,platform_invoice_id,initiated_at) VALUES (?,?,'mpesa',?,'initiated',?,?,?,?,?,?,?,NOW())");
         if(!$stmt)throw new RuntimeException('Unable to create M-Pesa transaction.');
-        $stmt->bind_param('iisdssssi',$tenantId,$gatewayId,$flow,$amount,$phone,$reference,$description,$idempotencyKey,$hotspotSaleId);
+        $stmt->bind_param('iisdssssii',$tenantId,$gatewayId,$flow,$amount,$phone,$reference,$description,$idempotencyKey,$hotspotSaleId,$platformInvoiceId);
         if(!$stmt->execute()){
   $err=$stmt->error;$errno=(int)$stmt->errno;$stmt->close();
   if($errno===1062){
