@@ -17,7 +17,14 @@ if (!function_exists('flexihubCreatePlatformMpesaPayment')) {
         $reference=(string)$invoice['invoice_number'];
         $idempotency='platform-'.$invoiceId.'-'.$phone;
         $existing=dbFetchOne("SELECT * FROM platform_payments WHERE tenant_id=? AND invoice_id=? AND idempotency_key=? LIMIT 1",'iis',$tenantId,$invoiceId,$idempotency);
-        if($existing && in_array($existing['status'],['pending','completed'],true)) return $existing;
+        if($existing && in_array($existing['status'],['pending','completed'],true)) {
+            if($existing['status']==='completed') return $existing;
+            if(!empty($existing['expires_at']) && strtotime($existing['expires_at'])<=time()) {
+                dbExecute("UPDATE platform_payments SET status='failed',failure_reason='M-Pesa payment request expired' WHERE id=? AND tenant_id=? AND status='pending'",'ii',(int)$existing['id'],$tenantId);
+            } else {
+                return $existing;
+            }
+        }
 
         if($existing){
             $paymentId=(int)$existing['id'];
