@@ -68,7 +68,9 @@ if (!function_exists('flexihubGeneratePlatformInvoice')) {
         if ($existing) return (int)$existing['id'];
 
         $issue = date('Y-m-d');
-        $due = date('Y-m-d', strtotime('+' . max(0,(int)$sub['grace_days']) . ' days', strtotime($issue)));
+        // Grace is applied by the billing processor from the invoice due date.
+        // Keep the invoice due date at issue date so grace is never double-counted.
+        $due = $issue;
         $number = flexihubPlatformInvoiceNumber((int)$sub['tenant_id']);
         $stmt = $conn->prepare("INSERT INTO platform_invoices (tenant_id,subscription_id,invoice_number,period_start,period_end,issue_date,due_date,subtotal,total_amount,status) VALUES (?,?,?,?,?,?,?,?,?,'unpaid')");
         if (!$stmt) return false;
@@ -150,12 +152,12 @@ if (!function_exists('flexihubProcessPlatformBilling')) {
                     if(!$hasSub){$unassigned++;continue;}
                     $errors++;continue;
                 }
-                $sub=dbFetchOne("SELECT s.*,p.grace_days FROM tenant_platform_subscriptions s JOIN platform_plans p ON p.id=s.plan_id WHERE s.id=? LIMIT 1",'i',$subId);
+                $sub=dbFetchOne("SELECT s.*,p.grace_days,p.billing_cycle FROM tenant_platform_subscriptions s JOIN platform_plans p ON p.id=s.plan_id WHERE s.id=? LIMIT 1",'i',$subId);
                 if(!$sub) {$errors++;continue;}
 
                 if($sub['status']==='trial' && !empty($sub['trial_ends_at']) && strtotime($sub['trial_ends_at'])<=time()){
                     $start=date('Y-m-d');
-                    $end=flexihubPlatformAddCycle($start, dbFetchOne("SELECT billing_cycle FROM platform_plans WHERE id=? LIMIT 1",'i',(int)$sub['plan_id'])['billing_cycle']);
+                    $end=flexihubPlatformAddCycle($start, $sub['billing_cycle']);
                     $conn->query("UPDATE tenant_platform_subscriptions SET status='active',current_period_start='".$conn->real_escape_string($start)."',current_period_end='".$conn->real_escape_string($end)."',updated_at=NOW() WHERE id=".$subId);
                     $sub['status']='active'; $sub['current_period_start']=$start; $sub['current_period_end']=$end;
                 }
