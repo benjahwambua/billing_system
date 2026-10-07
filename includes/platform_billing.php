@@ -139,9 +139,11 @@ if (!function_exists('flexihubRecordPlatformPayment')) {
 if (!function_exists('flexihubProcessPlatformBilling')) {
     function flexihubProcessPlatformBilling() {
         global $conn;
-        if (!flexihubPlatformBillingEnabled()) return ['enabled'=>false,'created'=>0,'past_due'=>0,'suspended'=>0,'unassigned'=>0,'errors'=>0];
+        if (!flexihubPlatformBillingEnabled()) return ['enabled'=>false,'created'=>0,'past_due'=>0,'suspended'=>0,'unassigned'=>0,'expired_payments'=>0,'errors'=>0];
 
-        $created=0;$pastDue=0;$suspended=0;$unassigned=0;$errors=0;
+        $created=0;$pastDue=0;$suspended=0;$unassigned=0;$expiredPayments=0;$errors=0;
+        // Expire abandoned platform M-Pesa requests so they can be retried cleanly.
+        $expiredPayments=(int)$conn->query("UPDATE platform_payments SET status='failed',failure_reason='M-Pesa payment request expired' WHERE provider='mpesa' AND status='pending' AND expires_at IS NOT NULL AND expires_at<=NOW()")->affected_rows;
         $tenants=dbFetchAll("SELECT id FROM tenants WHERE LOWER(COALESCE(status,'')) NOT IN ('deleted','archived')");
         foreach($tenants as $tenant){
             $tenantId=(int)$tenant['id'];
@@ -187,6 +189,6 @@ if (!function_exists('flexihubProcessPlatformBilling')) {
                 }
             } catch(Throwable $e) {$errors++;}
         }
-        return ['enabled'=>true,'created'=>$created,'past_due'=>$pastDue,'suspended'=>$suspended,'unassigned'=>$unassigned,'errors'=>$errors];
+        return ['enabled'=>true,'created'=>$created,'past_due'=>$pastDue,'suspended'=>$suspended,'unassigned'=>$unassigned,'expired_payments'=>$expiredPayments,'errors'=>$errors];
     }
 }
