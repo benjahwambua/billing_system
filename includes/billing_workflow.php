@@ -210,7 +210,40 @@ if (!function_exists('flexihubProcessServiceActivationQueue')) {
     function flexihubProcessServiceActivationQueue($tenantId, $limit=25)
     {
         global $conn; $tenantId=(int)$tenantId; $limit=max(1,min(100,(int)$limit));
-        $stats=['processed'=>0,'completed'=>0,'failed'=>0]; if(!$tenantId)return $stats;
+        $stats=['processed'=>0,'completed'=>0,'failed'=>0,'recovered'=>0]; if(!$tenantId)return $stats;
+
+        // Recover jobs left in processing state by a worker that timed out,
+        // crashed, or lost its router connection. The queue table has an
+        // updated_at timestamp, so recovery is safe without another migration.
+        $recover=$conn->prepare("UPDATE service_activation_queue
+            SET status='pending',
+                available_at=NOW(),
+                last_error=CONCAT('Recovered stale processing job. ', COALESCE(last_error,''))
+            WHERE tenant_id=? AND status='processing'
+              AND updated_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+              AND attempts < 5");
+        if($recover){
+            $recover->bind_param('i',$tenantId);
+            $recover->execute();
+            $stats['recovered'] += max(0,(int)$recover->affected_rows);
+            $recover->close();
+        }
+
+        // Jobs that have exhausted their retry budget must remain failed rather
+        // than being resurrected forever.
+        $retire=$conn->prepare("UPDATE service_activation_queue
+            SET status='failed',
+                processed_at=COALESCE(processed_at,NOW()),
+                last_error=CONCAT('Retry limit reached. ', COALESCE(last_error,''))
+            WHERE tenant_id=? AND status='processing'
+              AND updated_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+              AND attempts >= 5");
+        if($retire){
+            $retire->bind_param('i',$tenantId);
+            $retire->execute();
+            $retire->close();
+        }
+
         $stmt=$conn->prepare("SELECT * FROM service_activation_queue WHERE tenant_id=? AND status='pending' AND (available_at IS NULL OR available_at<=NOW()) ORDER BY id ASC LIMIT {$limit}");
         if(!$stmt)return $stats;
         $stmt->bind_param('i',$tenantId);$stmt->execute();$res=$stmt->get_result();$items=[];
