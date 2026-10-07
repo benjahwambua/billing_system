@@ -73,7 +73,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $totalAfterPayment=flexihubInvoiceTotal($invoice);
             $invoiceFullyPaid=($totalAfterPayment<=0 || $paidAfterPayment+0.00001 >= $totalAfterPayment);
 
-            if($aid && $invoiceFullyPaid){
+            if($aid && $invoiceFullyPaid && !flexihubAccountHasOverdueBalance($aid,$tid)){
                 if(!flexihubRenewInternetAccount($aid,$tid)){
                     throw new Exception('Payment recorded, but service renewal could not be prepared.');
                 }
@@ -89,6 +89,20 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             }
 
             if($transactionStarted) $conn->commit();
+
+            // Queue a customer-facing confirmation after the financial transaction commits.
+            if($invoiceFullyPaid){
+                flexihubSeedNotificationTemplates($tid);
+                $customerStmt=$conn->prepare("SELECT c.id,c.phone FROM customers c WHERE c.id=? AND c.tenant_id=? LIMIT 1");
+                if($customerStmt){
+                    $customerId=(int)($invoice['customer_id']??0);$customerStmt->bind_param('ii',$customerId,$tid);$customerStmt->execute();$customer=$customerStmt->get_result()->fetch_assoc();$customerStmt->close();
+                    if($customer && !empty($customer['phone'])){
+                        flexihubQueueNotification($tid,'payment_confirmation',$customerId,$aid?:null,$iid,'sms',$customer['phone'],[
+                            'invoice_number'=>$invoice['invoice_number']??$iid,'amount'=>number_format($amount,2,'.','')
+                        ]);
+                    }
+                }
+            }
             setFlash('success','Payment recorded successfully'.($receiptId?' and receipt generated.':'.'));
             redirect('../payments/index.php');
         }catch(Throwable $e){
