@@ -39,6 +39,7 @@ require_once '../includes/sidebar.php';
     <div class="workspace-grid">
         <a class="workspace-card" href="../tenants/index.php"><b>Tenants</b><span>Register, review and manage ISP tenants.</span></a>
         <a class="workspace-card" href="../platform_plans/index.php"><b>Subscription Plans</b><span>Manage SaaS plan definitions and limits.</span></a>
+        <a class="workspace-card" href="../platform_subscriptions/index.php"><b>SaaS Subscriptions</b><span>Monitor tenant hosting subscriptions and lifecycle state.</span></a>
         <a class="workspace-card" href="../platform_transactions/index.php"><b>Platform Transactions</b><span>Review platform-level financial activity.</span></a>
         <a class="workspace-card" href="../platform_wallets/index.php"><b>Tenant Wallets</b><span>Monitor tenant funding and balances.</span></a>
         <a class="workspace-card" href="../platform_users/index.php"><b>Platform Users</b><span>Manage host-side operating users.</span></a>
