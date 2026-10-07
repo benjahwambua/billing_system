@@ -117,6 +117,9 @@ if (!function_exists('flexihubRecordPlatformPayment')) {
             $stmt->close();
 
             if($newStatus==='paid'){
+            // SaaS payment restores the subscription only; tenant internet
+            // service provisioning is handled by the tenant's own billing/runtime.
+
                 $sub=dbFetchOne("SELECT s.*,p.billing_cycle FROM tenant_platform_subscriptions s JOIN platform_plans p ON p.id=s.plan_id WHERE s.id=? FOR UPDATE",'i',(int)$invoice['subscription_id']);
                 if($sub){
                     $nextStart=$invoice['period_end'];
