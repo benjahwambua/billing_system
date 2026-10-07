@@ -85,6 +85,58 @@ if (!function_exists('flexihubGeneratePlatformInvoice')) {
     }
 }
 
+if (!function_exists('flexihubRecordPlatformPayment')) {
+    function flexihubRecordPlatformPayment($tenantId, $invoiceId, $amount, $method='manual', $reference=null, $provider=null, $externalId=null) {
+        global $conn;
+        $tenantId=(int)$tenantId; $invoiceId=(int)$invoiceId; $amount=(float)$amount;
+        if($tenantId<=0 || $invoiceId<=0 || $amount<=0) return ['ok'=>false,'message'=>'Invalid payment details.'];
+        $conn->begin_transaction();
+        try {
+            $invoice=dbFetchOne("SELECT * FROM platform_invoices WHERE id=? AND tenant_id=? FOR UPDATE",'ii',$invoiceId,$tenantId);
+            if(!$invoice) throw new Exception('SaaS invoice not found for this tenant.');
+            $balance=max(0,(float)$invoice['total_amount']-(float)$invoice['paid_amount']);
+            if($balance<=0.0001) throw new Exception('This SaaS invoice is already fully paid.');
+            if($amount>$balance+0.0001) throw new Exception('Payment exceeds the outstanding SaaS invoice balance.');
+
+            if($provider && $externalId){
+                $duplicate=dbFetchOne("SELECT id FROM platform_payments WHERE provider=? AND external_transaction_id=? LIMIT 1",'ss',$provider,$externalId);
+                if($duplicate) throw new Exception('This provider transaction has already been recorded.');
+            }
+
+            $stmt=$conn->prepare("INSERT INTO platform_payments (tenant_id,invoice_id,amount,payment_method,reference,provider,external_transaction_id,status) VALUES (?,?,?,?,?,?,?,'completed')");
+            if(!$stmt) throw new Exception('Unable to prepare SaaS payment.');
+            $stmt->bind_param('iidssss',$tenantId,$invoiceId,$amount,$method,$reference,$provider,$externalId);
+            if(!$stmt->execute()) { $stmt->close(); throw new Exception('Unable to record SaaS payment.'); }
+            $paymentId=$conn->insert_id; $stmt->close();
+
+            $newPaid=(float)$invoice['paid_amount']+$amount;
+            $newStatus=$newPaid+0.0001 >= (float)$invoice['total_amount'] ? 'paid' : 'partial';
+            $stmt=$conn->prepare("UPDATE platform_invoices SET paid_amount=?,status=?,updated_at=NOW() WHERE id=?");
+            if(!$stmt) throw new Exception('Unable to update SaaS invoice.');
+            $stmt->bind_param('dsi',$newPaid,$newStatus,$invoiceId);
+            if(!$stmt->execute()) { $stmt->close(); throw new Exception('Unable to update SaaS invoice.'); }
+            $stmt->close();
+
+            if($newStatus==='paid'){
+                $sub=dbFetchOne("SELECT s.*,p.billing_cycle FROM tenant_platform_subscriptions s JOIN platform_plans p ON p.id=s.plan_id WHERE s.id=? FOR UPDATE",'i',(int)$invoice['subscription_id']);
+                if($sub){
+                    $nextStart=$invoice['period_end'];
+                    $nextEnd=flexihubPlatformAddCycle($nextStart,$sub['billing_cycle']);
+                    $stmt=$conn->prepare("UPDATE tenant_platform_subscriptions SET status='active',current_period_start=?,current_period_end=?,grace_ends_at=NULL,updated_at=NOW() WHERE id=?");
+                    if($stmt){$stmt->bind_param('ssi',$nextStart,$nextEnd,$sub['id']);$stmt->execute();$stmt->close();}
+                    $conn->query("UPDATE tenants SET status='active' WHERE id=".$tenantId." AND status IN ('past_due','suspended','trial')");
+                }
+            }
+
+            $conn->commit();
+            return ['ok'=>true,'payment_id'=>(int)$paymentId,'invoice_id'=>$invoiceId,'status'=>$newStatus];
+        } catch(Throwable $e) {
+            $conn->rollback();
+            return ['ok'=>false,'message'=>$e->getMessage()];
+        }
+    }
+}
+
 if (!function_exists('flexihubProcessPlatformBilling')) {
     function flexihubProcessPlatformBilling() {
         global $conn;
