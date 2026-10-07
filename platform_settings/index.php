@@ -47,7 +47,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt) { $gid=(int)$gateway['id']; $stmt->bind_param('sssssssssi',$name,$environment,$shortcodeType,$shortcode,$consumerKey,$consumerSecret,$passkey,$token,$callbackUrl,$gid); $stmt->execute(); $stmt->close(); }
     } elseif ($shortcode !== '') {
         $stmt = $conn->prepare("INSERT INTO platform_payment_gateways (provider,name,environment,shortcode_type,shortcode,consumer_key_encrypted,consumer_secret_encrypted,passkey_encrypted,callback_token,callback_url,status,is_default) VALUES ('mpesa',?,?,?,?,?,?,?,?,?,'inactive',1)");
-        if ($stmt) { $stmt->bind_param('sssssssss',$name,$environment,$shortcodeType,$shortcode,$consumerKey,$consumerSecret,$passkey,$token,$callbackUrl); $stmt->execute(); $stmt->close(); }
+        if ($stmt) {
+            $stmt->bind_param('sssssssss',$name,$environment,$shortcodeType,$shortcode,$consumerKey,$consumerSecret,$passkey,$token,$callbackUrl);
+            $stmt->execute();
+            $newGatewayId=(int)$conn->insert_id;
+            $stmt->close();
+            if($newGatewayId>0){
+                $callbackUrl=rtrim(baseUrl(),'/').'/payments/mpesa_callback.php?platform=1&gateway='.$newGatewayId.'&token='.rawurlencode($token);
+                $u=$conn->prepare("UPDATE platform_payment_gateways SET callback_url=? WHERE id=?");
+                if($u){$u->bind_param('si',$callbackUrl,$newGatewayId);$u->execute();$u->close();}
+            }
+        }
     }
     if (isset($_POST['mpesa_status'])) {
         $status = $_POST['mpesa_status'] === 'active' ? 'active' : 'inactive';
