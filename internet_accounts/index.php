@@ -20,8 +20,8 @@ if($q!==''){ $where[]='(c.customer_number LIKE ? OR c.first_name LIKE ? OR c.las
 if($status!=='' && in_array('status',$cols,true)){ $where[]='ia.status=?';$params[]=$status;$types.='s'; }
 $sql="SELECT ia.*, c.customer_number, c.first_name, c.last_name, ip.name AS plan_name, ip.price AS plan_price
       FROM internet_accounts ia
-      LEFT JOIN customers c ON c.id=ia.customer_id
-      LEFT JOIN internet_plans ip ON ip.id=ia.plan_id";
+      LEFT JOIN customers c ON c.id=ia.customer_id AND c.tenant_id=ia.tenant_id
+      LEFT JOIN internet_plans ip ON ip.id=ia.plan_id AND ip.tenant_id=ia.tenant_id";
 if($where)$sql.=' WHERE '.implode(' AND ',$where);
 $sql.=' ORDER BY ia.id DESC LIMIT 200';
 $stmt=$conn->prepare($sql);$accounts=[];
