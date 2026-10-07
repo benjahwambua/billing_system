@@ -8,9 +8,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  try{
   if(!$invoice)throw new RuntimeException('Invoice not found.');
   $phone=flexihubMpesaNormalizePhone($_POST['phone_number']??'');
-  $gateway=dbFetchOne("SELECT * FROM payment_gateways WHERE tenant_id=? AND provider='mpesa' AND status='active' ORDER BY is_default DESC,id DESC LIMIT 1",'i',$tenantId);
-  if(!$gateway)throw new RuntimeException('M-Pesa is not configured.');
-  $callbackUrl=(string)$gateway['callback_url'];
+  $callbackUrl=rtrim(baseUrl(),'/').'/payments/mpesa_callback.php';
   $resultTx=flexihubCreatePlatformMpesaPayment($tenantId,$invoiceId,$phone,$callbackUrl);
  }catch(Throwable $e){$error=$e->getMessage();}
 }
