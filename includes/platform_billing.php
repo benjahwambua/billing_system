@@ -107,8 +107,9 @@ if (!function_exists('flexihubProcessPlatformBilling')) {
                     $sub['status']='active'; $sub['current_period_start']=$start; $sub['current_period_end']=$end;
                 }
 
+                $beforeInvoice=dbFetchOne("SELECT id FROM platform_invoices WHERE subscription_id=? AND period_start=? AND period_end=? LIMIT 1",'iss',$subId,$sub['current_period_start'],$sub['current_period_end']);
                 $invoice=flexihubGeneratePlatformInvoice($subId);
-                if($invoice && !dbFetchOne("SELECT id FROM platform_invoices WHERE id=? AND created_at < NOW() LIMIT 1",'i',$invoice)) $created++;
+                if($invoice && !$beforeInvoice) $created++;
 
                 $open=dbFetchOne("SELECT id,due_date,status,total_amount,paid_amount FROM platform_invoices WHERE subscription_id=? AND status IN ('unpaid','partial','overdue') ORDER BY due_date DESC,id DESC LIMIT 1",'i',$subId);
                 if($open){
