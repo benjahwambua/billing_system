@@ -36,9 +36,29 @@ try{
  $saleId=(int)($tx['hotspot_sale_id']??0);if($saleId<=0)throw new RuntimeException('Hotspot sale is not linked.');
  $stmt=$conn->prepare("SELECT * FROM hotspot_sales WHERE id=? AND tenant_id=? FOR UPDATE");$stmt->bind_param('ii',$saleId,$tenantId);$stmt->execute();$sale=$stmt->get_result()->fetch_assoc();$stmt->close();if(!$sale)throw new RuntimeException('Hotspot sale not found.');
  if(in_array($sale['status'],['access_active','completed'],true)){$conn->commit();$stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Payment already finalized']);exit;}
- $username='HS'.strtoupper(substr(hash('sha256',$tenantId.':'.$saleId),0,10));$password=substr(strtoupper(bin2hex(random_bytes(6))),0,12);
- $auth=flexihubAuthorizeHotspot($tenantId,(int)$sale['package_id'],$username,$password,(string)($sale['device_mac']??''));
- $enc=flexihubGatewayEncrypt($password);$status='access_active';$stmt=$conn->prepare("UPDATE hotspot_sales SET status=?,hotspot_username=?,hotspot_password_encrypted=?,started_at=NOW(),expires_at=? WHERE id=? AND tenant_id=?");$stmt->bind_param('ssssii',$status,$username,$enc,$auth['expires_at'],$saleId,$tenantId);$stmt->execute();$stmt->close();
+ $phone=(string)($sale['phone_number']??$tx['phone_number']??'');$mac=trim((string)($sale['device_mac']??''));
+ $previous=null;$previousSessionId=0;
+ $sql="SELECT hs.*,hss.id AS previous_session_id,hss.expires_at AS previous_expires_at
+       FROM hotspot_sales hs
+       LEFT JOIN hotspot_sessions hss ON hss.id=(
+         SELECT x.id FROM hotspot_sessions x
+         WHERE x.tenant_id=hs.tenant_id AND x.username=hs.hotspot_username AND x.status IN ('authorized','active')
+         ORDER BY x.id DESC LIMIT 1
+       )
+       WHERE hs.tenant_id=? AND hs.id<>? AND hs.status='access_active' AND hs.hotspot_username IS NOT NULL
+         AND hs.hotspot_username<>'' AND hs.expires_at IS NOT NULL AND hs.expires_at>NOW()
+         AND ((?<>'' AND hs.device_mac=?) OR (?<>'' AND hs.phone_number=?))
+       ORDER BY CASE WHEN ?<>'' AND hs.device_mac=? THEN 0 ELSE 1 END, hs.id DESC LIMIT 1";
+ $stmt=$conn->prepare($sql);$stmt->bind_param('iiissssss',$tenantId,$saleId,$mac,$mac,$phone,$phone,$mac,$mac);$stmt->execute();$previous=$stmt->get_result()->fetch_assoc();$stmt->close();
+ $password=substr(strtoupper(bin2hex(random_bytes(6))),0,12);$username=$previous?(string)$previous['hotspot_username']:'HS'.strtoupper(substr(hash('sha256',$tenantId.':'.$saleId),0,10));
+ if($previous){$previousSessionId=(int)($previous['previous_session_id']??0);$previousExpiresAt=$previous['previous_expires_at']??$previous['expires_at'];$auth=flexihubRenewHotspotAuthorization($tenantId,(int)$sale['package_id'],$username,$password,$mac,$previousSessionId,$previousExpiresAt);}
+ else{$auth=flexihubAuthorizeHotspot($tenantId,(int)$sale['package_id'],$username,$password,$mac);}
+ $enc=flexihubGatewayEncrypt($password);$status='access_active';
+ if($previous){
+   $oldSaleId=(int)$previous['id'];
+   $stmt=$conn->prepare("UPDATE hotspot_sales SET status='renewed' WHERE id=? AND tenant_id=? AND status='access_active'");if($stmt){$stmt->bind_param('ii',$oldSaleId,$tenantId);$stmt->execute();$stmt->close();}
+ }
+ $stmt=$conn->prepare("UPDATE hotspot_sales SET status=?,hotspot_username=?,hotspot_password_encrypted=?,started_at=NOW(),expires_at=?,renewed_from_sale_id=? WHERE id=? AND tenant_id=?");$stmt->bind_param('ssssiii',$status,$username,$enc,$auth['expires_at'],$previous?(int)$previous['id']:null,$saleId,$tenantId);$stmt->execute();$stmt->close();
  $conn->commit();
  $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}
  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received and hotspot authorization completed']);exit;
