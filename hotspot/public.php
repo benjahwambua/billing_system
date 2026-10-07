@@ -25,6 +25,12 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   $package=null;foreach($packages as $p)if((int)$p['id']===$packageId){$package=$p;break;}
   if(!$package)throw new InvalidArgumentException('Select a valid hotspot package.');
   $amount=round((float)$package['price'],2);if($amount<=0)throw new InvalidArgumentException('Selected package has an invalid price.');
+  // Prevent repeated STK pushes for the same phone/package while a recent request is still pending.
+  $recent=$conn->prepare("SELECT id,reference,gateway_transaction_id,status FROM hotspot_sales WHERE tenant_id=? AND package_id=? AND phone_number=? AND status='payment_pending' AND created_at>=DATE_SUB(NOW(),INTERVAL 2 MINUTE) ORDER BY id DESC LIMIT 1");
+  if($recent){$recent->bind_param('iis',$tenantId,$packageId,$phone);$recent->execute();$pendingSale=$recent->get_result()->fetch_assoc();$recent->close();if($pendingSale){$reference=(string)$pendingSale['reference'];$notice='A recent M-Pesa payment request is already pending for this number. Complete it and check your access below.';}}
+  if(!empty($pendingSale)){
+   // Reuse the existing request instead of generating another charge.
+  } else {
   $reference='HS'.date('ymdHis').strtoupper(substr(bin2hex(random_bytes(4)),0,8));
   $saleId=flexihubWorkflowInsert('hotspot_sales',['tenant_id'=>$tenantId,'access_code_id'=>0,'package_id'=>$packageId,'amount'=>$amount,'phone_number'=>$phone,'device_mac'=>$mac,'payment_method'=>'mpesa','reference'=>$reference,'status'=>'payment_pending']);
   if(!$saleId)throw new RuntimeException('Unable to create payment request.');
@@ -36,6 +42,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   $u=$conn->prepare("UPDATE hotspot_sales SET gateway_transaction_id=?,status=? WHERE id=? AND tenant_id=?");if($u){$u->bind_param('isii',$txId,$status==='pending'?'payment_pending':'payment_failed',$saleId,$tenantId);$u->execute();$u->close();}
   if($status!=='pending')throw new RuntimeException($tx['failure_reason']??$tx['result_description']??'Unable to start M-Pesa payment.');
   $notice='STK Push sent. Complete the payment prompt, then check your access status below.';
+  }
  }catch(Throwable $e){$error=$e->getMessage();}
 }
 $pageTitle=$portal['portal_name']?:'Hotspot Portal';
