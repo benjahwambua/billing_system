@@ -38,6 +38,44 @@ function flexihubAuthorizeHotspot($tenantId,$packageId,$username,$password,$macA
  flexihubWorkflowInsert('router_sync_logs',['tenant_id'=>$tenantId,'router_id'=>$routerId,'service_type'=>'hotspot','external_username'=>$username,'action'=>'authorize','status'=>'success','message'=>'Hotspot user authorized on MikroTik.']);
  return ['session_id'=>$insert,'session_identifier'=>$sid,'expires_at'=>$expires,'router_id'=>$routerId];
 }}
+
+if(!function_exists('flexihubRenewHotspotAuthorization')) {
+function flexihubRenewHotspotAuthorization($tenantId,$packageId,$username,$password,$macAddress='',$previousSessionId=0,$previousExpiresAt=null) {
+ global $conn;
+ $tenantId=(int)$tenantId;$packageId=(int)$packageId;$username=trim($username);$password=(string)$password;$macAddress=trim($macAddress);$previousSessionId=(int)$previousSessionId;
+ if(!$tenantId||!$packageId||$username===''||$password==='')throw new Exception('Hotspot renewal credentials are required.');
+ $q=$conn->prepare("SELECT * FROM hotspot_packages WHERE id=? AND tenant_id=? AND status='active' LIMIT 1");
+ if(!$q)throw new Exception('Unable to load hotspot renewal package.');
+ $q->bind_param('ii',$packageId,$tenantId);$q->execute();$pkg=$q->get_result()->fetch_assoc();$q->close();
+ if(!$pkg)throw new Exception('Hotspot renewal package not found or inactive.');
+ $routerId=(int)($pkg['router_id']??0);if(!$routerId)throw new Exception('Hotspot package has no MikroTik router assigned.');
+ $router=flexihubHotspotRouter($tenantId,$routerId);if(!$router||$router['host']===''||$router['username']==='')throw new Exception('Hotspot router connection details are incomplete.');
+ $baseRemaining=0;
+ if($previousExpiresAt){
+   $remaining=strtotime((string)$previousExpiresAt)-time();
+   if($remaining>0)$baseRemaining=$remaining;
+ }
+ $minutes=max(1,(int)($pkg['duration_minutes']??0))+intdiv($baseRemaining+59,60);
+ $ros=new FlexihubRouterOS($router['host'],$router['username'],$router['password'],$router['port'],8);
+ try {
+   if($username!=='')$ros->disconnectHotspotActive($username);
+   $existing=$ros->findHotspotUser($username);$id=null;
+   foreach($existing as $row)if(($row['!type']??'')==='!re'&&($row['name']??'')===$username)$id=$row['.id']??null;
+   $words=$id?['/ip/hotspot/user/set','=.id='.$id,'=password='.$password,'=limit-uptime='.$minutes.'m','=disabled=no']:['/ip/hotspot/user/add','=name='.$username,'=password='.$password,'=limit-uptime='.$minutes.'m','=disabled=no'];
+   if($macAddress!=='')$words[]='=mac-address='.$macAddress;
+   $ros->command($words);
+ } finally {$ros->close();}
+ $started=date('Y-m-d H:i:s');$expires=date('Y-m-d H:i:s',time()+($minutes*60));$sid='HS-'.date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(5)),0,8));
+ if($previousSessionId){
+   $u=$conn->prepare("UPDATE hotspot_sessions SET status='renewed',ended_at=NOW(),disconnect_reason='renewed' WHERE id=? AND tenant_id=? AND status IN ('authorized','active')");
+   if($u){$u->bind_param('ii',$previousSessionId,$tenantId);$u->execute();$u->close();}
+ }
+ $insert=flexihubWorkflowInsert('hotspot_sessions',['tenant_id'=>$tenantId,'package_id'=>$packageId,'router_id'=>$routerId,'session_identifier'=>$sid,'username'=>$username,'mac_address'=>$macAddress?:null,'started_at'=>$started,'expires_at'=>$expires,'status'=>'authorized']);
+ if(!$insert)throw new Exception('Router renewal succeeded but the new hotspot session could not be recorded.');
+ flexihubWorkflowInsert('router_sync_logs',['tenant_id'=>$tenantId,'router_id'=>$routerId,'service_type'=>'hotspot','external_username'=>$username,'action'=>'renew','status'=>'success','message'=>'Hotspot user renewed on MikroTik.']);
+ return ['session_id'=>$insert,'session_identifier'=>$sid,'expires_at'=>$expires,'router_id'=>$routerId];
+}}
+
 if(!function_exists('flexihubProcessHotspotExpiry')) {
 function flexihubProcessHotspotExpiry($tenantId,$limit=50) {
  global $conn;
