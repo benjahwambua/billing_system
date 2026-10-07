@@ -4,7 +4,7 @@ $rows=[];$available=false;$total=0;$completed=0;$pending=0;$failed=0;
 $check=$conn->query("SHOW TABLES LIKE 'platform_payments'");
 if($check&&$check->num_rows){
     $available=true;
-    $q=$conn->query("SELECT pp.id,pp.amount,pp.payment_date,pp.payment_method,pp.reference,pp.provider,pp.external_transaction_id,pp.status,pp.failure_reason,pp.confirmed_at,pp.expires_at,pp.tenant_id,pi.invoice_number,t.tenant_code,t.name AS tenant_name FROM platform_payments pp LEFT JOIN platform_invoices pi ON pi.id=pp.invoice_id LEFT JOIN tenants t ON t.id=pp.tenant_id ORDER BY pp.id DESC LIMIT 500");
+    $q=$conn->query("SELECT pp.id,pp.amount,pp.payment_date,pp.payment_method,pp.reference,pp.provider,pp.external_transaction_id,pp.status,pp.failure_reason,pp.confirmed_at,pp.expires_at,pp.tenant_id,pi.invoice_number,pi.status AS invoice_status,pi.total_amount AS invoice_total,pi.paid_amount AS invoice_paid,t.tenant_code,t.name AS tenant_name FROM platform_payments pp LEFT JOIN platform_invoices pi ON pi.id=pp.invoice_id LEFT JOIN tenants t ON t.id=pp.tenant_id ORDER BY pp.id DESC LIMIT 500");
     if($q)while($r=$q->fetch_assoc()){
         $rows[]=$r;
         if((string)$r['status']==='completed'){$completed++;$total+=(float)($r['amount']??0);}
@@ -25,7 +25,7 @@ $pageTitle='Platform Transactions';require_once '../includes/header.php';require
 <td><?=e($r['payment_method']??'—')?><small><?=e($r['provider']??'')?></small></td>
 <td><span class="status status-<?=e(preg_replace('/[^a-z0-9_-]/i','',(string)$r['status']))?>"><?=e(ucfirst((string)$r['status']))?></span></td>
 <td><?=e(formatMoney((float)$r['amount']))?></td>
-<td><?php if((string)$r['status']==='failed'):?><strong>Action needed</strong><small><?=e($r['failure_reason']??'Payment failed; review provider result and invoice state.')?></small><?php elseif((string)$r['status']==='pending'):?><strong>Awaiting callback</strong><small><?=e($r['expires_at']?'Expires '.$r['expires_at']:'No expiry recorded')?></small><?php else:?>Allocated to SaaS invoice<?php endif;?></td>
+<td><?php if((string)$r['status']==='failed'):?><strong>Action needed</strong><small><?=e($r['failure_reason']??'Payment failed; review provider result and invoice state.')?></small><?php elseif((string)$r['status']==='pending'):?><strong>Awaiting callback</strong><small><?=e($r['expires_at']?'Expires '.$r['expires_at']:'No expiry recorded')?></small><?php elseif(empty($r['invoice_number'])):?><strong>Exception</strong><small>Payment has no linked SaaS invoice.</small><?php elseif((string)$r['status']==='completed' && (string)$r['invoice_status']!=='paid' && (float)$r['invoice_paid']+0.0001 < (float)$r['invoice_total']):?><strong>Review allocation</strong><small>Payment is completed but the linked invoice is not fully paid.</small><?php else:?>Allocated to SaaS invoice<?php endif;?></td>
 </tr>
 <?php endforeach;?>
 <?php if(!$rows):?><tr><td colspan="8" class="empty">No SaaS payments found.</td></tr><?php endif;?></tbody></table></div><?php endif;?></div></div>
