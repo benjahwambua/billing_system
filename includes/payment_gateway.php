@@ -106,7 +106,14 @@ if (!function_exists('flexihubCreateMpesaStkTransaction')) {
         $stmt=$conn->prepare("INSERT INTO payment_gateway_transactions (tenant_id,gateway_id,provider,flow,status,amount,phone_number,account_reference,transaction_description,idempotency_key,hotspot_sale_id,initiated_at) VALUES (?,?,'mpesa',?,'initiated',?,?,?,?,?,?,NOW())");
         if(!$stmt)throw new RuntimeException('Unable to create M-Pesa transaction.');
         $stmt->bind_param('iisdssssi',$tenantId,$gatewayId,$flow,$amount,$phone,$reference,$description,$idempotencyKey,$hotspotSaleId);
-        if(!$stmt->execute()){ $err=$stmt->error;$stmt->close();throw new RuntimeException('Unable to create M-Pesa transaction: '.$err); }
+        if(!$stmt->execute()){
+  $err=$stmt->error;$errno=(int)$stmt->errno;$stmt->close();
+  if($errno===1062){
+   $q=$conn->prepare("SELECT * FROM payment_gateway_transactions WHERE tenant_id=? AND idempotency_key=? LIMIT 1");
+   if($q){$q->bind_param('is',$tenantId,$idempotencyKey);$q->execute();$existing=$q->get_result()->fetch_assoc();$q->close();if($existing)return $existing;}
+  }
+  throw new RuntimeException('Unable to create M-Pesa transaction: '.$err);
+}
         $id=(int)$conn->insert_id;$stmt->close();
         try{$response=flexihubMpesaStkPush($gateway,$amount,$phone,$reference,$description,$callbackUrl);}
         catch(Throwable $e){$m=substr($e->getMessage(),0,500);$u=$conn->prepare("UPDATE payment_gateway_transactions SET status='failed',failure_reason=? WHERE id=? AND tenant_id=?");if($u){$u->bind_param('sii',$m,$id,$tenantId);$u->execute();$u->close();}throw $e;}
