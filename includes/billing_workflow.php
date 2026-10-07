@@ -691,17 +691,10 @@ if (!function_exists('flexihubProcessOverdueSuspensions')) {
                 }else{$stats['failed']++;continue;}
             }
 
-            // Only one suspension action is needed for an account even when
-            // multiple invoices are overdue.
+            // Queue the network suspension before changing the account state.
+            // The queue worker owns the final state transition so a queue failure
+            // cannot leave the database saying "suspended" while the router remains active.
             if(($invoice['account_status']??'')==='suspended') continue;
-
-            $u=$conn->prepare("UPDATE internet_accounts SET status='suspended'
-                               WHERE id=? AND tenant_id=? AND status NOT IN ('inactive','expired','suspended')");
-            if(!$u){$stats['failed']++;continue;}
-            $u->bind_param('ii',$accountId,$tenantId);
-            $changed=$u->execute() && $u->affected_rows>0;
-            $u->close();
-            if(!$changed) continue;
 
             if(!flexihubQueueServiceActivation($accountId,$tenantId,null,null,'suspend')){
                 $stats['failed']++;
@@ -709,7 +702,7 @@ if (!function_exists('flexihubProcessOverdueSuspensions')) {
                     'tenant_id'=>$tenantId,'account_id'=>$accountId,
                     'customer_id'=>$invoice['account_customer_id']??$invoice['customer_id']??null,
                     'event_type'=>'service_suspension_queue_failed',
-                    'old_status'=>'active','new_status'=>'suspended','source'=>'billing',
+                    'old_status'=>$invoice['account_status']??'active','new_status'=>'suspended','source'=>'billing',
                     'reference'=>'INV-'.$invoiceId,
                     'details'=>json_encode(['invoice_id'=>$invoiceId,'due_date'=>$due,'grace_ends'=>$graceEnds],JSON_UNESCAPED_SLASHES)
                 ]);
@@ -719,8 +712,8 @@ if (!function_exists('flexihubProcessOverdueSuspensions')) {
             flexihubWorkflowInsert('service_events',[
                 'tenant_id'=>$tenantId,'account_id'=>$accountId,
                 'customer_id'=>$invoice['account_customer_id']??$invoice['customer_id']??null,
-                'event_type'=>'service_suspended_overdue',
-                'old_status'=>'active','new_status'=>'suspended','source'=>'billing',
+                'event_type'=>'service_suspension_queued',
+                'old_status'=>$invoice['account_status']??'active','new_status'=>'suspended','source'=>'billing',
                 'reference'=>'INV-'.$invoiceId,
                 'details'=>json_encode([
                     'invoice_id'=>$invoiceId,'due_date'=>$due,
