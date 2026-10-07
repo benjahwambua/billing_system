@@ -28,6 +28,14 @@ if (!function_exists('flexihubCreatePlatformMpesaPayment')) {
 
         if($existing){
             $paymentId=(int)$existing['id'];
+            $stmt=$conn->prepare("SELECT id,status,expires_at FROM platform_payments WHERE id=? AND tenant_id=? FOR UPDATE");
+            if(!$stmt) throw new RuntimeException('Unable to lock platform M-Pesa payment.');
+            $stmt->bind_param('ii',$paymentId,$tenantId);
+            $stmt->execute();
+            $locked=$stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if(!$locked) throw new RuntimeException('Platform M-Pesa payment no longer exists.');
+            if($locked['status']==='completed') return $locked;
             dbExecute("UPDATE platform_payments SET status='pending',amount=?,payment_date=NOW(),failure_reason=NULL,merchant_request_id=NULL,checkout_request_id=NULL,result_code=NULL,result_description=NULL,request_payload=NULL,callback_payload=NULL,confirmed_at=NULL,expires_at=DATE_ADD(NOW(),INTERVAL 5 MINUTE) WHERE id=? AND tenant_id=?",'dii',$balance,$paymentId,$tenantId);
         } else {
             $paymentId=(int)dbExecute("INSERT INTO platform_payments (tenant_id,invoice_id,gateway_id,payment_date,amount,payment_method,provider,status,idempotency_key,expires_at) VALUES (?,?,?,NOW(),?,'M-Pesa','mpesa','pending',?,DATE_ADD(NOW(),INTERVAL 5 MINUTE))",'iiids',$tenantId,$invoiceId,(int)$gateway['id'],$balance,$idempotency);
