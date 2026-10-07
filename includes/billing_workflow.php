@@ -329,6 +329,99 @@ if (!function_exists('flexihubProcessServiceActivationQueue')) {
     }
 }
 
+
+if (!function_exists('flexihubProcessSubscriptionExpiry')) {
+    function flexihubProcessSubscriptionExpiry($tenantId, $limit=100)
+    {
+        global $conn;
+        $tenantId=(int)$tenantId;
+        $limit=max(1,min(500,(int)$limit));
+        $stats=['processed'=>0,'expired'=>0,'failed'=>0];
+        if(!$tenantId || !flexihubTableColumns('service_subscriptions')) return $stats;
+
+        $cols=flexihubTableColumns('service_subscriptions');
+        if(!in_array('end_date',$cols,true) || !in_array('status',$cols,true) || !in_array('account_id',$cols,true)) return $stats;
+
+        $stmt=$conn->prepare("SELECT * FROM service_subscriptions WHERE tenant_id=? AND status='active' AND end_date IS NOT NULL AND end_date < CURDATE() ORDER BY end_date ASC,id ASC LIMIT {$limit}");
+        if(!$stmt) return $stats;
+        $stmt->bind_param('i',$tenantId);
+        $stmt->execute();
+        $res=$stmt->get_result();
+        $items=[];
+        while($row=$res->fetch_assoc()) $items[]=$row;
+        $stmt->close();
+
+        foreach($items as $subscription){
+            $stats['processed']++;
+            $subscriptionId=(int)($subscription['id']??0);
+            $accountId=(int)($subscription['account_id']??0);
+            if(!$subscriptionId || !$accountId){$stats['failed']++;continue;}
+
+            // Expire only the subscription that has actually reached its end date.
+            $upd=$conn->prepare("UPDATE service_subscriptions SET status='expired' WHERE id=? AND tenant_id=? AND status='active' AND end_date < CURDATE()");
+            if(!$upd){$stats['failed']++;continue;}
+            $upd->bind_param('ii',$subscriptionId,$tenantId);
+            $changed=$upd->execute() && $upd->affected_rows>0;
+            $upd->close();
+            if(!$changed) continue;
+
+            // A newer active subscription protects the account from being expired.
+            $active=false;
+            $check=$conn->prepare("SELECT id FROM service_subscriptions WHERE tenant_id=? AND account_id=? AND status='active' AND (end_date IS NULL OR end_date >= CURDATE()) ORDER BY end_date DESC,id DESC LIMIT 1");
+            if($check){
+                $check->bind_param('ii',$tenantId,$accountId);
+                $check->execute();
+                $active=(bool)$check->get_result()->fetch_assoc();
+                $check->close();
+            }
+
+            if(!$active){
+                $accountCols=flexihubTableColumns('internet_accounts');
+                if(in_array('status',$accountCols,true)){
+                    $a=$conn->prepare("UPDATE internet_accounts SET status='expired' WHERE id=? AND tenant_id=? AND status NOT IN ('suspended','expired')");
+                    if($a){
+                        $a->bind_param('ii',$accountId,$tenantId);
+                        $a->execute();
+                        $a->close();
+                    }
+                }
+
+                if(!flexihubQueueServiceActivation($accountId,$tenantId,null,$subscriptionId,'expire')){
+                    // The subscription is still correctly expired; report the queue failure
+                    // so the maintenance screen/monitoring can surface the network action.
+                    $stats['failed']++;
+                    flexihubWorkflowInsert('service_events',[
+                        'tenant_id'=>$tenantId,'account_id'=>$accountId,'customer_id'=>$subscription['customer_id']??null,
+                        'subscription_id'=>$subscriptionId,'event_type'=>'service_expiry_queue_failed',
+                        'old_status'=>'active','new_status'=>'expired','source'=>'system',
+                        'reference'=>'SUB-'.$subscriptionId,
+                        'details'=>json_encode(['reason'=>'Unable to queue network expiry'],JSON_UNESCAPED_SLASHES)
+                    ]);
+                    continue;
+                }
+
+                flexihubWorkflowInsert('service_events',[
+                    'tenant_id'=>$tenantId,'account_id'=>$accountId,'customer_id'=>$subscription['customer_id']??null,
+                    'subscription_id'=>$subscriptionId,'event_type'=>'subscription_expired',
+                    'old_status'=>'active','new_status'=>'expired','source'=>'system',
+                    'reference'=>'SUB-'.$subscriptionId,
+                    'details'=>json_encode(['end_date'=>$subscription['end_date']??null],JSON_UNESCAPED_SLASHES)
+                ]);
+            }else{
+                flexihubWorkflowInsert('service_events',[
+                    'tenant_id'=>$tenantId,'account_id'=>$accountId,'customer_id'=>$subscription['customer_id']??null,
+                    'subscription_id'=>$subscriptionId,'event_type'=>'subscription_expired',
+                    'old_status'=>'active','new_status'=>'expired','source'=>'system',
+                    'reference'=>'SUB-'.$subscriptionId,
+                    'details'=>json_encode(['end_date'=>$subscription['end_date']??null,'account_protected'=>true],JSON_UNESCAPED_SLASHES)
+                ]);
+            }
+            $stats['expired']++;
+        }
+        return $stats;
+    }
+}
+
 if (!function_exists('flexihubRenewInternetAccount')) {
     function flexihubRenewInternetAccount($accountId, $tenantId)
     {
