@@ -3226,3 +3226,133 @@ if (!function_exists('updateUserActivity')) {
         return $success;
     }
 }
+
+
+if (!function_exists('flexihubPostWalletTransaction')) {
+    /**
+     * Post one atomic tenant-wallet ledger entry.
+     * Positive amounts are stored in amount; direction controls the balance effect.
+     * Idempotency prevents duplicate gateway callbacks/top-ups.
+     */
+    function flexihubPostWalletTransaction(
+        $tenantId,
+        $amount,
+        $direction,
+        $transactionType = 'adjustment',
+        $source = null,
+        $paymentMethod = null,
+        $externalReference = null,
+        $gatewayTransactionId = null,
+        $idempotencyKey = null,
+        $description = null,
+        $reference = null,
+        $userId = null
+    ) {
+        global $conn;
+
+        $tenantId = (int)$tenantId;
+        $amount = round((float)$amount, 2);
+        $direction = strtolower(trim((string)$direction));
+
+        if ($tenantId <= 0 || $amount <= 0 || !in_array($direction, ['credit','debit'], true)) {
+            return false;
+        }
+
+        $conn->begin_transaction();
+
+        try {
+            if ($idempotencyKey !== null && $idempotencyKey !== '') {
+                $check = $conn->prepare("SELECT id FROM wallet_transactions WHERE tenant_id=? AND idempotency_key=? LIMIT 1");
+                if (!$check) throw new RuntimeException('Unable to check wallet idempotency.');
+                $check->bind_param('is', $tenantId, $idempotencyKey);
+                if (!$check->execute()) throw new RuntimeException('Unable to check wallet idempotency.');
+                $existing = $check->get_result()->fetch_assoc();
+                $check->close();
+
+                if ($existing) {
+                    $conn->rollback();
+                    return (int)$existing['id'];
+                }
+            }
+
+            $wallet = null;
+            $stmt = $conn->prepare("SELECT id,balance,currency FROM tenant_wallets WHERE tenant_id=? LIMIT 1 FOR UPDATE");
+            if (!$stmt) throw new RuntimeException('Unable to lock tenant wallet.');
+            $stmt->bind_param('i', $tenantId);
+            if (!$stmt->execute()) throw new RuntimeException('Unable to lock tenant wallet.');
+            $wallet = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+
+            if (!$wallet) {
+                $currency = getSetting('currency', 'KES');
+                $stmt = $conn->prepare("INSERT INTO tenant_wallets (tenant_id,balance,currency) VALUES (?,0,?)");
+                if (!$stmt) throw new RuntimeException('Unable to create tenant wallet.');
+                $stmt->bind_param('is', $tenantId, $currency);
+                if (!$stmt->execute()) throw new RuntimeException('Unable to create tenant wallet.');
+                $stmt->close();
+                $balanceBefore = 0.0;
+            } else {
+                $balanceBefore = (float)$wallet['balance'];
+            }
+
+            $balanceAfter = $direction === 'credit'
+                ? round($balanceBefore + $amount, 2)
+                : round($balanceBefore - $amount, 2);
+
+            if ($balanceAfter < 0) {
+                throw new RuntimeException('Insufficient tenant wallet balance.');
+            }
+
+            $stmt = $conn->prepare("
+                INSERT INTO wallet_transactions
+                (tenant_id,transaction_type,direction,amount,balance_before,balance_after,reference,description,source,payment_method,external_reference,gateway_transaction_id,idempotency_key,user_id)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ");
+            if (!$stmt) throw new RuntimeException('Unable to create wallet transaction.');
+
+            $transactionType = (string)$transactionType;
+            $source = $source !== null ? (string)$source : null;
+            $paymentMethod = $paymentMethod !== null ? (string)$paymentMethod : null;
+            $externalReference = $externalReference !== null ? (string)$externalReference : null;
+            $gatewayTransactionId = $gatewayTransactionId !== null ? (string)$gatewayTransactionId : null;
+            $idempotencyKey = $idempotencyKey !== null ? (string)$idempotencyKey : null;
+            $description = $description !== null ? (string)$description : null;
+            $reference = $reference !== null ? (string)$reference : null;
+            $userId = $userId ? (int)$userId : null;
+
+            $stmt->bind_param(
+                'issddssssssssi',
+                $tenantId,
+                $transactionType,
+                $direction,
+                $amount,
+                $balanceBefore,
+                $balanceAfter,
+                $reference,
+                $description,
+                $source,
+                $paymentMethod,
+                $externalReference,
+                $gatewayTransactionId,
+                $idempotencyKey,
+                $userId
+            );
+
+            if (!$stmt->execute()) throw new RuntimeException('Unable to create wallet transaction.');
+            $transactionId = (int)$conn->insert_id;
+            $stmt->close();
+
+            $stmt = $conn->prepare("UPDATE tenant_wallets SET balance=? WHERE tenant_id=?");
+            if (!$stmt) throw new RuntimeException('Unable to update tenant wallet.');
+            $stmt->bind_param('di', $balanceAfter, $tenantId);
+            if (!$stmt->execute()) throw new RuntimeException('Unable to update tenant wallet.');
+            $stmt->close();
+
+            $conn->commit();
+            return $transactionId;
+        } catch (Throwable $e) {
+            $conn->rollback();
+            return false;
+        }
+    }
+}
