@@ -27,8 +27,12 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
                 $periodEnd=$trial>0?null:(new DateTime($start))->modify($plan['billing_cycle']==='yearly'?'+1 year':($plan['billing_cycle']==='quarterly'?'+3 months':'+1 month'))->format('Y-m-d');
 
                 if($existing){
-                    dbExecute("UPDATE tenant_platform_subscriptions SET plan_id=?,status=?,started_at=?,trial_ends_at=?,current_period_start=?,current_period_end=?,grace_ends_at=NULL,cancelled_at=NULL,cancellation_reason=NULL,updated_at=? WHERE id=?",'issssssi',$planId,$status,$now,$trialEnds,$periodStart,$periodEnd,$now,(int)$existing['id']);
-                    setFlash('success','SaaS plan assignment updated and the new billing lifecycle initialized.');
+                    if((int)$existing['plan_id']===$planId){
+                        setFlash('success','This SaaS plan is already assigned. Existing billing lifecycle preserved.');
+                    } else {
+                        dbExecute("UPDATE tenant_platform_subscriptions SET plan_id=?,updated_at=? WHERE id=?",'isi',$planId,$now,(int)$existing['id']);
+                        setFlash('success','SaaS plan changed. Existing billing lifecycle preserved.');
+                    }
                 } else {
                     dbExecute("INSERT INTO tenant_platform_subscriptions (tenant_id,plan_id,status,started_at,trial_ends_at,current_period_start,current_period_end,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",'iisssssss',$tenantId,$planId,$status,$now,$trialEnds,$periodStart,$periodEnd,$now,$now);
                     setFlash('success','SaaS plan assigned and subscription created.');
