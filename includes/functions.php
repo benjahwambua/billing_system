@@ -1021,7 +1021,7 @@ if (!function_exists('isCurrentTenantActive')) {
 
         return in_array(
             strtolower($tenant['status'] ?? ''),
-            ['active', 'trial'],
+            ['active', 'trial', 'past_due'],
             true
         );
     }
