@@ -38,4 +38,30 @@ function flexihubAuthorizeHotspot($tenantId,$packageId,$username,$password,$macA
  flexihubWorkflowInsert('router_sync_logs',['tenant_id'=>$tenantId,'router_id'=>$routerId,'service_type'=>'hotspot','external_username'=>$username,'action'=>'authorize','status'=>'success','message'=>'Hotspot user authorized on MikroTik.']);
  return ['session_id'=>$insert,'session_identifier'=>$sid,'expires_at'=>$expires,'router_id'=>$routerId];
 }}
+if(!function_exists('flexihubProcessHotspotExpiry')) {
+function flexihubProcessHotspotExpiry($tenantId,$limit=50) {
+ global $conn;
+ $tenantId=(int)$tenantId;$limit=max(1,min(200,(int)$limit));
+ $rows=[];$q=$conn->prepare("SELECT hs.*,hp.router_id FROM hotspot_sessions hs JOIN hotspot_packages hp ON hp.id=hs.package_id AND hp.tenant_id=hs.tenant_id WHERE hs.tenant_id=? AND hs.status IN ('authorized','active') AND hs.expires_at IS NOT NULL AND hs.expires_at<=NOW() ORDER BY hs.id ASC LIMIT ".$limit);
+ if(!$q)return ['processed'=>0,'expired'=>0,'failed'=>0];
+ $q->bind_param('i',$tenantId);$q->execute();$rs=$q->get_result();while($r=$rs->fetch_assoc())$rows[]=$r;$q->close();
+ $processed=0;$expired=0;$failed=0;
+ foreach($rows as $row){
+  $processed++;$sessionId=(int)$row['id'];$routerId=(int)$row['router_id'];$username=trim((string)($row['username']??''));
+  try{
+   $router=flexihubHotspotRouter($tenantId,$routerId);
+   if(!$router||$router['host']===''||$router['username']==='')throw new Exception('Hotspot router connection details are incomplete.');
+   $ros=new FlexihubRouterOS($router['host'],$router['username'],$router['password'],$router['port'],8);
+   try { if($username!==''){$ros->disconnectHotspotActive($username);$ros->setHotspotUserDisabled($username,true);} } finally {$ros->close();}
+   $u=$conn->prepare("UPDATE hotspot_sessions SET status='expired',ended_at=NOW(),disconnect_reason='package_expired' WHERE id=? AND tenant_id=? AND status IN ('authorized','active')");if($u){$u->bind_param('ii',$sessionId,$tenantId);$u->execute();$u->close();}
+   flexihubWorkflowInsert('router_sync_logs',['tenant_id'=>$tenantId,'router_id'=>$routerId,'service_type'=>'hotspot','external_username'=>$username,'action'=>'expire','status'=>'success','message'=>'Hotspot access expired and router session disconnected.']);
+   $expired++;
+  }catch(Throwable $e){
+   $failed++;
+   flexihubWorkflowInsert('router_sync_logs',['tenant_id'=>$tenantId,'router_id'=>$routerId,'service_type'=>'hotspot','external_username'=>$username,'action'=>'expire','status'=>'failed','message'=>substr($e->getMessage(),0,500)]);
+  }
+ }
+ return ['processed'=>$processed,'expired'=>$expired,'failed'=>$failed];
+}}
+
 ?>
