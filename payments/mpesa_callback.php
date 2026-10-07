@@ -52,11 +52,20 @@ try{
  if(($tx['status']??'')==='completed'){$conn->commit();$stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback already processed']);exit;}
  $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='confirmed',provider_receipt=?,provider_transaction_id=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW() WHERE id=? AND tenant_id=?");$stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);$stmt->execute();$stmt->close();
  if (($tx['flow']??'')==='platform') {
-  $invoice=dbFetchOne("SELECT * FROM platform_invoices WHERE tenant_id=? AND invoice_number=? FOR UPDATE",'is',$tenantId,$tx['account_reference']);
+  $platformInvoiceId=(int)($tx['platform_invoice_id']??0);$invoice=$platformInvoiceId>0?dbFetchOne("SELECT * FROM platform_invoices WHERE id=? AND tenant_id=? FOR UPDATE",'ii',$platformInvoiceId,$tenantId):dbFetchOne("SELECT * FROM platform_invoices WHERE tenant_id=? AND invoice_number=? FOR UPDATE",'is',$tenantId,$tx['account_reference']);
   if(!$invoice) throw new RuntimeException('Flexihub SaaS invoice is not linked to this payment.');
   $balance=max(0,(float)$invoice['total_amount']-(float)$invoice['paid_amount']);
   if($balance<=0.0001) throw new RuntimeException('Flexihub SaaS invoice is already paid.');
   if((float)$tx['amount']>$balance+0.01) throw new RuntimeException('SaaS payment exceeds the invoice balance.');
+  $existingPlatformPayment=dbFetchOne("SELECT * FROM platform_payments WHERE tenant_id=? AND invoice_id=? AND provider='mpesa' AND external_transaction_id=? LIMIT 1",'iis',$tenantId,(int)$invoice['id'],$receipt);
+  if($existingPlatformPayment){
+   $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='completed',provider_receipt=?,provider_transaction_id=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW() WHERE id=? AND tenant_id=?");
+   if($stmt){$stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);$stmt->execute();$stmt->close();}
+   $conn->commit();
+   $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");
+   if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}
+   echo json_encode(['ResultCode'=>0,'ResultDesc'=>'SaaS payment already processed']);exit;
+  }
   $stmt=$conn->prepare("INSERT INTO platform_payments (tenant_id,invoice_id,amount,payment_method,reference,provider,external_transaction_id,status) VALUES (?,? ,?,'mpesa',?,'mpesa',?,'completed')");
   if(!$stmt) throw new RuntimeException('Unable to record SaaS payment.');
   $invoiceId=(int)$invoice['id'];$amount=(float)$tx['amount'];$stmt->bind_param('iidss',$tenantId,$invoiceId,$amount,$receipt,$receipt);
