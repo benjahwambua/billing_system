@@ -28,6 +28,10 @@ $started = microtime(true);
 $totals = [
     'tenants' => 0,
     'account_expired' => 0,
+    'invoices_processed' => 0,
+    'invoices_generated' => 0,
+    'invoices_skipped' => 0,
+    'invoice_generation_failed' => 0,
     'subscription_expired' => 0,
     'activation_processed' => 0,
     'activation_completed' => 0,
@@ -53,6 +57,7 @@ try {
     foreach ($tenants as $tenantId) {
         $totals['tenants']++;
 
+        $billing = flexihubGenerateRecurringInvoices($tenantId, 200);
         $accountExpiry = flexihubProcessAccountExpiry($tenantId, 200);
         $subscriptionExpiry = flexihubProcessSubscriptionExpiry($tenantId, 200);
 
@@ -62,6 +67,10 @@ try {
         $hotspotFinalization = flexihubProcessHotspotFinalizationQueue($tenantId, 50);
         $hotspotExpiry = flexihubProcessHotspotExpiry($tenantId, 200);
 
+        $totals['invoices_processed'] += (int)$billing['processed'];
+        $totals['invoices_generated'] += (int)$billing['generated'];
+        $totals['invoices_skipped'] += (int)$billing['skipped'];
+        $totals['invoice_generation_failed'] += (int)$billing['failed'];
         $totals['account_expired'] += (int)$accountExpiry['expired'];
         $totals['subscription_expired'] += (int)$subscriptionExpiry['expired'];
         $totals['activation_processed'] += (int)$activation['processed'];
