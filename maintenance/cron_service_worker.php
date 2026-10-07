@@ -50,6 +50,7 @@ $totals = [
     'platform_invoices_generated' => 0,
     'platform_past_due' => 0,
     'platform_suspended' => 0,
+    'platform_expired_payments' => 0,
     'platform_errors' => 0,
 ];
 
@@ -70,6 +71,7 @@ try {
         $totals['platform_invoices_generated'] = (int)($platform['created'] ?? 0);
         $totals['platform_past_due'] = (int)($platform['past_due'] ?? 0);
         $totals['platform_suspended'] = (int)($platform['suspended'] ?? 0);
+        $totals['platform_expired_payments'] = (int)($platform['expired_payments'] ?? 0);
         $totals['platform_errors'] = (int)($platform['errors'] ?? 0);
     }
 
@@ -82,8 +84,6 @@ try {
             $billing = flexihubGenerateRecurringInvoices($tenantId, 200);
             $overdue = flexihubProcessOverdueSuspensions($tenantId, 200);
 
-            // Queue overdue notices separately from billing state changes so an
-            // unavailable SMS provider cannot block financial enforcement.
             $nq = $conn->prepare("SELECT i.id,i.account_id,i.customer_id,i.invoice_number,i.due_date,
                                         COALESCE(i.total_amount,i.total,i.amount,0) total,
                                         COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id=i.id AND p.tenant_id=i.tenant_id),0) paid,
@@ -126,9 +126,6 @@ try {
 
             $accountExpiry = flexihubProcessAccountExpiry($tenantId, 200);
             $subscriptionExpiry = flexihubProcessSubscriptionExpiry($tenantId, 200);
-
-            // Expiry queues are created first, then processed in the same run so
-            // expired customers are disconnected without waiting for another cycle.
             $activation = flexihubProcessServiceActivationQueue($tenantId, 100);
             $hotspotFinalization = flexihubProcessHotspotFinalizationQueue($tenantId, 50);
             $hotspotExpiry = flexihubProcessHotspotExpiry($tenantId, 200);
@@ -153,8 +150,6 @@ try {
         } catch (Throwable $tenantError) {
             $totals['tenant_failures']++;
             fwrite(STDERR, "Tenant {$tenantId} failed: " . substr($tenantError->getMessage(), 0, 500) . "\n");
-            // Continue with the next tenant. A single tenant's bad data or
-            // unavailable router must not stall the entire SaaS platform.
         }
     }
 
@@ -162,8 +157,6 @@ try {
     echo "Flexihub service worker completed in {$duration}s\n";
     echo json_encode($totals, JSON_UNESCAPED_SLASHES) . "\n";
 
-    // A successful worker run can still contain isolated tenant failures.
-    // Return non-zero so cron/monitoring can alert the operator.
     if ($totals['tenant_failures'] > 0 || $totals['activation_failed'] > 0 || $totals['hotspot_finalization_failed'] > 0 || $totals['hotspot_expiry_failed'] > 0 || $totals['platform_errors'] > 0) {
         exit(2);
     }
