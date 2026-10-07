@@ -76,6 +76,48 @@ function flexihubRenewHotspotAuthorization($tenantId,$packageId,$username,$passw
  return ['session_id'=>$insert,'session_identifier'=>$sid,'expires_at'=>$expires,'router_id'=>$routerId];
 }}
 
+
+if(!function_exists('flexihubQueueHotspotFinalization')) {
+function flexihubQueueHotspotFinalization($tenantId,$saleId,$gatewayTransactionId=0) {
+ global $conn;
+ $q=$conn->prepare("INSERT INTO hotspot_finalization_queue (tenant_id,sale_id,gateway_transaction_id,status,attempts,available_at) VALUES (?,?,?,'pending',0,NOW()) ON DUPLICATE KEY UPDATE gateway_transaction_id=VALUES(gateway_transaction_id),status=IF(status='completed','completed','pending'),available_at=NOW(),last_error=NULL");
+ if(!$q)return false;$q->bind_param('iii',$tenantId,$saleId,$gatewayTransactionId);$ok=$q->execute();$q->close();return $ok;
+}}
+if(!function_exists('flexihubProcessHotspotFinalizationQueue')) {
+function flexihubProcessHotspotFinalizationQueue($tenantId,$limit=25) {
+ global $conn;
+ $rows=[];$limit=max(1,min(100,(int)$limit));
+ $q=$conn->prepare("SELECT * FROM hotspot_finalization_queue WHERE tenant_id=? AND status='pending' AND available_at<=NOW() AND attempts<8 ORDER BY id ASC LIMIT ".$limit);
+ if(!$q)return ['processed'=>0,'completed'=>0,'failed'=>0];
+ $q->bind_param('i',$tenantId);$q->execute();$rs=$q->get_result();while($r=$rs->fetch_assoc())$rows[]=$r;$q->close();
+ $processed=0;$completed=0;$failed=0;
+ foreach($rows as $job){
+  $processed++;$id=(int)$job['id'];$saleId=(int)$job['sale_id'];
+  $claim=$conn->prepare("UPDATE hotspot_finalization_queue SET status='processing',attempts=attempts+1 WHERE id=? AND tenant_id=? AND status='pending'");if($claim){$claim->bind_param('ii',$id,$tenantId);$claim->execute();$claim->close();}
+  try {
+   $q=$conn->prepare("SELECT * FROM hotspot_sales WHERE id=? AND tenant_id=? LIMIT 1");if(!$q)throw new Exception('Unable to load hotspot sale.');
+   $q->bind_param('ii',$saleId,$tenantId);$q->execute();$sale=$q->get_result()->fetch_assoc();$q->close();if(!$sale)throw new Exception('Hotspot sale not found.');
+   if(in_array($sale['status'],['access_active','completed','renewed'],true)){
+    $u=$conn->prepare("UPDATE hotspot_finalization_queue SET status='completed',processed_at=NOW(),last_error=NULL WHERE id=? AND tenant_id=?");if($u){$u->bind_param('ii',$id,$tenantId);$u->execute();$u->close();}$completed++;continue;
+   }
+   $phone=(string)($sale['phone_number']??'');$mac=trim((string)($sale['device_mac']??''));
+   $sql="SELECT hs.*,hss.id AS previous_session_id,hss.expires_at AS previous_expires_at FROM hotspot_sales hs LEFT JOIN hotspot_sessions hss ON hss.id=(SELECT x.id FROM hotspot_sessions x WHERE x.tenant_id=hs.tenant_id AND x.username=hs.hotspot_username AND x.status IN ('authorized','active') ORDER BY x.id DESC LIMIT 1) WHERE hs.tenant_id=? AND hs.id<>? AND hs.status='access_active' AND hs.hotspot_username IS NOT NULL AND hs.hotspot_username<>'' AND hs.expires_at>NOW() AND ((?<>'' AND hs.device_mac=?) OR (?<>'' AND hs.phone_number=?)) ORDER BY hs.id DESC LIMIT 1";
+   $q=$conn->prepare($sql);if(!$q)throw new Exception('Unable to inspect previous hotspot access.');$q->bind_param('iissss',$tenantId,$saleId,$mac,$mac,$phone,$phone);$q->execute();$previous=$q->get_result()->fetch_assoc();$q->close();
+   $username=$previous?(string)$previous['hotspot_username']:'HS'.strtoupper(substr(hash('sha256',$tenantId.':'.$saleId),0,10));$password=substr(strtoupper(bin2hex(random_bytes(6))),0,12);
+   if($previous){$auth=flexihubRenewHotspotAuthorization($tenantId,(int)$sale['package_id'],$username,$password,$mac,(int)($previous['previous_session_id']??0),$previous['previous_expires_at']??$previous['expires_at']);}
+   else{$auth=flexihubAuthorizeHotspot($tenantId,(int)$sale['package_id'],$username,$password,$mac);}
+   $enc=flexihubGatewayEncrypt($password);$prevId=$previous?(int)$previous['id']:0;
+   $u=$conn->prepare("UPDATE hotspot_sales SET status='access_active',hotspot_username=?,hotspot_password_encrypted=?,started_at=NOW(),expires_at=?,renewed_from_sale_id=? WHERE id=? AND tenant_id=?");if(!$u)throw new Exception('Unable to update hotspot sale.');$u->bind_param('sssiii',$username,$enc,$auth['expires_at'],$prevId,$saleId,$tenantId);$u->execute();$u->close();
+   if($previous){$oldId=(int)$previous['id'];$u=$conn->prepare("UPDATE hotspot_sales SET status='renewed' WHERE id=? AND tenant_id=? AND status='access_active'");if($u){$u->bind_param('ii',$oldId,$tenantId);$u->execute();$u->close();}}
+   $u=$conn->prepare("UPDATE hotspot_finalization_queue SET status='completed',processed_at=NOW(),last_error=NULL WHERE id=? AND tenant_id=?");if($u){$u->bind_param('ii',$id,$tenantId);$u->execute();$u->close();}$completed++;
+  } catch(Throwable $e) {
+   $failed++;$err=substr($e->getMessage(),0,1000);$attempt=(int)$job['attempts'];$status=$attempt>=8?'failed':'pending';$delay=min(3600,max(60,$attempt*120));
+   $u=$conn->prepare("UPDATE hotspot_finalization_queue SET status=?,available_at=DATE_ADD(NOW(),INTERVAL ? SECOND),last_error=? WHERE id=? AND tenant_id=?");if($u){$u->bind_param('sisii',$status,$delay,$err,$id,$tenantId);$u->execute();$u->close();}
+  }
+ }
+ return ['processed'=>$processed,'completed'=>$completed,'failed'=>$failed];
+}}
+
 if(!function_exists('flexihubProcessHotspotExpiry')) {
 function flexihubProcessHotspotExpiry($tenantId,$limit=50) {
  global $conn;
