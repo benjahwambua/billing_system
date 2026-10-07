@@ -229,17 +229,23 @@ if (!function_exists('flexihubProcessServiceActivationQueue')) {
                 if(!$account)throw new Exception('Internet account not found.');
                 $action=(string)($item['action']??'activate');
                 $newStatus=$action==='suspend'?'suspended':($action==='expire'?'expired':'active');
+                // Never advertise an activation as active before the network authorization succeeds.
+                // For suspend/expire the requested state can be persisted immediately; activation
+                // remains pending until RouterOS synchronization completes.
+                $dbStatus=$action==='activate'?'pending_activation':$newStatus;
                 $u=$conn->prepare("UPDATE internet_accounts SET status=? WHERE id=? AND tenant_id=?");
                 if(!$u)throw new Exception('Unable to update internet account.');
-                $u->bind_param('sii',$newStatus,$accountId,$tenantId);$ok=$u->execute();$u->close();
-                if(!$ok)throw new Exception('Internet account activation failed.');
+                $u->bind_param('sii',$dbStatus,$accountId,$tenantId);$ok=$u->execute();$u->close();
+                if(!$ok)throw new Exception('Unable to update internet account status.');
                 if($conn->query("SHOW TABLES LIKE 'pppoe_accounts'")->num_rows){
                     $p=$conn->prepare("SELECT pa.*, ps.router_id FROM pppoe_accounts pa LEFT JOIN pppoe_servers ps ON ps.id=pa.pppoe_server_id AND ps.tenant_id=pa.tenant_id WHERE pa.internet_account_id=? AND pa.tenant_id=? LIMIT 1");
                     $pppoe=null;
                     if($p){$p->bind_param('ii',$accountId,$tenantId);$p->execute();$pppoe=$p->get_result()->fetch_assoc();$p->close();}
                     if($pppoe){
+                        // Keep PPPoE state pending during activation until RouterOS confirms it.
+                        $pppoeDbStatus=$action==='activate'?'pending_activation':$newStatus;
                         $psql=$conn->prepare("UPDATE pppoe_accounts SET status=? WHERE id=? AND tenant_id=?");
-                        if($psql){$psql->bind_param('sii',$newStatus,$pppoe['id'],$tenantId);$psql->execute();$psql->close();}
+                        if($psql){$psql->bind_param('sii',$pppoeDbStatus,$pppoe['id'],$tenantId);$psql->execute();$psql->close();}
                         $routerId=(int)($pppoe['router_id']??0); $username=trim((string)($pppoe['username']??''));
                         if($routerId && $username && $conn->query("SHOW TABLES LIKE 'router_service_authorizations'")->num_rows){
                             $router=null;
@@ -273,12 +279,34 @@ if (!function_exists('flexihubProcessServiceActivationQueue')) {
                                 'external_username'=>$username,'action'=>$action,'status'=>'success',
                                 'message'=>'RouterOS PPPoE authorization synchronized.'
                             ]);
+                            if($action==='activate'){
+                                $activate=$conn->prepare("UPDATE internet_accounts SET status='active' WHERE id=? AND tenant_id=?");
+                                if(!$activate) throw new Exception('Unable to finalize internet account activation.');
+                                $activate->bind_param('ii',$accountId,$tenantId);
+                                if(!$activate->execute()) throw new Exception('Unable to finalize internet account activation.');
+                                $activate->close();
+                                $pppoeActivate=$conn->prepare("UPDATE pppoe_accounts SET status='active' WHERE id=? AND tenant_id=?");
+                                if(!$pppoeActivate) throw new Exception('Unable to finalize PPPoE activation.');
+                                $pppoeActivate->bind_param('ii',$pppoe['id'],$tenantId);
+                                if(!$pppoeActivate->execute()) throw new Exception('Unable to finalize PPPoE activation.');
+                                $pppoeActivate->close();
+                            }
                         } elseif($routerId || $username) {
                             throw new Exception('PPPoE account is missing its router assignment or username.');
                         }
                     }
                 }
                 if($ok&&$action==='activate'){
+                    // Non-PPPoE accounts have no RouterOS authorization step. Finalize them here.
+                    if($action==='activate'){
+                        $checkP=$conn->prepare("SELECT id FROM pppoe_accounts WHERE internet_account_id=? AND tenant_id=? LIMIT 1");
+                        $hasP=false;
+                        if($checkP){$checkP->bind_param('ii',$accountId,$tenantId);$checkP->execute();$hasP=(bool)$checkP->get_result()->fetch_assoc();$checkP->close();}
+                        if(!$hasP){
+                            $activate=$conn->prepare("UPDATE internet_accounts SET status='active' WHERE id=? AND tenant_id=?");
+                            if($activate){$activate->bind_param('ii',$accountId,$tenantId);$ok=$activate->execute();$activate->close();}
+                        }
+                    }
                     flexihubWorkflowInsert('service_events',[
                         'tenant_id'=>$tenantId,'account_id'=>$accountId,'subscription_id'=>$item['subscription_id']??null,
                         'event_type'=>'service_activated','old_status'=>$account['status']??null,'new_status'=>'active',
