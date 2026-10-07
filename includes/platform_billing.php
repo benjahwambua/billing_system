@@ -137,15 +137,19 @@ if (!function_exists('flexihubRecordPlatformPayment')) {
 if (!function_exists('flexihubProcessPlatformBilling')) {
     function flexihubProcessPlatformBilling() {
         global $conn;
-        if (!flexihubPlatformBillingEnabled()) return ['enabled'=>false,'created'=>0,'past_due'=>0,'suspended'=>0,'errors'=>0];
+        if (!flexihubPlatformBillingEnabled()) return ['enabled'=>false,'created'=>0,'past_due'=>0,'suspended'=>0,'unassigned'=>0,'errors'=>0];
 
-        $created=0;$pastDue=0;$suspended=0;$errors=0;
+        $created=0;$pastDue=0;$suspended=0;$unassigned=0;$errors=0;
         $tenants=dbFetchAll("SELECT id FROM tenants WHERE LOWER(COALESCE(status,'')) NOT IN ('deleted','archived')");
         foreach($tenants as $tenant){
             $tenantId=(int)$tenant['id'];
             try {
                 $subId=flexihubEnsurePlatformSubscription($tenantId);
-                if(!$subId){$errors++;continue;}
+                if(!$subId){
+                    $hasSub=dbFetchOne("SELECT id FROM tenant_platform_subscriptions WHERE tenant_id=? LIMIT 1",'i',$tenantId);
+                    if(!$hasSub){$unassigned++;continue;}
+                    $errors++;continue;
+                }
                 $sub=dbFetchOne("SELECT s.*,p.grace_days FROM tenant_platform_subscriptions s JOIN platform_plans p ON p.id=s.plan_id WHERE s.id=? LIMIT 1",'i',$subId);
                 if(!$sub) {$errors++;continue;}
 
@@ -181,6 +185,6 @@ if (!function_exists('flexihubProcessPlatformBilling')) {
                 }
             } catch(Throwable $e) {$errors++;}
         }
-        return ['enabled'=>true,'created'=>$created,'past_due'=>$pastDue,'suspended'=>$suspended,'errors'=>$errors];
+        return ['enabled'=>true,'created'=>$created,'past_due'=>$pastDue,'suspended'=>$suspended,'unassigned'=>$unassigned,'errors'=>$errors];
     }
 }
