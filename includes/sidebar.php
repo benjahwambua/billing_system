@@ -97,7 +97,7 @@ if (!function_exists('sidebarCanHref')) {
             'reports'=>'reports','communication'=>'communication','ai'=>'ai','staffs'=>'staff',
             'users'=>'staff','roles'=>'staff','sessions'=>'staff','settings'=>'settings',
             'operations'=>'operations','wallet'=>'wallet','platform'=>'platform','tenants'=>'platform',
-            'platform_plans'=>'platform','platform_wallets'=>'platform','platform_transactions'=>'platform',
+            'platform_plans'=>'platform','platform_subscriptions'=>'platform','platform_wallets'=>'platform','platform_transactions'=>'platform',
             'platform_revenue'=>'platform','platform_users'=>'platform','support'=>'platform',
             'system_events'=>'platform','audit_logs'=>'platform','platform_settings'=>'platform'
         ];
@@ -227,8 +227,8 @@ ob_start();
                 </a>
 
                 <a
-                    href="../subscriptions/index.php"
-                    class="sidebar-menu-link <?= sidebarActive('/subscriptions/') ?>"
+                    href="../platform_subscriptions/index.php"
+                    class="sidebar-menu-link <?= sidebarActive('/platform_subscriptions/') ?>"
                 >
                     <span class="sidebar-menu-icon">◆</span>
                     <span class="sidebar-menu-text">Tenant Subscriptions</span>
