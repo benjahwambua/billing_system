@@ -18,6 +18,7 @@ if (PHP_SAPI !== 'cli') {
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/billing_workflow.php';
 require_once __DIR__ . '/../includes/hotspot_workflow.php';
+require_once __DIR__ . '/../includes/platform_billing.php';
 
 $lockPath = __DIR__ . '/service_worker.lock';
 $lock = fopen($lockPath, 'c');
@@ -46,6 +47,10 @@ $totals = [
     'hotspot_finalization_failed' => 0,
     'hotspot_expired' => 0,
     'hotspot_expiry_failed' => 0,
+    'platform_invoices_generated' => 0,
+    'platform_past_due' => 0,
+    'platform_suspended' => 0,
+    'platform_errors' => 0,
 ];
 
 try {
@@ -59,6 +64,14 @@ try {
         $tenants[] = (int)$row['id'];
     }
     $q->free();
+
+    $platform = flexihubProcessPlatformBilling();
+    if (!empty($platform['enabled'])) {
+        $totals['platform_invoices_generated'] = (int)($platform['created'] ?? 0);
+        $totals['platform_past_due'] = (int)($platform['past_due'] ?? 0);
+        $totals['platform_suspended'] = (int)($platform['suspended'] ?? 0);
+        $totals['platform_errors'] = (int)($platform['errors'] ?? 0);
+    }
 
     foreach ($tenants as $tenantId) {
         $totals['tenants']++;
@@ -151,7 +164,7 @@ try {
 
     // A successful worker run can still contain isolated tenant failures.
     // Return non-zero so cron/monitoring can alert the operator.
-    if ($totals['tenant_failures'] > 0 || $totals['activation_failed'] > 0 || $totals['hotspot_finalization_failed'] > 0 || $totals['hotspot_expiry_failed'] > 0) {
+    if ($totals['tenant_failures'] > 0 || $totals['activation_failed'] > 0 || $totals['hotspot_finalization_failed'] > 0 || $totals['hotspot_expiry_failed'] > 0 || $totals['platform_errors'] > 0) {
         exit(2);
     }
 } catch (Throwable $e) {
