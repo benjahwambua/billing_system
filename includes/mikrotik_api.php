@@ -113,6 +113,25 @@ if (!class_exists('FlexihubRouterOS')) {
             }
             return $count;
         }
+        public function findHotspotUser($username) {
+            $rows=$this->command(['/ip/hotspot/user/print','=.proplist=.id,name,disabled','=name='.$username]);
+            foreach($rows as $r) if(($r['!type']??'')==='!re' && ($r['name']??'')===$username) return $r;
+            return null;
+        }
+        public function setHotspotUserDisabled($username,$disabled=true) {
+            $user=$this->findHotspotUser($username);
+            if(!$user||empty($user['.id'])) return false;
+            $this->command(['/ip/hotspot/user/set','=.id='.$user['.id'],'=disabled='.($disabled?'yes':'no')]);
+            return true;
+        }
+        public function disconnectHotspotActive($username) {
+            $rows=$this->command(['/ip/hotspot/active/print','=.proplist=.id,user','=user='.$username]);
+            $count=0;
+            foreach($rows as $r) if(($r['!type']??'')==='!re' && ($r['user']??'')===$username && !empty($r['.id'])) {
+                $this->command(['/ip/hotspot/active/remove','=.id='.$r['.id']]); $count++;
+            }
+            return $count;
+        }
         public function close() { if(is_resource($this->fp)) fclose($this->fp); $this->fp=null; }
         public function __destruct(){ $this->close(); }
     }
