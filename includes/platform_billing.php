@@ -179,6 +179,14 @@ if (!function_exists('flexihubProcessPlatformBilling')) {
                     $balance=max(0,(float)$open['total_amount']-(float)$open['paid_amount']);
                     if($balance<=0.0001){
                         $conn->query("UPDATE platform_invoices SET status='paid',updated_at=NOW() WHERE id=".(int)$open['id']);
+                        // Zero-value SaaS plans must still roll their billing period forward.
+                        if((float)$open['total_amount']<=0.0001){
+                            $period=dbFetchOne("SELECT period_end FROM platform_invoices WHERE id=? LIMIT 1",'i',(int)$open['id']);
+                            if($period && !empty($period['period_end'])){
+                                $nextEnd=flexihubPlatformAddCycle($period['period_end'],$sub['billing_cycle']);
+                                $conn->query("UPDATE tenant_platform_subscriptions SET status='active',current_period_start='".$conn->real_escape_string($period['period_end'])."',current_period_end='".$conn->real_escape_string($nextEnd)."',grace_ends_at=NULL,updated_at=NOW() WHERE id=".(int)$subId);
+                            }
+                        }
                     } elseif(strtotime($open['due_date'])<strtotime(date('Y-m-d'))){
                         $conn->query("UPDATE platform_invoices SET status='overdue',updated_at=NOW() WHERE id=".(int)$open['id']);
                         $pastDue++;
