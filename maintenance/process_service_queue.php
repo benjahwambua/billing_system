@@ -6,6 +6,7 @@ require_once '../includes/billing_workflow.php';
 require_once '../includes/hotspot_workflow.php';
 
 $tenantId=(int)getCurrentTenantId();
+$subscriptionExpiry=flexihubProcessSubscriptionExpiry($tenantId,100);
 $result=flexihubProcessServiceActivationQueue($tenantId,50);
 $hotspotFinalization=flexihubProcessHotspotFinalizationQueue($tenantId,25);$hotspotExpiry=flexihubProcessHotspotExpiry($tenantId,100);
 
@@ -16,6 +17,8 @@ require_once '../includes/header.php';
     <h2>Service Activation Queue</h2>
     <p>Processes pending customer service activations for the current tenant.</p>
     <div class="form-grid" style="margin-top:20px">
+        <div class="card"><strong>Subscriptions Expired</strong><div style="font-size:28px"><?=e($subscriptionExpiry['expired'])?></div></div>
+        <div class="card"><strong>Expiry Failures</strong><div style="font-size:28px"><?=e($subscriptionExpiry['failed'])?></div></div>
         <div class="card"><strong>Processed</strong><div style="font-size:28px"><?=e($result['processed'])?></div></div>
         <div class="card"><strong>Completed</strong><div style="font-size:28px"><?=e($result['completed'])?></div></div>
         <div class="card"><strong>Failed</strong><div style="font-size:28px"><?=e($result['failed'])?></div></div>
