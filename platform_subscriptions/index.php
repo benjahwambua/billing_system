@@ -27,7 +27,15 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
                 $periodEnd=$trial>0?null:(new DateTime($start))->modify($plan['billing_cycle']==='yearly'?'+1 year':($plan['billing_cycle']==='quarterly'?'+3 months':'+1 month'))->format('Y-m-d');
 
                 if($existing){
-                    if((int)$existing['plan_id']===$planId){
+                    $existingStatus=(string)$existing['status'];
+                    if(in_array($existingStatus,['cancelled','expired'],true)){
+                        // Reactivation must never grant a second trial. Start a fresh paid lifecycle.
+                        $periodStart=date('Y-m-d');
+                        $periodEnd=(new DateTime($periodStart))->modify($plan['billing_cycle']==='yearly'?'+1 year':($plan['billing_cycle']==='quarterly'?'+3 months':'+1 month'))->format('Y-m-d');
+                        dbExecute("UPDATE tenant_platform_subscriptions SET plan_id=?,status='active',started_at=?,trial_ends_at=NULL,current_period_start=?,current_period_end=?,grace_ends_at=NULL,cancelled_at=NULL,cancellation_reason=NULL,last_invoice_id=NULL,updated_at=? WHERE id=?",'issssi',$planId,$now,$periodStart,$periodEnd,$now,(int)$existing['id']);
+                        dbExecute("UPDATE tenants SET status='active' WHERE id=? AND status IN ('past_due','suspended','trial')",'i',$tenantId);
+                        setFlash('success','SaaS subscription reactivated. A fresh billing period has started without a new trial.');
+                    } elseif((int)$existing['plan_id']===$planId){
                         setFlash('success','This SaaS plan is already assigned. Existing billing lifecycle preserved.');
                     } else {
                         dbExecute("UPDATE tenant_platform_subscriptions SET plan_id=?,updated_at=? WHERE id=?",'isi',$planId,$now,(int)$existing['id']);
