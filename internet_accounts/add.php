@@ -8,7 +8,7 @@ function acctCols(){global $conn;$a=[];$r=$conn->query("SHOW COLUMNS FROM intern
 $cols=acctCols(); if(!$cols)die('Internet accounts table is not available.');
 $customers=[];$s=$conn->prepare("SELECT id,customer_number,first_name,last_name FROM customers WHERE tenant_id=? ORDER BY first_name,last_name");if($s){$s->bind_param('i',$tenantId);$s->execute();$r=$s->get_result();while($x=$r->fetch_assoc())$customers[]=$x;$s->close();}
 $plans=[];$s=$conn->prepare("SELECT * FROM internet_plans WHERE tenant_id=? AND (status='active' OR status IS NULL) ORDER BY name");if($s){$s->bind_param('i',$tenantId);$s->execute();$r=$s->get_result();while($x=$r->fetch_assoc())$plans[]=$x;$s->close();}
-$values=['customer_id'=>'','plan_id'=>'','username'=>'','status'=>'active','activation_date'=>date('Y-m-d'),'expiry_date'=>'','billing_date'=>''];
+$values=['customer_id'=>'','plan_id'=>'','username'=>'','status'=>'pending','activation_date'=>date('Y-m-d'),'expiry_date'=>'','billing_date'=>''];
 $errors=[];
 if($_SERVER['REQUEST_METHOD']==='POST'){
  requireCsrf(); foreach($values as $f=>$d)$values[$f]=trim((string)($_POST[$f]??$d));
