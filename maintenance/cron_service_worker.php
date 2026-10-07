@@ -32,6 +32,10 @@ $totals = [
     'invoices_generated' => 0,
     'invoices_skipped' => 0,
     'invoice_generation_failed' => 0,
+    'overdue_processed' => 0,
+    'overdue_marked' => 0,
+    'accounts_suspended' => 0,
+    'suspension_failed' => 0,
     'subscription_expired' => 0,
     'activation_processed' => 0,
     'activation_completed' => 0,
@@ -58,6 +62,7 @@ try {
         $totals['tenants']++;
 
         $billing = flexihubGenerateRecurringInvoices($tenantId, 200);
+        $overdue = flexihubProcessOverdueSuspensions($tenantId, 200);
         $accountExpiry = flexihubProcessAccountExpiry($tenantId, 200);
         $subscriptionExpiry = flexihubProcessSubscriptionExpiry($tenantId, 200);
 
@@ -71,6 +76,10 @@ try {
         $totals['invoices_generated'] += (int)$billing['generated'];
         $totals['invoices_skipped'] += (int)$billing['skipped'];
         $totals['invoice_generation_failed'] += (int)$billing['failed'];
+        $totals['overdue_processed'] += (int)$overdue['processed'];
+        $totals['overdue_marked'] += (int)$overdue['marked_overdue'];
+        $totals['accounts_suspended'] += (int)$overdue['suspended'];
+        $totals['suspension_failed'] += (int)$overdue['failed'];
         $totals['account_expired'] += (int)$accountExpiry['expired'];
         $totals['subscription_expired'] += (int)$subscriptionExpiry['expired'];
         $totals['activation_processed'] += (int)$activation['processed'];
