@@ -25,7 +25,6 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         }
         redirect('index.php');
     }
-    requireCsrf();
     $tenantId=(int)($_POST['tenant_id']??0);
     $planId=(int)($_POST['plan_id']??0);
     if($tenantId<=0 || $planId<=0){
