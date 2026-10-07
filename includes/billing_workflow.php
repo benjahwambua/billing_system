@@ -542,7 +542,7 @@ if (!function_exists('flexihubGenerateRecurringInvoices')) {
               WHERE ia.tenant_id=?
                 AND ia.next_invoice_date IS NOT NULL
                 AND ia.next_invoice_date <= CURDATE()
-                AND ia.status NOT IN ('inactive','pending_activation')
+                AND ia.status='active'
                 AND (ip.status IS NULL OR ip.status='active')
               ORDER BY ia.next_invoice_date ASC, ia.id ASC
               LIMIT {$limit}";
@@ -706,6 +706,7 @@ if (!function_exists('flexihubRenewInternetAccount')) {
 
         $set=[];$vals=[];$types='';
         if(in_array('expiry_date',$acctCols,true)){$set[]='expiry_date=?';$vals[]=$expiry;$types.='s';}
+        if(in_array('next_invoice_date',$acctCols,true)){$set[]='next_invoice_date=?';$vals[]=$expiry;$types.='s';}
         if(in_array('activation_date',$acctCols,true)&&empty($account['activation_date'])){$set[]='activation_date=?';$vals[]=date('Y-m-d');$types.='s';}
         if(in_array('status',$acctCols,true)){$set[]='status=?';$vals[]='active';$types.='s';}
         if(!$set)return false;
