@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
                 $status=$trial>0?'trial':'active';
                 $start=date('Y-m-d');
                 $periodStart=$trial>0?null:$start;
-                $periodEnd=$trial>0?null:calculateBillingEndDate($start,$plan['billing_cycle']);
+                $periodEnd=$trial>0?null:(new DateTime($start))->modify($plan['billing_cycle']==='yearly'?'+1 year':($plan['billing_cycle']==='quarterly'?'+3 months':'+1 month'))->format('Y-m-d');
                 dbExecute("INSERT INTO tenant_platform_subscriptions (tenant_id,plan_id,status,started_at,trial_ends_at,current_period_start,current_period_end,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",'iisssssss',$tenantId,$planId,$status,$now,$trialEnds,$periodStart,$periodEnd,$now,$now);
                 setFlash('success','SaaS plan assigned and subscription created.');
             }
