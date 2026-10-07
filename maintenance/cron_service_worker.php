@@ -6,7 +6,8 @@
  *   php maintenance/cron_service_worker.php
  *
  * This worker is tenant-aware and processes lifecycle jobs for every tenant.
- * Network/RouterOS work remains inside the existing queues/workflows.
+ * Individual tenant failures are isolated so one broken tenant does not stop
+ * billing, suspension, activation, hotspot finalization, or expiry for others.
  */
 
 if (PHP_SAPI !== 'cli') {
@@ -27,6 +28,7 @@ if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
 $started = microtime(true);
 $totals = [
     'tenants' => 0,
+    'tenant_failures' => 0,
     'account_expired' => 0,
     'invoices_processed' => 0,
     'invoices_generated' => 0,
@@ -48,7 +50,7 @@ $totals = [
 
 try {
     $tenants = [];
-    $q = $conn->query("SELECT id FROM tenants ORDER BY id ASC");
+    $q = $conn->query("SELECT id FROM tenants WHERE status IS NULL OR status NOT IN ('deleted','archived') ORDER BY id ASC");
     if (!$q) {
         throw new Exception('Unable to load tenants.');
     }
@@ -61,64 +63,97 @@ try {
     foreach ($tenants as $tenantId) {
         $totals['tenants']++;
 
-        flexihubSeedNotificationTemplates($tenantId);
-        $billing = flexihubGenerateRecurringInvoices($tenantId, 200);
-        $overdue = flexihubProcessOverdueSuspensions($tenantId, 200);
+        try {
+            flexihubSeedNotificationTemplates($tenantId);
 
-        // Queue overdue notices. Delivery is intentionally separated from billing
-        // state changes so an unavailable SMS provider cannot block suspension.
-        $nq = $conn->prepare("SELECT i.id,i.account_id,i.customer_id,i.invoice_number,i.due_date,
-                                    COALESCE(i.total_amount,i.total,i.amount,0) total,
-                                    COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id=i.id AND p.tenant_id=i.tenant_id),0) paid,
-                                    c.phone
-                             FROM invoices i
-                             INNER JOIN customers c ON c.id=i.customer_id AND c.tenant_id=i.tenant_id
-                             WHERE i.tenant_id=? AND i.account_id IS NOT NULL AND i.due_date IS NOT NULL
-                               AND i.status IN ('unpaid','partial','overdue') AND c.phone IS NOT NULL AND c.phone<>''
-                               AND i.due_date < CURDATE() LIMIT 200");
-        if($nq){
-            $nq->bind_param('i',$tenantId);$nq->execute();$nr=$nq->get_result();
-            while($n=$nr->fetch_assoc()){
-                $balance=max(0,(float)$n['total']-(float)$n['paid']);
-                if($balance<=0) continue;
-                $event=(($n['status']??'')==='overdue')?'invoice_overdue':'invoice_due';
-                flexihubQueueNotification($tenantId,$event,(int)$n['customer_id'],(int)$n['account_id'],(int)$n['id'],'sms',(string)$n['phone'],[
-                    'invoice_number'=>$n['invoice_number']??$n['id'],'balance'=>number_format($balance,2,'.',''),'due_date'=>$n['due_date']
-                ]);
+            $billing = flexihubGenerateRecurringInvoices($tenantId, 200);
+            $overdue = flexihubProcessOverdueSuspensions($tenantId, 200);
+
+            // Queue overdue notices separately from billing state changes so an
+            // unavailable SMS provider cannot block financial enforcement.
+            $nq = $conn->prepare("SELECT i.id,i.account_id,i.customer_id,i.invoice_number,i.due_date,
+                                        COALESCE(i.total_amount,i.total,i.amount,0) total,
+                                        COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id=i.id AND p.tenant_id=i.tenant_id),0) paid,
+                                        c.phone
+                                 FROM invoices i
+                                 INNER JOIN customers c ON c.id=i.customer_id AND c.tenant_id=i.tenant_id
+                                 WHERE i.tenant_id=? AND i.account_id IS NOT NULL AND i.due_date IS NOT NULL
+                                   AND i.status IN ('unpaid','partial','overdue') AND c.phone IS NOT NULL AND c.phone<>''
+                                   AND i.due_date < CURDATE() LIMIT 200");
+            if ($nq) {
+                $nq->bind_param('i', $tenantId);
+                $nq->execute();
+                $nr = $nq->get_result();
+
+                while ($n = $nr->fetch_assoc()) {
+                    $balance = max(0, (float)$n['total'] - (float)$n['paid']);
+                    if ($balance <= 0) {
+                        continue;
+                    }
+
+                    $event = (($n['status'] ?? '') === 'overdue') ? 'invoice_overdue' : 'invoice_due';
+                    flexihubQueueNotification(
+                        $tenantId,
+                        $event,
+                        (int)$n['customer_id'],
+                        (int)$n['account_id'],
+                        (int)$n['id'],
+                        'sms',
+                        (string)$n['phone'],
+                        [
+                            'invoice_number' => $n['invoice_number'] ?? $n['id'],
+                            'balance' => number_format($balance, 2, '.', ''),
+                            'due_date' => $n['due_date']
+                        ]
+                    );
+                }
+
+                $nq->close();
             }
-            $nq->close();
+
+            $accountExpiry = flexihubProcessAccountExpiry($tenantId, 200);
+            $subscriptionExpiry = flexihubProcessSubscriptionExpiry($tenantId, 200);
+
+            // Expiry queues are created first, then processed in the same run so
+            // expired customers are disconnected without waiting for another cycle.
+            $activation = flexihubProcessServiceActivationQueue($tenantId, 100);
+            $hotspotFinalization = flexihubProcessHotspotFinalizationQueue($tenantId, 50);
+            $hotspotExpiry = flexihubProcessHotspotExpiry($tenantId, 200);
+
+            $totals['invoices_processed'] += (int)$billing['processed'];
+            $totals['invoices_generated'] += (int)$billing['generated'];
+            $totals['invoices_skipped'] += (int)$billing['skipped'];
+            $totals['invoice_generation_failed'] += (int)$billing['failed'];
+            $totals['overdue_processed'] += (int)$overdue['processed'];
+            $totals['overdue_marked'] += (int)$overdue['marked_overdue'];
+            $totals['accounts_suspended'] += (int)$overdue['suspended'];
+            $totals['suspension_failed'] += (int)$overdue['failed'];
+            $totals['account_expired'] += (int)$accountExpiry['expired'];
+            $totals['subscription_expired'] += (int)$subscriptionExpiry['expired'];
+            $totals['activation_processed'] += (int)$activation['processed'];
+            $totals['activation_completed'] += (int)$activation['completed'];
+            $totals['activation_failed'] += (int)$activation['failed'];
+            $totals['hotspot_finalized'] += (int)$hotspotFinalization['completed'];
+            $totals['hotspot_finalization_failed'] += (int)$hotspotFinalization['failed'];
+            $totals['hotspot_expired'] += (int)$hotspotExpiry['expired'];
+            $totals['hotspot_expiry_failed'] += (int)$hotspotExpiry['failed'];
+        } catch (Throwable $tenantError) {
+            $totals['tenant_failures']++;
+            fwrite(STDERR, "Tenant {$tenantId} failed: " . substr($tenantError->getMessage(), 0, 500) . "\n");
+            // Continue with the next tenant. A single tenant's bad data or
+            // unavailable router must not stall the entire SaaS platform.
         }
-        $accountExpiry = flexihubProcessAccountExpiry($tenantId, 200);
-        $subscriptionExpiry = flexihubProcessSubscriptionExpiry($tenantId, 200);
-
-        // Expiry queues are created first, then processed in the same run so
-        // expired customers are disconnected without waiting for another cycle.
-        $activation = flexihubProcessServiceActivationQueue($tenantId, 100);
-        $hotspotFinalization = flexihubProcessHotspotFinalizationQueue($tenantId, 50);
-        $hotspotExpiry = flexihubProcessHotspotExpiry($tenantId, 200);
-
-        $totals['invoices_processed'] += (int)$billing['processed'];
-        $totals['invoices_generated'] += (int)$billing['generated'];
-        $totals['invoices_skipped'] += (int)$billing['skipped'];
-        $totals['invoice_generation_failed'] += (int)$billing['failed'];
-        $totals['overdue_processed'] += (int)$overdue['processed'];
-        $totals['overdue_marked'] += (int)$overdue['marked_overdue'];
-        $totals['accounts_suspended'] += (int)$overdue['suspended'];
-        $totals['suspension_failed'] += (int)$overdue['failed'];
-        $totals['account_expired'] += (int)$accountExpiry['expired'];
-        $totals['subscription_expired'] += (int)$subscriptionExpiry['expired'];
-        $totals['activation_processed'] += (int)$activation['processed'];
-        $totals['activation_completed'] += (int)$activation['completed'];
-        $totals['activation_failed'] += (int)$activation['failed'];
-        $totals['hotspot_finalized'] += (int)$hotspotFinalization['completed'];
-        $totals['hotspot_finalization_failed'] += (int)$hotspotFinalization['failed'];
-        $totals['hotspot_expired'] += (int)$hotspotExpiry['expired'];
-        $totals['hotspot_expiry_failed'] += (int)$hotspotExpiry['failed'];
     }
 
     $duration = round(microtime(true) - $started, 3);
     echo "Flexihub service worker completed in {$duration}s\n";
     echo json_encode($totals, JSON_UNESCAPED_SLASHES) . "\n";
+
+    // A successful worker run can still contain isolated tenant failures.
+    // Return non-zero so cron/monitoring can alert the operator.
+    if ($totals['tenant_failures'] > 0 || $totals['activation_failed'] > 0 || $totals['hotspot_finalization_failed'] > 0 || $totals['hotspot_expiry_failed'] > 0) {
+        exit(2);
+    }
 } catch (Throwable $e) {
     fwrite(STDERR, "Flexihub service worker failed: " . $e->getMessage() . "\n");
     exit(1);
