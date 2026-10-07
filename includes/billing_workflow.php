@@ -516,6 +516,58 @@ if (!function_exists('flexihubProcessAccountExpiry')) {
 
 
 
+
+if (!function_exists('flexihubQueueNotification')) {
+    function flexihubQueueNotification($tenantId, $eventType, $customerId=null, $accountId=null, $invoiceId=null, $channel='sms', $recipient='', array $vars=[])
+    {
+        global $conn;
+        $tenantId=(int)$tenantId;
+        if(!$tenantId || !$eventType || !$recipient || !flexihubTableColumns('notification_queue')) return false;
+        $template=null;
+        if(flexihubTableColumns('notification_templates')){
+            $stmt=$conn->prepare("SELECT subject,body FROM notification_templates WHERE tenant_id=? AND event_type=? AND channel=? AND status='active' LIMIT 1");
+            if($stmt){$stmt->bind_param('iss',$tenantId,$eventType,$channel);$stmt->execute();$template=$stmt->get_result()->fetch_assoc();$stmt->close();}
+        }
+        if(!$template) return false;
+        $subject=(string)($template['subject']??'');
+        $message=(string)($template['body']??'');
+        foreach($vars as $key=>$value){
+            $message=str_replace('{{'.$key.'}}',(string)$value,$message);
+            $subject=str_replace('{{'.$key.'}}',(string)$value,$subject);
+        }
+        // Idempotency for the same invoice/event/channel/recipient.
+        if($invoiceId){
+            $check=$conn->prepare("SELECT id FROM notification_queue WHERE tenant_id=? AND invoice_id=? AND event_type=? AND channel=? AND recipient=? AND status<>'cancelled' LIMIT 1");
+            if($check){$check->bind_param('iisss',$tenantId,$invoiceId,$eventType,$channel,$recipient);$check->execute();$existing=$check->get_result()->fetch_assoc();$check->close();if($existing)return (int)$existing['id'];}
+        }
+        return flexihubWorkflowInsert('notification_queue',[
+            'tenant_id'=>$tenantId,'customer_id'=>$customerId,'account_id'=>$accountId,'invoice_id'=>$invoiceId,
+            'event_type'=>$eventType,'channel'=>$channel,'recipient'=>$recipient,'subject'=>$subject,
+            'message'=>$message,'status'=>'pending','attempts'=>0,'available_at'=>date('Y-m-d H:i:s')
+        ]);
+    }
+}
+
+if (!function_exists('flexihubSeedNotificationTemplates')) {
+    function flexihubSeedNotificationTemplates($tenantId)
+    {
+        $defaults=[
+            ['payment_confirmation','sms',null,'Payment received. Invoice {{invoice_number}} has been paid. Amount: KES {{amount}}. Thank you.'],
+            ['invoice_due','sms',null,'Invoice {{invoice_number}} for KES {{balance}} is due on {{due_date}}. Please make payment to avoid service interruption.'],
+            ['invoice_overdue','sms',null,'Invoice {{invoice_number}} is overdue. Outstanding balance: KES {{balance}}. Please make payment during the grace period.'],
+            ['service_suspended','sms',null,'Your internet service has been suspended due to an outstanding balance of KES {{balance}}. Pay to restore service.'],
+            ['service_reconnected','sms',null,'Your internet service has been reconnected. Thank you for your payment.'],
+        ];
+        foreach($defaults as $t){
+            $exists=false;
+            global $conn;
+            $stmt=$conn->prepare("SELECT id FROM notification_templates WHERE tenant_id=? AND event_type=? AND channel=? LIMIT 1");
+            if($stmt){$stmt->bind_param('iss',$tenantId,$t[0],$t[1]);$stmt->execute();$exists=(bool)$stmt->get_result()->fetch_assoc();$stmt->close();}
+            if(!$exists) flexihubWorkflowInsert('notification_templates',['tenant_id'=>$tenantId,'event_type'=>$t[0],'channel'=>$t[1],'subject'=>$t[2],'body'=>$t[3],'status'=>'active']);
+        }
+    }
+}
+
 if (!function_exists('flexihubProcessOverdueSuspensions')) {
     /**
      * Suspend active internet accounts after an invoice remains unpaid/partial
