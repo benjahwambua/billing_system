@@ -50,6 +50,27 @@ $pageTitle='Network Map';require_once '../includes/header.php';?>
 <div class="dashboard-card"><div class="page-header"><div><h2>Network Map</h2><p>Tenant-scoped topology inventory for sites, routers, OLTs and ONUs.</p></div><?php if(userCan('network','edit')): ?><form method="post" style="margin:0"><?=csrfField()?><input type="hidden" name="action" value="sync"><button class="btn btn-primary" type="submit">Synchronize Topology</button></form><?php endif; ?></div>
 <?php if($message): ?><div class="alert alert-success"><?=e($message)?></div><?php endif; ?><?php if($error): ?><div class="alert alert-danger"><?=e($error)?></div><?php endif; ?>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px"><?php foreach(['site'=>'Sites','router'=>'Routers','olt'=>'OLTs','onu'=>'ONUs'] as $type=>$label): ?><div class="card" style="padding:16px"><small><?=e($label)?></small><h3 style="margin:6px 0"><?=e((string)($nodeCounts[$type]??0))?></h3></div><?php endforeach; ?></div>
+<div class="card" style="padding:18px;margin-bottom:20px">
+<h3 style="margin-top:0">Topology Overview</h3>
+<div id="networkTopology" style="position:relative;min-height:280px;overflow:auto">
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px">
+<?php foreach(['site'=>'Sites','router'=>'Routers','olt'=>'OLTs','onu'=>'ONUs'] as $type=>$label): ?>
+<div style="border:1px solid rgba(59,130,246,.22);border-radius:12px;padding:16px;background:rgba(15,23,42,.72)">
+<div style="font-size:11px;text-transform:uppercase;color:#64748b;letter-spacing:.08em"><?=e($label)?></div>
+<div style="font-size:28px;font-weight:800;margin-top:5px"><?=e((string)($nodeCounts[$type]??0))?></div>
+<div style="font-size:11px;color:#94a3b8;margin-top:4px">tenant-scoped nodes</div>
+</div>
+<?php endforeach; ?>
+</div>
+<div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:8px">
+<?php foreach($links as $l): ?>
+<span style="display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:rgba(37,99,235,.10);border:1px solid rgba(59,130,246,.18);font-size:11px">
+<?=e($l['source_label']??$l['source_node_id')?> → <?=e($l['target_label']??$l['target_node_id'])?> · <?=e(strtoupper($l['link_type']))?>
+</span>
+<?php endforeach; ?>
+</div>
+</div>
+</div>
 <div class="table-responsive"><table><thead><tr><th>Node</th><th>Type</th><th>Status</th></tr></thead><tbody><?php foreach($nodes as $n): ?><tr><td><?=e($n['label'])?></td><td><?=e(strtoupper($n['node_type']))?></td><td><?=e($n['status'])?></td></tr><?php endforeach; ?><?php if(!$nodes): ?><tr><td colspan="3">No topology nodes configured yet.</td></tr><?php endif; ?></tbody></table></div>
 <div style="margin-top:24px" class="table-responsive"><table><thead><tr><th>Source</th><th>Target</th><th>Link</th><th>Bandwidth</th><th>Status</th></tr></thead><tbody><?php foreach($links as $l): ?><tr><td><?=e($l['source_label']??$l['source_node_id'])?></td><td><?=e($l['target_label']??$l['target_node_id'])?></td><td><?=e($l['link_type'])?></td><td><?=e($l['bandwidth_mbps']??'—')?> Mbps</td><td><?=e($l['status'])?></td></tr><?php endforeach; ?><?php if(!$links): ?><tr><td colspan="5">No topology links configured yet.</td></tr><?php endif; ?></tbody></table></div></div>
 <?php require_once '../includes/footer.php'; ?>
