@@ -1295,4 +1295,136 @@ echo $sidebarHtml;
 
 }
 
+
+<style>
+/* ============================================================
+   FLEXIHUB COLLAPSIBLE MODULE NAVIGATION
+   Inspired by the structured module navigation used in the
+   Hospital System while retaining Flexihub's dark/blue theme.
+============================================================ */
+.sidebar-menu-section.has-dropdown .sidebar-menu-heading{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    cursor:pointer;
+    user-select:none;
+    padding:9px 10px;
+    margin-bottom:3px;
+    border-radius:8px;
+    transition:background .18s ease,color .18s ease;
+}
+.sidebar-menu-section.has-dropdown .sidebar-menu-heading:hover{
+    background:rgba(37,99,235,.08);
+    color:#cbd5e1;
+}
+.sidebar-menu-heading .sidebar-chevron{
+    width:20px;
+    height:20px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    color:#64748b;
+    font-size:10px;
+    transition:transform .2s ease,color .2s ease;
+}
+.sidebar-menu-section.has-dropdown.open .sidebar-chevron{
+    transform:rotate(180deg);
+    color:#60a5fa;
+}
+.sidebar-submenu{
+    display:grid;
+    grid-template-rows:0fr;
+    transition:grid-template-rows .22s ease;
+}
+.sidebar-submenu-inner{
+    min-height:0;
+    overflow:hidden;
+}
+.sidebar-menu-section.has-dropdown.open .sidebar-submenu{
+    grid-template-rows:1fr;
+}
+.sidebar-submenu .sidebar-menu-link{
+    margin-left:5px;
+    min-height:37px;
+    padding:8px 11px;
+}
+.sidebar-menu-section.has-dropdown.active-group > .sidebar-menu-heading{
+    color:#93c5fd;
+}
+.sidebar-menu-section.has-dropdown.active-group > .sidebar-menu-heading .sidebar-chevron{
+    color:#60a5fa;
+}
+@media(max-width:700px){
+    .sidebar-menu-section.has-dropdown .sidebar-menu-heading{padding:10px}
+    .sidebar-submenu .sidebar-menu-link{margin-left:0}
+}
+</style>
+
+<script>
+(function(){
+    function initFlexihubDropdowns(){
+        document.querySelectorAll('.sidebar-menu-section').forEach(function(section){
+            if(section.dataset.dropdownReady === '1') return;
+
+            var heading = section.querySelector(':scope > .sidebar-menu-heading');
+            if(!heading) return;
+
+            var links = Array.from(section.querySelectorAll(':scope > .sidebar-menu-link'));
+            if(!links.length) return;
+
+            section.dataset.dropdownReady = '1';
+            section.classList.add('has-dropdown');
+
+            var submenu = document.createElement('div');
+            submenu.className = 'sidebar-submenu';
+            var inner = document.createElement('div');
+            inner.className = 'sidebar-submenu-inner';
+
+            links.forEach(function(link){ inner.appendChild(link); });
+            submenu.appendChild(inner);
+            section.appendChild(submenu);
+
+            var chevron = document.createElement('span');
+            chevron.className = 'sidebar-chevron';
+            chevron.setAttribute('aria-hidden','true');
+            chevron.textContent = '▼';
+            heading.appendChild(chevron);
+
+            var hasActive = links.some(function(link){
+                return link.classList.contains('active');
+            });
+
+            if(hasActive){
+                section.classList.add('open','active-group');
+                heading.setAttribute('aria-expanded','true');
+            }else{
+                heading.setAttribute('aria-expanded','false');
+            }
+
+            heading.setAttribute('role','button');
+            heading.setAttribute('tabindex','0');
+
+            function toggle(){
+                var open = section.classList.toggle('open');
+                heading.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+
+            heading.addEventListener('click', toggle);
+            heading.addEventListener('keydown', function(e){
+                if(e.key === 'Enter' || e.key === ' '){
+                    e.preventDefault();
+                    toggle();
+                }
+            });
+        });
+    }
+
+    if(document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', initFlexihubDropdowns);
+    }else{
+        initFlexihubDropdowns();
+    }
+})();
+</script>
 </style>
