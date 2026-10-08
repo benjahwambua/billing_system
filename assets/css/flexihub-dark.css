@@ -27,3 +27,18 @@ table tbody tr:hover,.data-table tbody tr:hover,.table tbody tr:hover{background
 [style*="border:1px solid #e5e7eb"],[style*="border: 1px solid #e5e7eb"]{border-color:var(--fh-border)!important}
 a:not(.btn):hover{color:#60a5fa}
 @media(max-width:768px){.page-header,.page-toolbar{flex-wrap:wrap;gap:12px}.card,.dashboard-card{border-radius:10px!important}}
+/* Navigation and topbar refinement */
+.sidebar{background:linear-gradient(180deg,#05080d 0%,#0b111b 55%,#070b12 100%)!important;border-right:1px solid rgba(59,130,246,.18)!important;box-shadow:12px 0 35px rgba(0,0,0,.2)!important}
+.sidebar-brand{border-bottom:1px solid var(--fh-border)!important}
+.sidebar-brand-logo,.user-avatar{background:linear-gradient(135deg,var(--fh-blue),var(--fh-blue2))!important;color:#fff!important;box-shadow:0 8px 22px rgba(37,99,235,.25)!important}
+.sidebar-account-box{background:linear-gradient(145deg,rgba(37,99,235,.12),rgba(15,23,42,.65))!important;border:1px solid rgba(59,130,246,.16)!important}
+.sidebar-scope-label,.sidebar-menu-heading{color:#64748b!important}
+.sidebar-account-name{color:#e2e8f0!important}
+.sidebar-menu-link{color:#94a3b8!important;border:1px solid transparent!important}
+.sidebar-menu-link:hover{color:#fff!important;background:rgba(37,99,235,.09)!important;border-color:rgba(59,130,246,.12)!important}
+.sidebar-menu-link.active{color:#fff!important;background:linear-gradient(90deg,rgba(37,99,235,.24),rgba(37,99,235,.07))!important;border-color:rgba(59,130,246,.22)!important;box-shadow:inset 3px 0 0 var(--fh-blue2),0 5px 18px rgba(0,0,0,.12)!important}
+.sidebar-menu-icon{color:#64748b!important}.sidebar-menu-link.active .sidebar-menu-icon{color:#60a5fa!important}
+.headbar{background:rgba(7,11,18,.82)!important;border-bottom:1px solid var(--fh-border)!important;backdrop-filter:blur(16px)!important;color:#f8fafc!important}
+.page-title h1{color:#f8fafc!important}
+.notification-icon{background:#101827!important;border:1px solid var(--fh-border)!important;color:#cbd5e1!important}
+.user-info strong{color:#f8fafc!important}.user-info small{color:#64748b!important}
