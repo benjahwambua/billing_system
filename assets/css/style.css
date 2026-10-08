@@ -785,3 +785,357 @@ th {
         gap: 10px;
     }
 }
+
+
+/* =========================================================
+   FLEXIHUB SLEEK DARK / BLUE UI LAYER
+   Inspired by the visual direction of modern ISP dashboards.
+   Black foundation + blue overlay/accent system.
+========================================================= */
+
+:root {
+    --fh-black: #070b12;
+    --fh-black-2: #0b111b;
+    --fh-surface: #101827;
+    --fh-surface-2: #141f30;
+    --fh-border: rgba(148, 163, 184, 0.14);
+    --fh-text: #f8fafc;
+    --fh-muted: #94a3b8;
+    --fh-blue: #2563eb;
+    --fh-blue-bright: #3b82f6;
+    --fh-blue-soft: rgba(37, 99, 235, 0.16);
+    --fh-blue-glow: rgba(37, 99, 235, 0.28);
+}
+
+/* Global application shell */
+body {
+    background:
+        radial-gradient(circle at 82% 8%, rgba(37, 99, 235, 0.16), transparent 32%),
+        radial-gradient(circle at 18% 35%, rgba(30, 64, 175, 0.08), transparent 30%),
+        linear-gradient(135deg, #070b12 0%, #0a1019 48%, #0d1522 100%);
+    color: var(--fh-text);
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.18;
+    background-image:
+        linear-gradient(rgba(59, 130, 246, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59, 130, 246, 0.08) 1px, transparent 1px);
+    background-size: 34px 34px;
+}
+
+/* Sidebar */
+.sidebar {
+    background:
+        linear-gradient(180deg, rgba(7, 11, 18, 0.98), rgba(9, 15, 25, 0.98)),
+        radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.16), transparent 38%);
+    border-right: 1px solid rgba(59, 130, 246, 0.12);
+    box-shadow: 8px 0 35px rgba(0, 0, 0, 0.28);
+}
+
+.sidebar-logo {
+    background: rgba(7, 11, 18, 0.82);
+    border-bottom-color: var(--fh-border);
+}
+
+.logo-icon {
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    box-shadow: 0 0 22px rgba(37, 99, 235, 0.35);
+}
+
+.logo-text small {
+    color: #64748b;
+}
+
+.nav-section-title {
+    color: #64748b;
+}
+
+.nav-item {
+    color: #aebbd0;
+    border: 1px solid transparent;
+}
+
+.nav-item:hover {
+    background: rgba(37, 99, 235, 0.10);
+    border-color: rgba(59, 130, 246, 0.12);
+    color: #fff;
+}
+
+.nav-item.active {
+    background: linear-gradient(90deg, rgba(37, 99, 235, 0.30), rgba(37, 99, 235, 0.08));
+    border-color: rgba(59, 130, 246, 0.34);
+    color: #fff;
+    box-shadow: inset 3px 0 0 #3b82f6, 0 8px 24px rgba(37, 99, 235, 0.10);
+}
+
+.sidebar-bottom {
+    background: #080d15;
+    border-top-color: var(--fh-border);
+}
+
+/* Main shell */
+.main-wrapper {
+    background: transparent;
+}
+
+.headbar {
+    background: rgba(7, 11, 18, 0.82);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-bottom-color: var(--fh-border);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+.sidebar-toggle {
+    color: #e2e8f0;
+}
+
+.page-title h1 {
+    color: #f8fafc;
+}
+
+.notification-icon {
+    opacity: 0.88;
+}
+
+.user-avatar {
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    box-shadow: 0 0 18px rgba(37, 99, 235, 0.24);
+}
+
+.user-info strong {
+    color: #f8fafc;
+}
+
+.user-info small {
+    color: #64748b;
+}
+
+.page-content {
+    background: transparent;
+}
+
+/* Generic cards / panels */
+.dashboard-card,
+.dashboard-stat-card,
+.dashboard-finance-card,
+.dashboard-mini-card,
+.dashboard-panel,
+.fh-analytics-card,
+.fh-analytics-panel {
+    background:
+        linear-gradient(145deg, rgba(16, 24, 39, 0.96), rgba(10, 16, 27, 0.96));
+    border-color: var(--fh-border);
+    box-shadow:
+        0 12px 32px rgba(0, 0, 0, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.dashboard-stat-card,
+.dashboard-finance-card,
+.dashboard-mini-card,
+.fh-analytics-card {
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-stat-card:hover,
+.dashboard-finance-card:hover,
+.dashboard-mini-card:hover,
+.fh-analytics-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(59, 130, 246, 0.30);
+    box-shadow:
+        0 16px 38px rgba(0, 0, 0, 0.24),
+        0 0 24px rgba(37, 99, 235, 0.07);
+}
+
+/* Dashboard typography */
+.dashboard-page-header h1,
+.dashboard-panel-header h2,
+.fh-analytics-heading h2,
+.fh-panel-title h3 {
+    color: #f8fafc;
+}
+
+.dashboard-page-header p,
+.dashboard-date,
+.dashboard-panel-header span,
+.fh-analytics-heading p,
+.fh-panel-title span {
+    color: #7f8da3;
+}
+
+.dashboard-stat-label,
+.dashboard-finance-card span,
+.dashboard-mini-card span,
+.fh-analytics-card span {
+    color: #8fa0b8;
+}
+
+.dashboard-stat-value,
+.dashboard-finance-card strong,
+.dashboard-mini-card strong,
+.fh-analytics-card strong {
+    color: #f8fafc;
+}
+
+.dashboard-stat-icon,
+.quick-action > span,
+.activity-icon {
+    background: var(--fh-blue-soft);
+    color: #60a5fa;
+}
+
+/* Tables */
+.dashboard-table th,
+th {
+    background: rgba(7, 11, 18, 0.70);
+    color: #7f8da3;
+    border-color: var(--fh-border);
+}
+
+.dashboard-table td,
+td {
+    color: #cbd5e1;
+    border-color: rgba(148, 163, 184, 0.09);
+}
+
+.dashboard-table td strong {
+    color: #f1f5f9;
+}
+
+.dashboard-table td small {
+    color: #64748b;
+}
+
+.dashboard-table tr:hover td {
+    background: rgba(37, 99, 235, 0.045);
+}
+
+/* Panel headers */
+.dashboard-panel-header,
+.fh-panel-title {
+    border-bottom-color: var(--fh-border);
+}
+
+.dashboard-panel-header a,
+.fh-analytics-heading a {
+    color: #60a5fa;
+}
+
+.dashboard-panel-header a:hover,
+.fh-analytics-heading a:hover {
+    color: #93c5fd;
+}
+
+/* Quick actions */
+.quick-action {
+    background: rgba(10, 16, 27, 0.72);
+    border-color: var(--fh-border);
+}
+
+.quick-action:hover {
+    background: rgba(37, 99, 235, 0.10);
+    border-color: rgba(59, 130, 246, 0.34);
+}
+
+.quick-action strong {
+    color: #f1f5f9;
+}
+
+.quick-action small,
+.dashboard-activity-item small,
+.router-status-left small {
+    color: #64748b;
+}
+
+/* Status / network */
+.status-cancelled,
+.status-closed {
+    background: rgba(148, 163, 184, 0.10);
+    color: #cbd5e1;
+}
+
+.router-status-item,
+.dashboard-activity-item {
+    border-color: rgba(148, 163, 184, 0.09);
+}
+
+.router-status-left strong,
+.dashboard-activity-item strong,
+.fh-breakdown-top strong,
+.fh-lifecycle-row span {
+    color: #dbeafe;
+}
+
+.router-status-text,
+.fh-breakdown-top span,
+.fh-lifecycle-row strong {
+    color: #94a3b8;
+}
+
+.fh-progress {
+    background: rgba(148, 163, 184, 0.10);
+}
+
+.fh-progress span,
+.fh-hour-bar,
+.fh-day-bar {
+    background: linear-gradient(180deg, #60a5fa, #2563eb);
+    box-shadow: 0 0 14px rgba(37, 99, 235, 0.22);
+}
+
+.fh-hour-label,
+.fh-day-label,
+.fh-hour-value,
+.fh-day-value {
+    color: #718096;
+}
+
+.empty-state,
+.fh-empty {
+    color: #64748b !important;
+}
+
+/* Footer */
+.footer {
+    background: rgba(7, 11, 18, 0.90);
+    border-top-color: var(--fh-border);
+    color: #64748b;
+}
+
+/* Scrollbars */
+* {
+    scrollbar-color: #263b61 #080d15;
+}
+
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    background: #080d15;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: #263b61;
+    border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: #31528a;
+}
+
+/* Responsive polish */
+@media (max-width: 600px) {
+    .headbar {
+        background: rgba(7, 11, 18, 0.94);
+    }
+}
