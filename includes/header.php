@@ -28,6 +28,7 @@ $userName = getLoggedInUserName($conn);
           href="../assets/css/style.css">
 
     <link rel="stylesheet" href="../assets/css/flexihub-dark.css">
+    <link rel="stylesheet" href="../assets/css/sidebar-collapse.css">
 
 </head>
 
