@@ -175,32 +175,18 @@ ob_start();
          ACCOUNT SCOPE
     ========================================================== -->
 
-    <div class="sidebar-account-box">
-
-        <?php if ($isHost): ?>
-
-            <div class="sidebar-scope-label">
-                PLATFORM ADMINISTRATION
-            </div>
-
-            <div class="sidebar-account-name">
-                Flexihub Platform
-            </div>
-
-        <?php else: ?>
-
-            <div class="sidebar-scope-label">
-                ISP ACCOUNT
-            </div>
-
-            <div class="sidebar-account-name">
-                <?= sidebar_e($sidebarTenantName) ?>
-            </div>
-
-        <?php endif; ?>
-
+    <div class="sidebar-user-profile">
+        <div class="sidebar-user-avatar"><?= sidebar_e(strtoupper(substr($sidebarUsername ?: 'U', 0, 1))) ?></div>
+        <div class="sidebar-user-info">
+            <span class="sidebar-user-name"><?= sidebar_e($sidebarUsername) ?></span>
+            <span class="sidebar-user-role"><?= sidebar_e($_SESSION['user_role'] ?? ($_SESSION['role'] ?? ($isHost ? 'Platform Administrator' : 'User'))) ?></span>
+        </div>
     </div>
 
+    <div class="sidebar-account-box">
+        <div class="sidebar-scope-label"><?= $isHost ? 'PLATFORM ADMINISTRATION' : 'ISP ACCOUNT' ?></div>
+        <div class="sidebar-account-name"><?= sidebar_e($isHost ? 'Flexihub Platform' : $sidebarTenantName) ?></div>
+    </div>
 
     <!-- =========================================================
          NAVIGATION
@@ -1077,6 +1063,7 @@ echo $sidebarHtml;
 
 
 <style>
+.sidebar-user-profile{margin:14px 12px 10px;padding:12px;border:1px solid rgba(148,163,184,.12);border-radius:12px;background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px}.sidebar-user-avatar{width:36px;height:36px;flex:0 0 36px;border-radius:10px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}.sidebar-user-info{min-width:0}.sidebar-user-name{display:block;color:#f8fafc;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sidebar-user-role{display:block;color:#64748b;font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ============================================================
    FLEXIHUB SIDEBAR
