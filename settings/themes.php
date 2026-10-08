@@ -1,0 +1,4 @@
+<?php
+require_once '../includes/auth.php';requireActiveUser();requireTenantContext();requireModulePermission('settings','view');
+global $conn;$tenantId=(int)getCurrentTenantId();$row=null;$q=$conn->prepare("SELECT * FROM tenant_theme_settings WHERE tenant_id=? LIMIT 1");if($q){$q->bind_param('i',$tenantId);$q->execute();$row=$q->get_result()->fetch_assoc();$q->close();}
+$pageTitle='Theme & Branding';require_once '../includes/header.php';?><div class="dashboard-card"><h2>Theme &amp; Branding</h2><p>Tenant-specific visual identity settings.</p><div class="card" style="padding:18px;margin-top:16px"><strong><?=e($row['theme_name']??'Flexihub Blue')?></strong><p>Primary: <?=e($row['primary_color']??'Default')?> · Accent: <?=e($row['accent_color']??'Default')?> · Dark mode: <?=!empty($row['dark_mode'])?'Enabled':'Disabled'?></p><p>Logo: <?=e($row['logo_url']??'Not configured')?></p></div></div><?php require_once '../includes/footer.php';?>
