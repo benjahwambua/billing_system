@@ -66,7 +66,7 @@ $pageTitle='OLT & ONU Management';
 require_once '../includes/header.php';
 ?>
 <div class="dashboard-card">
-  <div class="page-header"><div><h2>OLT &amp; ONU Management</h2><p>Register fiber access equipment, map ONUs to PON ports and prepare devices for live polling.</p></div></div>
+  <div class="page-header"><div><h2>OLT &amp; ONU Management</h2><p>Register fiber access equipment, map ONUs to PON ports and monitor live transport reachability. Vendor-specific optical polling can be added through adapters.</p></div></div>
   <?php if($message): ?><div class="alert alert-success"><?=e($message)?></div><?php endif; ?>
   <?php if($error): ?><div class="alert alert-danger"><?=e($error)?></div><?php endif; ?>
 
@@ -100,9 +100,9 @@ require_once '../includes/header.php';
   <?php endif; ?>
 
   <h3>OLT Inventory</h3>
-  <div class="table-responsive"><table><thead><tr><th>OLT</th><th>Vendor / Model</th><th>Host</th><th>Protocol</th><th>Status</th><th>Last Seen</th></tr></thead><tbody>
-  <?php foreach($olts as $x):?><tr><td><?=e($x['name'])?></td><td><?=e(trim(($x['vendor']??'').' '.($x['model']??''))?:'—')?></td><td><?=e($x['host']??'—')?>:<?=e($x['api_port'])?></td><td><?=e(strtoupper($x['protocol']??'SNMP'))?></td><td><?=e($x['status'])?></td><td><?=e($x['last_seen_at']??'Not polled')?></td></tr><?php endforeach;?>
-  <?php if(!$olts):?><tr><td colspan="6">No OLTs configured.</td></tr><?php endif;?></tbody></table></div>
+  <div class="table-responsive"><table><thead><tr><th>OLT</th><th>Vendor / Model</th><th>Host</th><th>Protocol</th><th>Status</th><th>Last Seen</th><th>Last Poll</th><th>Poll Error</th></tr></thead><tbody>
+  <?php foreach($olts as $x):?><tr><td><?=e($x['name'])?></td><td><?=e(trim(($x['vendor']??'').' '.($x['model']??''))?:'—')?></td><td><?=e($x['host']??'—')?>:<?=e($x['api_port'])?></td><td><?=e(strtoupper($x['protocol']??'SNMP'))?></td><td><?=e($x['status'])?></td><td><?=e($x['last_seen_at']??'Not seen')?></td><td><?=e($x['last_poll_at']??'Not polled')?></td><td><?=e($x['last_poll_error']??'—')?></td></tr><?php endforeach;?>
+  <?php if(!$olts):?><tr><td colspan="8">No OLTs configured.</td></tr><?php endif;?></tbody></table></div>
 
   <h3 style="margin-top:28px">ONU Inventory</h3>
   <div class="table-responsive"><table><thead><tr><th>Serial</th><th>OLT</th><th>PON</th><th>Customer</th><th>MAC</th><th>Status</th><th>Optical RX/TX</th></tr></thead><tbody>
