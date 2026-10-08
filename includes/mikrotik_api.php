@@ -96,6 +96,20 @@ if (!class_exists('FlexihubRouterOS')) {
             if($error) throw new Exception($error);
             return $rows;
         }
+        public function addOrUpdatePppSecret($username,$password,$disabled=false,$service='pppoe') {
+            $username=trim((string)$username); $password=(string)$password;
+            if($username==='') throw new Exception('PPPoE username is required.');
+            if($password==='') throw new Exception('PPPoE password is required.');
+            $existing=$this->findPppSecret($username);
+            $id=null;
+            if($existing && !empty($existing['.id'])) $id=$existing['.id'];
+            $words=$id
+                ? ['/ppp/secret/set','=.id='.$id,'=name='.$username,'=password='.$password,'=disabled='.($disabled?'yes':'no')]
+                : ['/ppp/secret/add','=name='.$username,'=password='.$password,'=service='.$service,'=disabled='.($disabled?'yes':'no')];
+            $this->command($words);
+            return ['created'=>$id===null,'id'=>$id];
+        }
+
         public function findPppSecret($username) {
             $rows=$this->command(['/ppp/secret/print','=.proplist=.id,name,disabled','=name='.$username]);
             foreach($rows as $r) if(($r['!type']??'')==='!re' && ($r['name']??'')===$username) return $r;
