@@ -311,6 +311,12 @@ if ($isHost) {
         $revenueMonth = 0;
 
         $activeAccounts = 0;
+        $expiredAccounts = 0;
+        $suspendedAccounts = 0;
+        $activePlans = 0;
+        $totalRouters = 0;
+        $onlineRouters = 0;
+        $paymentsTodayCount = 0;
         $onlineUsers = 0;
         $activeHotspotSessions = 0;
         $expiringServices = 0;
@@ -417,6 +423,14 @@ if ($isHost) {
             ",
             [$tenantId]
         );
+
+
+        $expiredAccounts = dashboardCount($conn, "SELECT COUNT(*) FROM internet_accounts WHERE tenant_id = ? AND LOWER(status) = 'expired'", [$tenantId]);
+        $suspendedAccounts = dashboardCount($conn, "SELECT COUNT(*) FROM internet_accounts WHERE tenant_id = ? AND LOWER(status) = 'suspended'", [$tenantId]);
+        $activePlans = dashboardCount($conn, "SELECT COUNT(*) FROM internet_plans WHERE tenant_id = ? AND LOWER(status) = 'active'", [$tenantId]);
+        $totalRouters = dashboardCount($conn, "SELECT COUNT(*) FROM mikrotik_routers WHERE tenant_id = ?", [$tenantId]);
+        $onlineRouters = dashboardCount($conn, "SELECT COUNT(*) FROM mikrotik_routers WHERE tenant_id = ? AND LOWER(status) IN ('online','connected','active')", [$tenantId]);
+        $paymentsTodayCount = dashboardCount($conn, "SELECT COUNT(*) FROM payments WHERE tenant_id = ? AND DATE(payment_date) = CURDATE()", [$tenantId]);
 
 
         /*
@@ -1030,6 +1044,25 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
 
+        <!-- ISP OPERATIONS SNAPSHOT -->
+        <div class="dashboard-grid dashboard-grid-four isp-snapshot-grid">
+            <div class="dashboard-mini-card"><span>Active Plans</span><strong><?= dashboardNumber($activePlans) ?></strong><small>PPPoE plan catalogue</small></div>
+            <div class="dashboard-mini-card"><span>Expired Services</span><strong><?= dashboardNumber($expiredAccounts) ?></strong><small>Require renewal</small></div>
+            <div class="dashboard-mini-card"><span>Suspended Services</span><strong><?= dashboardNumber($suspendedAccounts) ?></strong><small>Currently restricted</small></div>
+            <div class="dashboard-mini-card"><span>Today's Payments</span><strong><?= dashboardNumber($paymentsTodayCount) ?></strong><small>Transactions received</small></div>
+        </div>
+
+        <div class="dashboard-panel isp-health-panel">
+            <div class="dashboard-panel-header"><div><h2>ISP Health</h2><span>Live operational snapshot</span></div><a href="../network/status.php">Network Monitor</a></div>
+            <div class="isp-health-grid">
+                <div><span>Routers</span><strong><?= dashboardNumber($onlineRouters) ?> / <?= dashboardNumber($totalRouters) ?></strong><small>Online / configured</small></div>
+                <div><span>PPPoE Online</span><strong><?= dashboardNumber(max(0, $onlineUsers - $activeHotspotSessions)) ?></strong><small>Current sessions</small></div>
+                <div><span>Hotspot Online</span><strong><?= dashboardNumber($activeHotspotSessions) ?></strong><small>Current sessions</small></div>
+                <div><span>Revenue This Month</span><strong><?= dashboardMoney($revenueMonth) ?></strong><small>Collected</small></div>
+                <div><span>Outstanding</span><strong><?= dashboardMoney($outstandingAmount) ?></strong><small>Open balances</small></div>
+            </div>
+        </div>
+
         <!-- QUICK ACTIONS -->
 
         <div class="dashboard-panel">
@@ -1064,7 +1097,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <small>View internet accounts</small>
                 </a>
 
-                <a href="../pppoe/accounts.php" class="quick-action">
+                <a href="../pppoe_accounts/index.php" class="quick-action">
                     <span>♙</span>
                     <strong>PPPoE Accounts</strong>
                     <small>Manage PPPoE subscribers</small>
@@ -1982,4 +2015,8 @@ require_once __DIR__ . '/../includes/header.php';
 .danger-card strong {
     color: #fb7185;
 }
+</style>
+
+<style>
+.isp-snapshot-grid{margin-top:14px}.isp-snapshot-grid .dashboard-mini-card small{display:block;margin-top:5px;color:#64748b;font-size:10px}.isp-health-panel{margin-top:14px}.isp-health-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:rgba(148,163,184,.12)}.isp-health-grid>div{padding:17px;background:linear-gradient(145deg,rgba(16,24,39,.96),rgba(11,17,27,.94))}.isp-health-grid span{display:block;color:#94a3b8;font-size:11px}.isp-health-grid strong{display:block;color:#f8fafc;font-size:18px;margin:6px 0}.isp-health-grid small{color:#64748b;font-size:10px}@media(max-width:900px){.isp-health-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.isp-health-grid{grid-template-columns:1fr}}
 </style>
