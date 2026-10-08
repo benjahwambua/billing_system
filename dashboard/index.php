@@ -2017,7 +2017,6 @@ require_once __DIR__ . '/../includes/header.php';
 <style>
 .isp-snapshot-grid{margin-top:14px}.isp-snapshot-grid .dashboard-mini-card small{display:block;margin-top:5px;color:#64748b;font-size:10px}.isp-health-panel{margin-top:14px}.isp-health-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:rgba(148,163,184,.12)}.isp-health-grid>div{padding:17px;background:linear-gradient(145deg,rgba(16,24,39,.96),rgba(11,17,27,.94))}.isp-health-grid span{display:block;color:#94a3b8;font-size:11px}.isp-health-grid strong{display:block;color:#f8fafc;font-size:18px;margin:6px 0}.isp-health-grid small{color:#64748b;font-size:10px}@media(max-width:900px){.isp-health-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.isp-health-grid{grid-template-columns:1fr}}
 
-<style>
 /* ============================================================
    FLEXIHUB COMMAND-CENTER DASHBOARD
    Structural cues borrowed from Hospital System dashboards:
@@ -2088,5 +2087,5 @@ require_once __DIR__ . '/../includes/header.php';
     .dashboard-hero h1{font-size:22px!important}
     .quick-actions{grid-template-columns:1fr}
 }
-</style>
+
 </style>
