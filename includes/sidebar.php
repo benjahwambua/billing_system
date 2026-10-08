@@ -603,6 +603,8 @@ ob_start();
                 <span class="sidebar-heading-label"><?= sidebar_e('MIKROTIK & NETWORK') ?></span>
             </div>
 
+                <a href="../network/map.php" class="sidebar-menu-link <?= sidebarActive('/network/map.php') ?>"><span class="sidebar-menu-icon">⌁</span><span class="sidebar-menu-text">Network Map</span></a>
+                <a href="../network/olt_onu.php" class="sidebar-menu-link <?= sidebarActive('/network/olt_onu.php') ?>"><span class="sidebar-menu-icon">▣</span><span class="sidebar-menu-text">OLTs &amp; ONUs</span></a>
                 <a
                     href="../routers/index.php"
                     class="sidebar-menu-link <?= sidebarActive('/routers/') ?>"
