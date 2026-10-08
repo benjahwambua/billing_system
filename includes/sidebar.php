@@ -565,6 +565,8 @@ ob_start();
                     <span class="sidebar-menu-text">Captive Portal</span>
                 </a>
 
+                <a href="../hotspot/vouchers.php" class="sidebar-menu-link <?= sidebarActive('/hotspot/vouchers.php') ?>"><span class="sidebar-menu-icon">◆</span><span class="sidebar-menu-text">Vouchers</span></a>
+
                 <a
                     href="../hotspot/access_codes.php"
                     class="sidebar-menu-link <?= sidebarActive('/hotspot/access_codes.php') ?>"
@@ -603,6 +605,8 @@ ob_start();
                 <span class="sidebar-heading-label"><?= sidebar_e('MIKROTIK & NETWORK') ?></span>
             </div>
 
+                <a href="../network/map.php" class="sidebar-menu-link <?= sidebarActive('/network/map.php') ?>"><span class="sidebar-menu-icon">⌁</span><span class="sidebar-menu-text">Network Map</span></a>
+                <a href="../network/olt_onu.php" class="sidebar-menu-link <?= sidebarActive('/network/olt_onu.php') ?>"><span class="sidebar-menu-icon">▣</span><span class="sidebar-menu-text">OLTs &amp; ONUs</span></a>
                 <a
                     href="../routers/index.php"
                     class="sidebar-menu-link <?= sidebarActive('/routers/') ?>"
@@ -713,6 +717,8 @@ ob_start();
                     <span class="sidebar-menu-text">Outstanding</span>
                 </a>
 
+                <a href="../payments/failed_mpesa.php" class="sidebar-menu-link <?= sidebarActive('/payments/failed_mpesa.php') ?>"><span class="sidebar-menu-icon">!</span><span class="sidebar-menu-text">Failed M-Pesa</span></a>
+
                 <a
                     href="../expenses/index.php"
                     class="sidebar-menu-link <?= sidebarActive('/expenses/') ?>"
@@ -731,6 +737,12 @@ ob_start();
 
             </div>
 
+
+            <div class="sidebar-menu-section">
+                <div class="sidebar-menu-heading"><?= sidebarModuleIcon('OPERATIONS') ?><span class="sidebar-heading-label">OPERATIONS</span></div>
+                <a href="../operations/agent_sales.php" class="sidebar-menu-link <?= sidebarActive('/operations/agent_sales.php') ?>"><span class="sidebar-menu-icon">♙</span><span class="sidebar-menu-text">Agent Sales</span></a>
+                <a href="../operations/adverts.php" class="sidebar-menu-link <?= sidebarActive('/operations/adverts.php') ?>"><span class="sidebar-menu-icon">▤</span><span class="sidebar-menu-text">Adverts</span></a>
+            </div>
 
             <!-- =================================================
                  REPORTS
@@ -820,6 +832,9 @@ ob_start();
                     <span class="sidebar-menu-icon">✉</span>
                     <span class="sidebar-menu-text">Messages</span>
                 </a>
+
+                <a href="../communication/gateway.php" class="sidebar-menu-link <?= sidebarActive('/communication/gateway.php') ?>"><span class="sidebar-menu-icon">▣</span><span class="sidebar-menu-text">SMS Gateway</span></a>
+                <a href="../communication/customer_chat.php" class="sidebar-menu-link <?= sidebarActive('/communication/customer_chat.php') ?>"><span class="sidebar-menu-icon">◉</span><span class="sidebar-menu-text">Customer Chat</span></a>
 
                 <a
                     href="../communication/sms.php"
@@ -1007,6 +1022,8 @@ ob_start();
                     <span class="sidebar-menu-text">Captive Portal</span>
                 </a>
 
+                <a href="../settings/themes.php" class="sidebar-menu-link <?= sidebarActive('/settings/themes.php') ?>"><span class="sidebar-menu-icon">◈</span><span class="sidebar-menu-text">Themes &amp; Branding</span></a>
+
                 <a
                     href="../settings/api.php"
                     class="sidebar-menu-link <?= sidebarActive('/settings/api.php') ?>"
@@ -1016,6 +1033,7 @@ ob_start();
                 </a>
 
             </div>
+
 
         <?php endif; ?>
 
