@@ -566,10 +566,11 @@ require_once __DIR__ . '/../includes/header.php';
          PAGE HEADER
     ========================================================== -->
 
-    <div class="dashboard-page-header">
+    <div class="dashboard-page-header dashboard-hero">
 
         <div>
 
+            <div class="dashboard-hero-kicker"><?= $isHost ? "FLEXIHUB PLATFORM" : "ISP COMMAND CENTER" ?></div>
             <h1>
                 <?= htmlspecialchars($pageTitle) ?>
             </h1>
@@ -580,11 +581,7 @@ require_once __DIR__ . '/../includes/header.php';
 
         </div>
 
-        <div class="dashboard-date">
-
-            <?= date('l, d F Y') ?>
-
-        </div>
+        <div class="dashboard-hero-actions"><div class="dashboard-date"><?= date('l, d F Y') ?></div><?php if (!$isHost): ?><a href="../reports/index.php" class="dashboard-hero-action">Open Reports</a><?php else: ?><a href="../tenants/index.php" class="dashboard-hero-action">Manage Tenants</a><?php endif; ?></div>
 
     </div>
 
@@ -2019,4 +2016,76 @@ require_once __DIR__ . '/../includes/header.php';
 
 <style>
 .isp-snapshot-grid{margin-top:14px}.isp-snapshot-grid .dashboard-mini-card small{display:block;margin-top:5px;color:#64748b;font-size:10px}.isp-health-panel{margin-top:14px}.isp-health-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:rgba(148,163,184,.12)}.isp-health-grid>div{padding:17px;background:linear-gradient(145deg,rgba(16,24,39,.96),rgba(11,17,27,.94))}.isp-health-grid span{display:block;color:#94a3b8;font-size:11px}.isp-health-grid strong{display:block;color:#f8fafc;font-size:18px;margin:6px 0}.isp-health-grid small{color:#64748b;font-size:10px}@media(max-width:900px){.isp-health-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.isp-health-grid{grid-template-columns:1fr}}
+
+/* ============================================================
+   FLEXIHUB COMMAND-CENTER DASHBOARD
+   Structural cues borrowed from Hospital System dashboards:
+   hero header, metric strip, operations workspace and focused
+   two-column panels — translated into Flexihub's dark/blue UI.
+============================================================ */
+.dashboard-page{max-width:1500px;margin:0 auto;padding:28px 24px 44px}
+.dashboard-hero{
+    position:relative;
+    overflow:hidden;
+    margin-bottom:20px;
+    padding:28px 30px;
+    min-height:122px;
+    border:1px solid rgba(96,165,250,.22);
+    border-radius:18px;
+    background:
+      radial-gradient(circle at 88% 10%,rgba(37,99,235,.28),transparent 34%),
+      linear-gradient(135deg,#07101d 0%,#0b1728 55%,#10254a 100%);
+    box-shadow:0 18px 45px rgba(0,0,0,.25);
+}
+.dashboard-hero:before,.dashboard-hero:after{
+    content:"";position:absolute;border-radius:50%;pointer-events:none;
+    border:1px solid rgba(96,165,250,.12);
+}
+.dashboard-hero:before{width:280px;height:280px;right:-110px;top:-175px}
+.dashboard-hero:after{width:150px;height:150px;right:170px;bottom:-110px}
+.dashboard-hero>div{position:relative;z-index:1}
+.dashboard-hero-kicker{
+    color:#60a5fa;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:1.8px;
+    text-transform:uppercase;
+    margin-bottom:5px;
+}
+.dashboard-hero h1{font-size:28px!important;margin:0 0 5px!important;color:#f8fafc!important}
+.dashboard-hero p{margin:0!important;color:#94a3b8!important;font-size:13px}
+.dashboard-hero-actions{display:flex;align-items:center;gap:12px}
+.dashboard-hero-action{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:9px 14px;border-radius:9px;
+    background:linear-gradient(135deg,#2563eb,#3b82f6);
+    color:#fff!important;text-decoration:none;font-size:12px;font-weight:700;
+    box-shadow:0 8px 20px rgba(37,99,235,.25);
+}
+.dashboard-hero-action:hover{transform:translateY(-1px);color:#fff!important}
+.dashboard-stat-card,.dashboard-finance-card,.dashboard-mini-card,.dashboard-panel{
+    border-radius:14px!important;
+}
+.dashboard-grid{gap:14px!important}
+.dashboard-panel-header{padding:16px 20px!important}
+.dashboard-panel-header h2{font-size:14px!important}
+.dashboard-stat-card{
+    min-height:108px;
+    background:linear-gradient(145deg,rgba(16,24,39,.98),rgba(9,15,25,.98))!important;
+}
+.quick-actions{grid-template-columns:repeat(3,1fr)}
+.quick-action{min-height:104px}
+@media(max-width:900px){
+    .dashboard-page{padding:20px 14px 36px}
+    .dashboard-hero{padding:23px 22px}
+    .dashboard-hero-actions{align-items:flex-start;flex-direction:column}
+    .quick-actions{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:600px){
+    .dashboard-page{padding:16px 10px 30px}
+    .dashboard-hero{border-radius:14px;padding:20px}
+    .dashboard-hero h1{font-size:22px!important}
+    .quick-actions{grid-template-columns:1fr}
+}
+
 </style>
