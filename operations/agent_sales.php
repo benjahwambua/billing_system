@@ -7,33 +7,23 @@ global $conn;
 $tenantId=(int)getCurrentTenantId();$error='';$success='';$rows=[];
 
 if($_SERVER['REQUEST_METHOD']==='POST'){
- requireModulePermission('operations','edit');
  requireCsrf();
- $saleId=(int)($_POST['sale_id']??0);
- $action=trim((string)($_POST['action']??''));
- $allowed=['completed','settled','cancelled','pending'];
- if(!$saleId || !in_array($action,$allowed,true))$error='Invalid settlement action.';
- else{
-  $q=$conn->prepare("UPDATE agent_sales SET status=? WHERE id=? AND tenant_id=?");
-  if(!$q)$error='Unable to prepare settlement update.';
-  else{$q->bind_param('sii',$action,$saleId,$tenantId);$q->execute();$changed=$q->affected_rows;$q->close();$success=$changed?'Agent sale status updated.':'No matching sale was changed.';}
+ if(isset($_POST['record_sale'])){
+  requireModulePermission('operations','create');
+  $agent=trim((string)($_POST['agent_name']??''));$phone=trim((string)($_POST['agent_phone']??''));$product=trim((string)($_POST['product_type']??''));
+  $reference=trim((string)($_POST['reference']??''));$amount=(float)($_POST['amount']??0);$commission=(float)($_POST['commission']??0);$status=trim((string)($_POST['status']??'pending'));$notes=trim((string)($_POST['notes']??''));
+  if($agent===''||$product==='')$error='Agent name and product/service are required.';
+  elseif($amount<=0)$error='Sale amount must be greater than zero.';
+  elseif($commission<0||$commission>$amount)$error='Commission must be between zero and the sale amount.';
+  elseif(!in_array($status,['completed','pending','cancelled','settled'],true))$error='Invalid sale status.';
+  else{$q=$conn->prepare("INSERT INTO agent_sales (tenant_id,agent_name,agent_phone,product_type,reference,amount,commission,status,notes) VALUES (?,?,?,?,?,?,?,?,?)");if(!$q)$error='Unable to prepare the sale record.';else{$q->bind_param('issssddss',$tenantId,$agent,$phone,$product,$reference,$amount,$commission,$status,$notes);$success=$q->execute()?'Agent sale recorded successfully.':'Unable to record the agent sale.';$q->close();}}
+ }else{
+  requireModulePermission('operations','edit');
+  $saleId=(int)($_POST['sale_id']??0);$action=trim((string)($_POST['action']??''));$allowed=['completed','settled','cancelled','pending'];
+  if(!$saleId||!in_array($action,$allowed,true))$error='Invalid settlement action.';
+  else{$q=$conn->prepare("UPDATE agent_sales SET status=? WHERE id=? AND tenant_id=?");if(!$q)$error='Unable to prepare settlement update.';else{$q->bind_param('sii',$action,$saleId,$tenantId);$q->execute();$changed=$q->affected_rows;$q->close();$success=$changed?'Agent sale status updated.':'No matching sale was changed.';}}
  }
 }
-
-if($_SERVER['REQUEST_METHOD']==='POST' && !$error && isset($_POST['agent_name'])){
- $error='Use the status action controls below to update existing sales.';
-}
-if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['record_sale'])){
- requireModulePermission('operations','create');requireCsrf();
- $agent=trim((string)($_POST['agent_name']??''));$phone=trim((string)($_POST['agent_phone']??''));$product=trim((string)($_POST['product_type']??''));
- $reference=trim((string)($_POST['reference']??''));$amount=(float)($_POST['amount']??0);$commission=(float)($_POST['commission']??0);$status=trim((string)($_POST['status']??'pending'));$notes=trim((string)($_POST['notes']??''));
- if($agent===''||$product==='')$error='Agent name and product/service are required.';
- elseif($amount<=0)$error='Sale amount must be greater than zero.';
- elseif($commission<0||$commission>$amount)$error='Commission must be between zero and the sale amount.';
- elseif(!in_array($status,['completed','pending','cancelled','settled'],true))$error='Invalid sale status.';
- else{$q=$conn->prepare("INSERT INTO agent_sales (tenant_id,agent_name,agent_phone,product_type,reference,amount,commission,status,notes) VALUES (?,?,?,?,?,?,?,?,?)");if(!$q)$error='Unable to prepare the sale record.';else{$q->bind_param('issssddss',$tenantId,$agent,$phone,$product,$reference,$amount,$commission,$status,$notes);$success=$q->execute()?'Agent sale recorded successfully.':'Unable to record the agent sale.';$q->close();}}
-}
-
 $q=$conn->prepare("SELECT * FROM agent_sales WHERE tenant_id=? ORDER BY id DESC LIMIT 500");if($q){$q->bind_param('i',$tenantId);$q->execute();$z=$q->get_result();while($r=$z->fetch_assoc())$rows[]=$r;$q->close();}
 $totalSales=0;$totalCommission=0;$pending=0;$settled=0;foreach($rows as $r){$totalSales+=(float)$r['amount'];$totalCommission+=(float)$r['commission'];if(($r['status']??'')==='pending')$pending++;if(($r['status']??'')==='settled')$settled++;}
 $pageTitle='Agent Sales';require_once '../includes/header.php';
