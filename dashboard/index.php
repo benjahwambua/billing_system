@@ -1087,6 +1087,13 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
 
+        <?php if (!$isHost && $tenantId): ?>
+
+            <?php require __DIR__ . '/tenant_analytics.php'; ?>
+
+        <?php endif; ?>
+
+
         <!-- LOWER DASHBOARD -->
 
         <div class="dashboard-columns">
