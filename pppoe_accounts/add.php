@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
+require_once '../includes/mikrotik_api.php';
 if(isTenantUser()) requireTenant();
 global $conn;
 $cols=[];$q=$conn->query("SHOW COLUMNS FROM pppoe_accounts");while($x=$q->fetch_assoc())$cols[]=$x['Field'];
@@ -15,7 +16,35 @@ if(!$errors){$map=['internet_account_id'=>$ia,'pppoe_server_id'=>$serverId,'user
 foreach($map as $c=>$x)if($has($c)){$f[]=$c;$v[]=$x;$t.=is_int($x)?'i':'s';}
 if($has('tenant_id')){$f[]='tenant_id';$v[]=$tid;$t.='i';}
 $st=$conn->prepare("INSERT INTO pppoe_accounts (".implode(',',$f).") VALUES (".implode(',',array_fill(0,count($f),'?')).")");
-if($st){$st->bind_param($t,...$v);if($st->execute())redirect('index.php');$errors[]=$st->error;}}}
+if($st){
+ $st->bind_param($t,...$v);
+ if($st->execute()){
+  $pppoeId=(int)$conn->insert_id;
+  try{
+   $srvQ=$conn->prepare("SELECT ps.*,mr.* FROM pppoe_servers ps LEFT JOIN mikrotik_routers mr ON mr.id=ps.router_id AND mr.tenant_id=ps.tenant_id WHERE ps.id=? AND ps.tenant_id=? AND ps.status='active' LIMIT 1");
+   if(!$srvQ)throw new Exception('Unable to load the selected PPPoE server.');
+   $srvQ->bind_param('ii',$serverId,$tid);$srvQ->execute();$router=$srvQ->get_result()->fetch_assoc();$srvQ->close();
+   if(!$router)throw new Exception('The selected PPPoE server has no valid MikroTik router assignment.');
+   $routerCols=flexihubTableColumns('mikrotik_routers');
+   $pick=function($names,$default='')use($router,$routerCols){foreach($names as $n)if(in_array($n,$routerCols,true)&&isset($router[$n])&&$router[$n]!=='')return $router[$n];return $default;};
+   $host=$pick(['host','ip_address','ip']);$ruser=$pick(['username','user']);$rpass=$pick(['password','api_password']);$rport=(int)$pick(['api_port','port'],8728);
+   if($host===''||$ruser==='')throw new Exception('MikroTik connection details are incomplete.');
+   $ros=new FlexihubRouterOS($host,$ruser,$rpass,$rport,8);
+   try{$ros->addOrUpdatePppSecret($user,$secret,$status!=='active','pppoe');}finally{$ros->close();}
+   $done=$conn->prepare("UPDATE pppoe_accounts SET status=? WHERE id=? AND tenant_id=?");
+   if($done){$doneStatus=$status==='active'?'active':($status?:'inactive');$done->bind_param('sii',$doneStatus,$pppoeId,$tid);$done->execute();$done->close();}
+   if(function_exists('flexihubWorkflowInsert')){
+    flexihubWorkflowInsert('router_sync_logs',['tenant_id'=>$tid,'router_id'=>(int)$router['router_id'],'service_type'=>'pppoe','external_username'=>$user,'action'=>'provision','status'=>'success','message'=>'PPPoE secret created or updated on MikroTik.']);
+   }
+   redirect('index.php');
+  }catch(Throwable $e){
+   $msg='Account saved but MikroTik provisioning failed: '.$e->getMessage();
+   $pending=$conn->prepare("UPDATE pppoe_accounts SET status='pending_activation' WHERE id=? AND tenant_id=?");
+   if($pending){$pending->bind_param('ii',$pppoeId,$tid);$pending->execute();$pending->close();}
+   $errors[]=$msg;
+  }
+ } else $errors[]=$st->error;
+}}
 ?>
 <?php require '../includes/header.php';?><div class="page-content"><div class="page-header"><div><h1>Add PPPoE Account</h1><p>Create PPPoE credentials for an internet account.</p></div><a class="btn btn-secondary" href="index.php">Back</a></div>
 <?php if($errors):?><div class="alert alert-danger"><?=e(implode(' ',$errors))?></div><?php endif;?>
