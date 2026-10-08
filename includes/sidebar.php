@@ -54,6 +54,38 @@ function sidebarGroupActive($paths)
     return '';
 }
 
+
+/**
+ * Module heading icon set. Inline SVG keeps the sidebar self-contained and
+ * avoids an external icon dependency while matching the Flexihub blue theme.
+ */
+if (!function_exists('sidebarModuleIcon')) {
+    function sidebarModuleIcon($label)
+    {
+        $icons = [
+            'OVERVIEW' => '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/>',
+            'PLATFORM' => '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/>',
+            'OPERATIONS' => '<path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="5"/>',
+            'CONFIGURATION' => '<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/>',
+            'CUSTOMERS' => '<path d="M16 20v-1.5a4.5 4.5 0 0 0-4.5-4.5h-3A4.5 4.5 0 0 0 4 18.5V20"/><circle cx="10" cy="7.5" r="3.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M17 14.5a4.5 4.5 0 0 1 4 4V20"/>',
+            'INTERNET SERVICES' => '<circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.2 2.2 3.2 5 3.2 8s-1 5.8-3.2 8c-2.2-2.2-3.2-5-3.2-8s1-5.8 3.2-8Z"/>',
+            'PPPOE' => '<path d="M4 17V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M8 10h8M8 14h5"/>',
+            'HOTSPOT' => '<path d="M5 9.5a10 10 0 0 1 14 0M8 13a6 6 0 0 1 8 0M11 16.5a2 2 0 0 1 2 0"/><circle cx="12" cy="18" r="1"/>',
+            'NETWORK' => '<circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5v5M10 12.5 6.5 17M14 12.5l3.5 4.5"/>',
+            'BILLING' => '<path d="M5 3h14v18l-3-2-4 2-4-2-3 2V3Z"/><path d="M8 8h8M8 12h8M8 16h4"/>',
+            'REPORTING' => '<path d="M4 19V5M4 19h16"/><path d="m7 15 3-4 3 2 5-6"/>',
+            'COMMUNICATION' => '<path d="M4 5h16v11H8l-4 4V5Z"/><path d="M8 9h8M8 12h5"/>',
+            'INTELLIGENCE' => '<path d="M9 18h6M10 21h4"/><path d="M8 14a7 7 0 1 1 8 0c-1 1-1.5 2-1.5 3h-5c0-1-.5-2-1.5-3Z"/><path d="M12 7v3M9.5 8.5 11 10M14.5 8.5 13 10"/>',
+            'STAFF & ACCESS' => '<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 11h5M18.5 8.5v5"/>',
+            'SETTINGS' => '<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/>',
+            'ACCOUNT' => '<circle cx="12" cy="8" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0"/>',
+        ];
+        $key = strtoupper(trim((string)$label));
+        $paths = $icons[$key] ?? '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/>';
+        return '<span class="sidebar-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'.$paths.'</svg></span>';
+    }
+}
+
 /**
  * Escape sidebar text.
  */
@@ -184,7 +216,8 @@ ob_start();
         <div class="sidebar-menu-section">
 
             <div class="sidebar-menu-heading">
-                OVERVIEW
+                <?= sidebarModuleIcon('OVERVIEW') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('OVERVIEW') ?></span>
             </div>
 
             <a
@@ -207,8 +240,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    PLATFORM
-                </div>
+                <?= sidebarModuleIcon('PLATFORM') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('PLATFORM') ?></span>
+            </div>
 
                 <a
                     href="../tenants/index.php"
@@ -268,8 +302,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    OPERATIONS
-                </div>
+                <?= sidebarModuleIcon('OPERATIONS') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('OPERATIONS') ?></span>
+            </div>
 
                 <a
                     href="../platform_users/index.php"
@@ -313,8 +348,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    CONFIGURATION
-                </div>
+                <?= sidebarModuleIcon('CONFIGURATION') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('CONFIGURATION') ?></span>
+            </div>
 
                 <a
                     href="../platform_settings/index.php"
@@ -337,8 +373,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    CUSTOMERS
-                </div>
+                <?= sidebarModuleIcon('CUSTOMERS') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('CUSTOMERS') ?></span>
+            </div>
 
                 <a
                     href="../customers/index.php"
@@ -398,8 +435,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    INTERNET SERVICES
-                </div>
+                <?= sidebarModuleIcon('INTERNET SERVICES') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('INTERNET SERVICES') ?></span>
+            </div>
 
                 <a
                     href="../internet_plans/index.php"
@@ -451,8 +489,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    PPPOE
-                </div>
+                <?= sidebarModuleIcon('PPPOE') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('PPPOE') ?></span>
+            </div>
 
                 <a
                     href="../pppoe/accounts.php"
@@ -512,8 +551,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    HOTSPOT
-                </div>
+                <?= sidebarModuleIcon('HOTSPOT') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('HOTSPOT') ?></span>
+            </div>
 
                 <a
                     href="../hotspot/index.php"
@@ -573,8 +613,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    MIKROTIK & NETWORK
-                </div>
+                <?= sidebarModuleIcon('MIKROTIK & NETWORK') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('MIKROTIK & NETWORK') ?></span>
+            </div>
 
                 <a
                     href="../routers/index.php"
@@ -634,8 +675,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    BILLING & FINANCE
-                </div>
+                <?= sidebarModuleIcon('BILLING & FINANCE') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('BILLING & FINANCE') ?></span>
+            </div>
 
                 <a
                     href="../billing/index.php"
@@ -711,8 +753,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    REPORTS & ANALYTICS
-                </div>
+                <?= sidebarModuleIcon('REPORTS & ANALYTICS') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('REPORTS & ANALYTICS') ?></span>
+            </div>
 
                 <a
                     href="../reports/index.php"
@@ -780,8 +823,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    COMMUNICATION
-                </div>
+                <?= sidebarModuleIcon('COMMUNICATION') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('COMMUNICATION') ?></span>
+            </div>
 
                 <a
                     href="../communication/index.php"
@@ -833,8 +877,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    INTELLIGENCE
-                </div>
+                <?= sidebarModuleIcon('INTELLIGENCE') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('INTELLIGENCE') ?></span>
+            </div>
 
                 <a
                     href="../ai/index.php"
@@ -878,8 +923,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    STAFF & ACCESS
-                </div>
+                <?= sidebarModuleIcon('STAFF & ACCESS') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('STAFF & ACCESS') ?></span>
+            </div>
 
                 <a
                     href="../staffs/index.php"
@@ -923,8 +969,9 @@ ob_start();
             <div class="sidebar-menu-section">
 
                 <div class="sidebar-menu-heading">
-                    SETTINGS
-                </div>
+                <?= sidebarModuleIcon('SETTINGS') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('SETTINGS') ?></span>
+            </div>
 
                 <a
                     href="../settings/index.php"
@@ -994,7 +1041,8 @@ ob_start();
         <div class="sidebar-menu-section sidebar-account-section">
 
             <div class="sidebar-menu-heading">
-                ACCOUNT
+                <?= sidebarModuleIcon('ACCOUNT') ?>
+                <span class="sidebar-heading-label"><?= sidebar_e('ACCOUNT') ?></span>
             </div>
 
             <a
@@ -1426,4 +1474,13 @@ echo $sidebarHtml;
     }
 })();
 </script>
+
+
+/* Module heading icons */
+.sidebar-menu-heading{gap:8px!important;}
+.sidebar-heading-icon{width:19px;height:19px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 19px;color:#64748b;}
+.sidebar-heading-icon svg{width:16px;height:16px;display:block;}
+.sidebar-menu-section.has-dropdown .sidebar-menu-heading:hover .sidebar-heading-icon,
+.sidebar-menu-section.active-group .sidebar-heading-icon{color:#60a5fa;}
+.sidebar-heading-label{flex:1;min-width:0;}
 </style>
