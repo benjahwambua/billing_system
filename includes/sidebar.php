@@ -175,32 +175,18 @@ ob_start();
          ACCOUNT SCOPE
     ========================================================== -->
 
-    <div class="sidebar-account-box">
-
-        <?php if ($isHost): ?>
-
-            <div class="sidebar-scope-label">
-                PLATFORM ADMINISTRATION
-            </div>
-
-            <div class="sidebar-account-name">
-                Flexihub Platform
-            </div>
-
-        <?php else: ?>
-
-            <div class="sidebar-scope-label">
-                ISP ACCOUNT
-            </div>
-
-            <div class="sidebar-account-name">
-                <?= sidebar_e($sidebarTenantName) ?>
-            </div>
-
-        <?php endif; ?>
-
+    <div class="sidebar-user-profile">
+        <div class="sidebar-user-avatar"><?= sidebar_e(strtoupper(substr($sidebarUsername ?: 'U', 0, 1))) ?></div>
+        <div class="sidebar-user-info">
+            <span class="sidebar-user-name"><?= sidebar_e($sidebarUsername) ?></span>
+            <span class="sidebar-user-role"><?= sidebar_e($_SESSION['user_role'] ?? ($_SESSION['role'] ?? ($isHost ? 'Platform Administrator' : 'User'))) ?></span>
+        </div>
     </div>
 
+    <div class="sidebar-account-box">
+        <div class="sidebar-scope-label"><?= $isHost ? 'PLATFORM ADMINISTRATION' : 'ISP ACCOUNT' ?></div>
+        <div class="sidebar-account-name"><?= sidebar_e($isHost ? 'Flexihub Platform' : $sidebarTenantName) ?></div>
+    </div>
 
     <!-- =========================================================
          NAVIGATION
@@ -1077,6 +1063,7 @@ echo $sidebarHtml;
 
 
 <style>
+.sidebar-user-profile{margin:14px 12px 10px;padding:12px;border:1px solid rgba(148,163,184,.12);border-radius:12px;background:rgba(255,255,255,.035);display:flex;align-items:center;gap:10px}.sidebar-user-avatar{width:36px;height:36px;flex:0 0 36px;border-radius:10px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}.sidebar-user-info{min-width:0}.sidebar-user-name{display:block;color:#f8fafc;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sidebar-user-role{display:block;color:#64748b;font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ============================================================
    FLEXIHUB SIDEBAR
@@ -1408,72 +1395,6 @@ echo $sidebarHtml;
 }
 
 
-<script>
-(function(){
-    function initFlexihubDropdowns(){
-        document.querySelectorAll('.sidebar-menu-section').forEach(function(section){
-            if(section.dataset.dropdownReady === '1') return;
-
-            var heading = section.querySelector(':scope > .sidebar-menu-heading');
-            if(!heading) return;
-
-            var links = Array.from(section.querySelectorAll(':scope > .sidebar-menu-link'));
-            if(!links.length) return;
-
-            section.dataset.dropdownReady = '1';
-            section.classList.add('has-dropdown');
-
-            var submenu = document.createElement('div');
-            submenu.className = 'sidebar-submenu';
-            var inner = document.createElement('div');
-            inner.className = 'sidebar-submenu-inner';
-
-            links.forEach(function(link){ inner.appendChild(link); });
-            submenu.appendChild(inner);
-            section.appendChild(submenu);
-
-            var chevron = document.createElement('span');
-            chevron.className = 'sidebar-chevron';
-            chevron.setAttribute('aria-hidden','true');
-            chevron.textContent = '▼';
-            heading.appendChild(chevron);
-
-            var hasActive = links.some(function(link){
-                return link.classList.contains('active');
-            });
-
-            if(hasActive){
-                section.classList.add('open','active-group');
-                heading.setAttribute('aria-expanded','true');
-            }else{
-                heading.setAttribute('aria-expanded','false');
-            }
-
-            heading.setAttribute('role','button');
-            heading.setAttribute('tabindex','0');
-
-            function toggle(){
-                var open = section.classList.toggle('open');
-                heading.setAttribute('aria-expanded', open ? 'true' : 'false');
-            }
-
-            heading.addEventListener('click', toggle);
-            heading.addEventListener('keydown', function(e){
-                if(e.key === 'Enter' || e.key === ' '){
-                    e.preventDefault();
-                    toggle();
-                }
-            });
-        });
-    }
-
-    if(document.readyState === 'loading'){
-        document.addEventListener('DOMContentLoaded', initFlexihubDropdowns);
-    }else{
-        initFlexihubDropdowns();
-    }
-})();
-</script>
 
 
 /* Module heading icons */
