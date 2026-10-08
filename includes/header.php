@@ -29,6 +29,7 @@ $userName = getLoggedInUserName($conn);
 
     <link rel="stylesheet" href="../assets/css/flexihub-dark.css">
     <link rel="stylesheet" href="../assets/css/sidebar-collapse.css">
+    <script src="../assets/js/sidebar-collapse.js" defer></script>
 
 </head>
 
