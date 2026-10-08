@@ -1,6 +1,8 @@
 <?php
 // includes/footer.php
 ?>
+</main>
+
 <footer class="footer site-footer">
     <div class="footer-flex">
         <div class="footer-brand">
