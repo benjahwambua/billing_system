@@ -1891,3 +1891,95 @@ require_once __DIR__ . '/../includes/header.php';
 }
 
 </style>
+
+
+<style>
+/* Dashboard-specific dark/blue finishing layer */
+.dashboard-page {
+    color: #e2e8f0;
+}
+
+.dashboard-page-header h1,
+.dashboard-panel-header h2,
+.dashboard-stat-value,
+.dashboard-finance-card strong,
+.dashboard-mini-card strong {
+    color: #f8fafc;
+}
+
+.dashboard-page-header p,
+.dashboard-date,
+.dashboard-stat-label,
+.dashboard-finance-card span,
+.dashboard-mini-card span,
+.dashboard-panel-header span {
+    color: #8190a7;
+}
+
+.dashboard-stat-card,
+.dashboard-finance-card,
+.dashboard-mini-card,
+.dashboard-panel {
+    background: linear-gradient(145deg, rgba(16, 24, 39, .96), rgba(9, 15, 25, .96));
+    border-color: rgba(148, 163, 184, .14);
+}
+
+.dashboard-panel-header {
+    border-bottom-color: rgba(148, 163, 184, .12);
+}
+
+.dashboard-table th {
+    background: rgba(7, 11, 18, .72);
+    color: #718096;
+}
+
+.dashboard-table td {
+    color: #cbd5e1;
+    border-bottom-color: rgba(148, 163, 184, .08);
+}
+
+.dashboard-table td strong {
+    color: #f1f5f9;
+}
+
+.quick-action {
+    background: rgba(7, 13, 23, .72);
+    border-color: rgba(148, 163, 184, .13);
+}
+
+.quick-action:hover {
+    background: rgba(37, 99, 235, .11);
+    border-color: rgba(59, 130, 246, .34);
+}
+
+.quick-action strong {
+    color: #f1f5f9;
+}
+
+.quick-action small {
+    color: #718096;
+}
+
+.router-status-left strong,
+.dashboard-activity-item strong {
+    color: #dbeafe;
+}
+
+.router-status-left small,
+.dashboard-activity-item small,
+.router-status-text {
+    color: #718096;
+}
+
+.dashboard-table tr:hover td {
+    background: rgba(37, 99, 235, .045);
+}
+
+.warning-card strong {
+    color: #fbbf24;
+}
+
+.danger-card strong {
+    color: #fb7185;
+}
+</style>
