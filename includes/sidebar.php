@@ -1296,7 +1296,6 @@ echo $sidebarHtml;
 }
 
 
-<style>
 /* ============================================================
    FLEXIHUB COLLAPSIBLE MODULE NAVIGATION
    Inspired by the structured module navigation used in the
@@ -1359,7 +1358,7 @@ echo $sidebarHtml;
     .sidebar-menu-section.has-dropdown .sidebar-menu-heading{padding:10px}
     .sidebar-submenu .sidebar-menu-link{margin-left:0}
 }
-</style>
+
 
 <script>
 (function(){
