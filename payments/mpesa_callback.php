@@ -3,6 +3,7 @@ require_once __DIR__.'/../config/database.php';
 require_once __DIR__.'/../includes/functions.php';
 require_once __DIR__.'/../includes/payment_gateway.php';
 require_once __DIR__.'/../includes/hotspot_workflow.php';
+require_once __DIR__.'/../includes/billing_workflow.php';
 require_once __DIR__.'/../includes/platform_billing.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -73,6 +74,7 @@ if($receipt===''||$paidAmount===null||abs($paidAmount-(float)$tx['amount'])>0.01
  $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='failed',error_message=? WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('sis',$err,$tenantId,$external);$stmt->execute();$stmt->close();}
  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;
 }
+$customerBillingFlow=false;
 $conn->begin_transaction();
 try{
  $stmt=$conn->prepare("SELECT * FROM payment_gateway_transactions WHERE id=? AND tenant_id=? FOR UPDATE");$stmt->bind_param('ii',$txId,$tenantId);$stmt->execute();$tx=$stmt->get_result()->fetch_assoc();$stmt->close();
@@ -117,6 +119,65 @@ try{
   if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}
   echo json_encode(['ResultCode'=>0,'ResultDesc'=>'SaaS payment received and allocated']);exit;
 }
+if (($tx['flow']??'')==='customer' || ($tx['flow']??'')==='internet' || ($tx['flow']??'')==='billing') {
+  $customerBillingFlow=true;
+  $reference=trim((string)($tx['account_reference']??''));
+  $invoice=null;
+  if($reference!==''){
+    $invoice=dbFetchOne("SELECT * FROM invoices WHERE tenant_id=? AND invoice_number=? LIMIT 1 FOR UPDATE",'is',$tenantId,$reference);
+    if(!$invoice && ctype_digit($reference)){
+      $invoice=dbFetchOne("SELECT * FROM invoices WHERE tenant_id=? AND id=? LIMIT 1 FOR UPDATE",'ii',$tenantId,(int)$reference);
+    }
+  }
+  if(!$invoice) throw new RuntimeException('Customer invoice is not linked to this M-Pesa transaction.');
+
+  $total=flexihubInvoiceTotal($invoice);
+  $alreadyPaid=flexihubInvoicePaid((int)$invoice['id'],$tenantId);
+  $balance=max(0,$total-$alreadyPaid);
+  if($balance<=0.0001) throw new RuntimeException('Customer invoice is already fully paid.');
+  if((float)$tx['amount']>$balance+0.01) throw new RuntimeException('M-Pesa payment exceeds the customer invoice balance.');
+
+  $duplicatePayment=dbFetchOne("SELECT * FROM payments WHERE tenant_id=? AND reference=? LIMIT 1",'is',$tenantId,$receipt);
+  if($duplicatePayment){
+    $paymentId=(int)$duplicatePayment['id'];
+  }else{
+    $paymentData=[
+      'tenant_id'=>$tenantId,'invoice_id'=>(int)$invoice['id'],'amount'=>(float)$tx['amount'],
+      'payment_method'=>'mpesa','payment_date'=>date('Y-m-d'),'reference'=>$receipt,
+      'payment_number'=>'PAY-'.date('YmdHis').'-'.random_int(100,999)
+    ];
+    $paymentId=flexihubWorkflowInsert('payments',$paymentData);
+    if(!$paymentId) throw new RuntimeException('Unable to create customer payment record.');
+    $payment=$paymentData+['id'=>$paymentId];
+    if(!flexihubRefreshInvoiceStatus((int)$invoice['id'],$tenantId)) throw new RuntimeException('Unable to refresh customer invoice status.');
+    flexihubCreatePaymentArtifacts($paymentId,$payment,$invoice,$tenantId);
+  }
+
+  $paidAfter=flexihubInvoicePaid((int)$invoice['id'],$tenantId);
+  $fullyPaid=$total<=0 || $paidAfter+0.00001 >= $total;
+  if($fullyPaid){
+    $accountId=(int)($invoice['account_id']??0);
+    if(!$accountId){
+      $aq=$conn->prepare("SELECT id FROM internet_accounts WHERE tenant_id=? AND customer_id=? ORDER BY CASE WHEN status IN ('active','pending_activation','suspended') THEN 0 ELSE 1 END,id DESC LIMIT 1");
+      if($aq){$customerId=(int)($invoice['customer_id']??0);$aq->bind_param('ii',$tenantId,$customerId);$aq->execute();$accountId=(int)($aq->get_result()->fetch_assoc()['id']??0);$aq->close();}
+    }
+    if($accountId){
+      if(flexihubAccountHasOverdueBalance($accountId,$tenantId)) throw new RuntimeException('Customer still has an overdue balance; service was not activated.');
+      if(!flexihubRenewInternetAccount($accountId,$tenantId)) throw new RuntimeException('Customer payment recorded but service renewal could not be prepared.');
+      $subscriptionId=flexihubCreateServiceSubscription($accountId,$tenantId,(int)$invoice['id'],$paymentId);
+      if(!$subscriptionId) throw new RuntimeException('Customer payment recorded but service subscription could not be created.');
+      if(!flexihubQueueServiceActivation($accountId,$tenantId,$paymentId,$subscriptionId,'activate')) throw new RuntimeException('Customer payment recorded but service activation could not be queued.');
+    }
+  }
+
+  $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='completed',provider_receipt=?,provider_transaction_id=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW(),expires_at=NULL WHERE id=? AND tenant_id=?");
+  if(!$stmt) throw new RuntimeException('Unable to finalize customer M-Pesa transaction.');
+  $stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);$stmt->execute();$stmt->close();
+  $conn->commit();
+  $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");
+  if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}
+  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Customer payment received and billing workflow completed']);exit;
+}
 $saleId=(int)($tx['hotspot_sale_id']??0);if($saleId<=0)throw new RuntimeException('Hotspot sale is not linked.');
  $stmt=$conn->prepare("SELECT * FROM hotspot_sales WHERE id=? AND tenant_id=? FOR UPDATE");$stmt->bind_param('ii',$saleId,$tenantId);$stmt->execute();$sale=$stmt->get_result()->fetch_assoc();$stmt->close();if(!$sale)throw new RuntimeException('Hotspot sale not found.');
  if(in_array($sale['status'],['access_active','completed'],true)){$conn->commit();$stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Payment already finalized']);exit;}
@@ -152,7 +213,7 @@ $saleId=(int)($tx['hotspot_sale_id']??0);if($saleId<=0)throw new RuntimeExceptio
   $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='confirmed',failure_reason=? WHERE id=? AND tenant_id=? AND status<>'completed'");
   if($stmt){$stmt->bind_param('sii',$err,$txId,$tenantId);$stmt->execute();$stmt->close();}
  }else{
-  flexihubQueueHotspotFinalization($tenantId,(int)($tx['hotspot_sale_id']??0),$txId);
+  if(!$customerBillingFlow) flexihubQueueHotspotFinalization($tenantId,(int)($tx['hotspot_sale_id']??0),$txId);
   $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='confirmed',failure_reason=? WHERE id=? AND tenant_id=? AND status<>'completed'");
   if($stmt){$stmt->bind_param('sii',$err,$txId,$tenantId);$stmt->execute();$stmt->close();}
  }
