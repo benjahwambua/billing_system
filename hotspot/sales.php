@@ -4,6 +4,7 @@ requireActiveUser();
 requireTenantContext();
 requireModulePermission('hotspot','view');
 require_once '../includes/billing_workflow.php';
+require_once '../includes/hotspot_workflow.php';
 
 global $conn;
 $tenantId=(int)getCurrentTenantId();
@@ -44,15 +45,23 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                 'amount'=>$amount,'payment_method'=>$method,'reference'=>$reference,'status'=>'completed'
             ]);
             if(!$saleId)throw new Exception('Unable to record sale.');
-            $u=$conn->prepare("UPDATE hotspot_access_codes SET status='sold' WHERE id=? AND tenant_id=? AND status='unused'");
+            $u=$conn->prepare("UPDATE hotspot_access_codes SET status='sold',sold_at=NOW() WHERE id=? AND tenant_id=? AND status='unused'");
             if(!$u)throw new Exception('Unable to reserve access code.');
             $u->bind_param('ii',$codeId,$tenantId);
             if(!$u->execute() || $u->affected_rows!==1)throw new Exception('Access code was already sold.');
             $u->close();
+
+            if(!flexihubQueueHotspotFinalization($tenantId,(int)$saleId,0)){
+                throw new Exception('Sale recorded but hotspot activation could not be queued.');
+            }
             $conn->commit();
-            setFlash('success','Hotspot sale recorded for code '.($code['code']??'').'.');
+
+            // Attempt immediate activation; failures remain safely queued for the worker retry path.
+            flexihubProcessHotspotFinalizationQueue($tenantId,1);
+
+            setFlash('success','Hotspot sale recorded and activation queued for code '.($code['code']??'').'.');
             redirect('sales.php');
-        }catch(Exception $e){
+        }catch(Throwable $e){
             $conn->rollback();
             $error=$e->getMessage();
         }
