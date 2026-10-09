@@ -3,6 +3,7 @@ require_once '../includes/auth.php';
 require_once '../includes/functions.php';
 require_once '../includes/ip_pool_validation.php';
 if(isTenantUser()) requireTenant();
+requireModulePermission('pppoe', 'create');
 global $conn;
 $cols=[];$q=$conn->query("SHOW COLUMNS FROM ip_pools");if(!$q)die('Unable to read IP pool schema.');while($x=$q->fetch_assoc())$cols[]=$x['Field'];
 $has=fn($c)=>in_array($c,$cols,true);$tid=(int)getCurrentTenantId();$errors=[];
