@@ -13,9 +13,22 @@ $sql='SELECT * FROM ip_pools WHERE id=?';$params=[$id];$types='i';
 if($has('tenant_id')){if($tid<=0)die('A valid tenant context is required.');$sql.=' AND tenant_id=?';$params[]=$tid;$types.='i';}
 $st=$conn->prepare($sql);$st->bind_param($types,...$params);$st->execute();$row=$st->get_result()->fetch_assoc();$st->close();if(!$row)die('IP pool not found.');
 $data=['name'=>(string)($row['name']??$row['pool_name']??''),'network'=>(string)($row['network']??''),'cidr'=>(string)($row['cidr']??''),'gateway'=>(string)($row['gateway']??''),'start_ip'=>(string)($row['start_ip']??''),'end_ip'=>(string)($row['end_ip']??''),'status'=>(string)($row['status']??'active'),'description'=>(string)($row['description']??'')];$errors=[];
+$assignedToActiveServer=false;
+if(function_exists('flexihubTableHasColumn') && flexihubTableHasColumn('pppoe_servers','ip_pool_id') && flexihubTableHasColumn('pppoe_servers','tenant_id')){
+ $check=$conn->prepare("SELECT COUNT(*) AS n FROM pppoe_servers WHERE ip_pool_id=? AND tenant_id=? AND LOWER(status)='active'");
+ if($check){$check->bind_param('ii',$id,$tid);$check->execute();$assignedToActiveServer=(int)($check->get_result()->fetch_assoc()['n']??0)>0;$check->close();}
+}
+
 if($_SERVER['REQUEST_METHOD']==='POST'){
  requireCsrf();foreach($data as $k=>$v)$data[$k]=trim((string)($_POST[$k]??$v));$data['status']=strtolower($data['status']);
  if(!in_array($data['status'],['active','inactive'],true))$errors[]='Invalid pool status.';
+ if($assignedToActiveServer){
+  $networkChanged=(string)($row['network']??'')!==$data['network'] || (string)($row['cidr']??'')!==$data['cidr'] || (string)($row['start_ip']??'')!==$data['start_ip'] || (string)($row['end_ip']??'')!==$data['end_ip'];
+  $deactivated=strtolower((string)($row['status']??'active'))==='active' && $data['status']!=='active';
+  if($networkChanged)$errors[]='This pool is assigned to an active PPPoE server. Remove or migrate that server assignment before changing its subnet or allocation range.';
+  if($deactivated)$errors[]='This pool is assigned to an active PPPoE server. Remove or migrate that assignment before deactivating the pool.';
+ }
+
  $errors=array_merge($errors,flexihubValidateIpPool($conn,$tid,$data,$cols,$id));
  if(!$errors){
   $map=['name'=>$data['name'],'pool_name'=>$data['name'],'network'=>$data['network'],'cidr'=>$data['cidr']!==''?$data['cidr']:$data['network'],'gateway'=>$data['gateway'],'start_ip'=>$data['start_ip'],'end_ip'=>$data['end_ip'],'status'=>$data['status'],'description'=>$data['description']];
