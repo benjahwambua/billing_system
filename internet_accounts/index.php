@@ -12,10 +12,10 @@ function accountCols() {
 }
 $cols=accountCols();
 if(!$cols) die('Internet accounts table is not available.');
+if(!in_array('tenant_id',$cols,true)){ http_response_code(503); exit('Internet account tenant isolation is unavailable. Please contact the administrator.'); }
 
 $q=trim($_GET['q']??''); $status=trim($_GET['status']??'');
-$where=[];$params=[];$types='';
-if(in_array('tenant_id',$cols,true)){ $where[]='ia.tenant_id=?';$params[]=$tenantId;$types.='i'; }
+$where=['ia.tenant_id=?'];$params=[$tenantId];$types='i';
 if($q!==''){ $where[]='(c.customer_number LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ? OR ia.account_number LIKE ?)'; $v='%'.$q.'%'; for($i=0;$i<4;$i++){$params[]=$v;$types.='s';} }
 if($status!=='' && in_array('status',$cols,true)){ $where[]='ia.status=?';$params[]=$status;$types.='s'; }
 $sql="SELECT ia.*, c.customer_number, c.first_name, c.last_name, ip.name AS plan_name, ip.price AS plan_price
