@@ -1,7 +1,10 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-requireLogin();
-$tenantId = requireTenant();
+requireActiveUser();
+requireTenantContext();
+requireModulePermission('customers', 'create');
+$tenantId = (int)getCurrentTenantId();
+if ($tenantId <= 0) { http_response_code(403); exit('A valid tenant context is required.'); }
 $pageTitle = 'Add Customer';
 $errors = [];
 
@@ -14,6 +17,7 @@ function customerAddColumns() {
 }
 
 $columns = customerAddColumns();
+if (!isset($columns['tenant_id'])) { http_response_code(503); exit('Customer tenant isolation is unavailable. Please contact the administrator.'); }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrf();
