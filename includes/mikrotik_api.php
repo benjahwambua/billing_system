@@ -116,7 +116,8 @@ if (!class_exists('FlexihubRouterOS')) {
             $words=$id
                 ? ['/ppp/profile/set','=.id='.$id,'=name='.$name,'=remote-address='.$remoteAddress]
                 : ['/ppp/profile/add','=name='.$name,'=remote-address='.$remoteAddress];
-            if($localAddress!=='') $words[]='=local-address='.$localAddress;
+            // Always synchronize this field; an empty gateway must clear a previously configured local-address.
+            $words[]='=local-address='.$localAddress;
             $this->command($words);
             return ['created'=>$id===null,'name'=>$name];
         }
