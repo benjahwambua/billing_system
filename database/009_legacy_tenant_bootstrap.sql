@@ -3,7 +3,7 @@
 -- Brings the original users table into the multi-tenant model.
 
 CREATE TABLE IF NOT EXISTS tenants (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     tenant_code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(150) NOT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'active',
@@ -16,7 +16,7 @@ SELECT 1, 'TEN-000001', 'Default Organisation', 'active'
 WHERE NOT EXISTS (SELECT 1 FROM tenants WHERE id = 1);
 
 SET @has_tenant_id := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'tenant_id');
-SET @sql := IF(@has_tenant_id = 0, 'ALTER TABLE users ADD COLUMN tenant_id INT UNSIGNED NULL AFTER id', 'SELECT 1');
+SET @sql := IF(@has_tenant_id = 0, 'ALTER TABLE users ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id', 'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @has_user_scope := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'user_scope');
