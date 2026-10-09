@@ -27,6 +27,11 @@ if (!$columns) {
     die('Internet plans table is not available.');
 }
 
+if ($isTenant && !in_array('tenant_id', $columns, true)) {
+    http_response_code(503);
+    exit('Internet plan tenant isolation is unavailable. Please contact the administrator.');
+}
+
 $search = trim($_GET['q'] ?? '');
 $status = trim($_GET['status'] ?? '');
 
