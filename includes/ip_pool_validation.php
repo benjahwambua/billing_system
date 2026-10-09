@@ -57,6 +57,7 @@ if (!function_exists('flexihubValidateIpPool')) {
         if (($start === '') !== ($end === '')) $errors[] = 'Enter both Start IP and End IP, or leave both blank.';
         if ($startLong !== null && $endLong !== null && $startLong > $endLong) $errors[] = 'Start IP must not be greater than End IP.';
         if ($cidr && $startLong !== null && $endLong !== null && ($startLong < $cidr['network'] || $endLong > $cidr['broadcast'])) $errors[] = 'The start/end range must fit inside the configured subnet.';
+        if ($gatewayLong !== null && $startLong !== null && $endLong !== null && $gatewayLong >= $startLong && $gatewayLong <= $endLong) $errors[] = 'Gateway must not be inside the subscriber allocation range.';
         if ($cidr && $cidr['bits'] <= 30 && $startLong !== null && $endLong !== null && ($startLong <= $cidr['network'] || $endLong >= $cidr['broadcast'])) $errors[] = 'The allocatable range must exclude the subnet network and broadcast addresses.';
         if ($errors) return $errors;
         if (!$has('tenant_id') || $tenantId <= 0) {
