@@ -1,12 +1,17 @@
 <?php
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
+requireActiveUser();
 if (isTenantUser()) requireTenant();
+requireModulePermission('network','view');
 global $conn;
 $cols=[];$res=$conn->query("SHOW COLUMNS FROM mikrotik_routers");if(!$res)die('Unable to read MikroTik router configuration.');
-while($row=$res->fetch_assoc())$cols[]=$row['Field'];$has=fn($c)=>in_array($c,$cols,true);$tenantId=getCurrentTenantId();
+while($row=$res->fetch_assoc())$cols[]=$row['Field'];$has=fn($c)=>in_array($c,$cols,true);$tenantId=(int)getCurrentTenantId();
 $where=[];$params=[];$types='';
-if($has('tenant_id')&&$tenantId){$where[]='r.tenant_id = ?';$params[]=$tenantId;$types.='i';}
+if(isTenantUser()){
+ if(!$has('tenant_id')||$tenantId<=0){http_response_code(503);die('Tenant-scoped router access is unavailable for this database schema or session.');}
+ $where[]='r.tenant_id = ?';$params[]=$tenantId;$types.='i';
+}elseif($has('tenant_id')&&$tenantId){$where[]='r.tenant_id = ?';$params[]=$tenantId;$types.='i';}
 $search=trim($_GET['search']??'');if($search!==''){ $parts=[];foreach(['name','router_name','host','ip_address','ip','username','description'] as $c)if($has($c))$parts[]="r.$c LIKE ?";if($parts){$where[]='('.implode(' OR ',$parts).')';foreach($parts as $p){$params[]='%'.$search.'%';$types.='s';}}}
 $sql="SELECT r.* FROM mikrotik_routers r".($where?' WHERE '.implode(' AND ',$where):'')." ORDER BY r.id DESC LIMIT 200";
 $stmt=$conn->prepare($sql);if(!$stmt)die('Unable to load routers.');if($params)$stmt->bind_param($types,...$params);$stmt->execute();$result=$stmt->get_result();
