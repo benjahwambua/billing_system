@@ -784,7 +784,8 @@ if (!function_exists('flexihubGenerateRecurringInvoices')) {
                 $cycle=strtolower((string)($account['billing_cycle']??'monthly'));
                 $days=['daily'=>1,'weekly'=>7,'monthly'=>30,'quarterly'=>90,'yearly'=>365][$cycle]??30;
             }
-            $periodEnd=date('Y-m-d',strtotime($periodStart." +".max(1,$days)." days));
+            $offsetDays = max(1, (int) $days);
+            $periodEnd = date('Y-m-d', strtotime($periodStart . ' +' . $offsetDays . ' days'));
             $price=(float)($account['plan_price']??0);
             if($price<=0){
                 $stats['skipped']++;
