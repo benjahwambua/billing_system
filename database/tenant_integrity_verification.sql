@@ -34,98 +34,98 @@ WHERE k.CONSTRAINT_SCHEMA = DATABASE()
 -- 3. Orphan audit. Expected result: zero rows.
 -- Any returned row identifies a table containing tenant_id values with no parent tenant.
 SELECT 'account_transactions' AS table_name, COUNT(*) AS orphan_rows
-FROM account_transactions c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.account_transactions c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'active_sessions', COUNT(*)
-FROM active_sessions c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.active_sessions c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'communications', COUNT(*)
-FROM communications c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.communications c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'customers', COUNT(*)
-FROM customers c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.customers c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'expenses', COUNT(*)
-FROM expenses c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.expenses c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'hotspot_sessions', COUNT(*)
-FROM hotspot_sessions c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.hotspot_sessions c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'internet_accounts', COUNT(*)
-FROM internet_accounts c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.internet_accounts c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'internet_plans', COUNT(*)
-FROM internet_plans c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.internet_plans c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'invoices', COUNT(*)
-FROM invoices c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.invoices c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'invoice_items', COUNT(*)
-FROM invoice_items c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.invoice_items c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'ip_pools', COUNT(*)
-FROM ip_pools c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.ip_pools c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'mikrotik_routers', COUNT(*)
-FROM mikrotik_routers c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.mikrotik_routers c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'orders', COUNT(*)
-FROM orders c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.orders c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'order_items', COUNT(*)
-FROM order_items c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.order_items c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'payments', COUNT(*)
-FROM payments c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.payments c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'payment_callbacks', COUNT(*)
-FROM payment_callbacks c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.payment_callbacks c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'pppoe_accounts', COUNT(*)
-FROM pppoe_accounts c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.pppoe_accounts c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'pppoe_servers', COUNT(*)
-FROM pppoe_servers c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.pppoe_servers c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'products', COUNT(*)
-FROM products c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.products c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'receipts', COUNT(*)
-FROM receipts c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.receipts c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'service_activation_queue', COUNT(*)
-FROM service_activation_queue c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.service_activation_queue c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'service_events', COUNT(*)
-FROM service_events c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.service_events c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'service_status_logs', COUNT(*)
-FROM service_status_logs c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.service_status_logs c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 UNION ALL
 SELECT 'users', COUNT(*)
-FROM users c LEFT JOIN tenants t ON t.id = c.tenant_id
+FROM billing_system.users c LEFT JOIN billing_system.tenants t ON t.id = c.tenant_id
 WHERE c.tenant_id IS NOT NULL AND t.id IS NULL
 ORDER BY table_name;
