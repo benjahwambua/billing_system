@@ -3,6 +3,7 @@ require_once '../includes/auth.php';
 require_once '../includes/functions.php';
 require_once '../includes/mikrotik_api.php';
 if(isTenantUser()) requireTenant();
+requireModulePermission('pppoe', 'create');
 global $conn;
 $cols=[];$q=$conn->query("SHOW COLUMNS FROM pppoe_accounts");while($x=$q->fetch_assoc())$cols[]=$x['Field'];
 $has=fn($c)=>in_array($c,$cols,true);$tid=getCurrentTenantId();$errors=[];
@@ -30,11 +31,35 @@ if($st){
    $host=$pick(['host','ip_address','ip']);$ruser=$pick(['username','user']);$rpass=$pick(['password','api_password']);$rport=(int)$pick(['api_port','port'],8728);
    if($host===''||$ruser==='')throw new Exception('MikroTik connection details are incomplete.');
    $ros=new FlexihubRouterOS($host,$ruser,$rpass,$rport,8);
-   try{$ros->addOrUpdatePppSecret($user,$secret,$status!=='active','pppoe');}finally{$ros->close();}
+   try{
+    $profileName='default';
+    $serverPoolId=(int)($router['ip_pool_id']??0);
+    if($serverPoolId>0){
+     $poolCols=flexihubTableColumns('ip_pools');
+     if(!in_array('tenant_id',$poolCols,true))throw new Exception('IP pool schema is not tenant-scoped; refusing cross-tenant pool provisioning.');
+     $poolSql="SELECT * FROM ip_pools WHERE id=? AND tenant_id=?".(in_array('status',$poolCols,true)?" AND status='active'":"")." LIMIT 1";
+     $poolStmt=$conn->prepare($poolSql);
+     if(!$poolStmt)throw new Exception('Unable to load the assigned tenant IP pool.');
+     $poolStmt->bind_param('ii',$serverPoolId,$tid);$poolStmt->execute();$pool=$poolStmt->get_result()->fetch_assoc();$poolStmt->close();
+     if(!$pool)throw new Exception('The PPPoE server assigned pool is missing, inactive, or belongs to another tenant.');
+     $poolLabel=trim((string)($pool['name']??$pool['pool_name']??('pool_'.$serverPoolId)));
+     $poolStart=trim((string)($pool['start_ip']??''));$poolEnd=trim((string)($pool['end_ip']??''));
+     if($poolStart===''||$poolEnd==='')throw new Exception('The assigned IP pool needs both Start IP and End IP configured before RouterOS provisioning.');
+     if(!filter_var($poolStart,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4)||!filter_var($poolEnd,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4)||ip2long($poolStart)>ip2long($poolEnd))throw new Exception('The assigned IP pool allocation range is invalid.');
+     $routerPoolName='fh_t'.(int)$tid.'_pool'.(int)$serverPoolId;
+     $routerProfileName='fh_t'.(int)$tid.'_pppoe'.(int)$serverId;
+     $gateway=trim((string)($pool['gateway']??''));
+     if($gateway!==''&&!filter_var($gateway,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4))throw new Exception('The assigned IP pool gateway is invalid.');
+     $ros->addOrUpdateIpPool($routerPoolName,$poolStart.'-'.$poolEnd);
+     $ros->addOrUpdatePppProfile($routerProfileName,$routerPoolName,$gateway);
+     $profileName=$routerProfileName;
+    }
+    $ros->addOrUpdatePppSecret($user,$secret,$status!=='active','pppoe',$profileName);
+   }finally{$ros->close();}
    $done=$conn->prepare("UPDATE pppoe_accounts SET status=? WHERE id=? AND tenant_id=?");
    if($done){$doneStatus=$status==='active'?'active':($status?:'inactive');$done->bind_param('sii',$doneStatus,$pppoeId,$tid);$done->execute();$done->close();}
    if(function_exists('flexihubWorkflowInsert')){
-    flexihubWorkflowInsert('router_sync_logs',['tenant_id'=>$tid,'router_id'=>(int)$router['router_id'],'service_type'=>'pppoe','external_username'=>$user,'action'=>'provision','status'=>'success','message'=>'PPPoE secret created or updated on MikroTik.']);
+    flexihubWorkflowInsert('router_sync_logs',['tenant_id'=>$tid,'router_id'=>(int)$router['router_id'],'service_type'=>'pppoe','external_username'=>$user,'action'=>'provision','status'=>'success','message'=>'PPPoE secret provisioned on MikroTik using profile '.$profileName.'.']);
    }
    redirect('index.php');
   }catch(Throwable $e){

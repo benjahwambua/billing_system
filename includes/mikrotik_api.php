@@ -96,8 +96,33 @@ if (!class_exists('FlexihubRouterOS')) {
             if($error) throw new Exception($error);
             return $rows;
         }
-        public function addOrUpdatePppSecret($username,$password,$disabled=false,$service='pppoe') {
-            $username=trim((string)$username); $password=(string)$password;
+        public function addOrUpdateIpPool($name,$ranges) {
+            $name=trim((string)$name); $ranges=trim((string)$ranges);
+            if($name==='' || $ranges==='') throw new Exception('RouterOS IP pool name and allocation range are required.');
+            $rows=$this->command(['/ip/pool/print','=.proplist=.id,name,ranges','=name='.$name]);
+            $id=null;
+            foreach($rows as $row) if(($row['!type']??'')==='!re' && ($row['name']??'')===$name && !empty($row['.id'])) {$id=$row['.id'];break;}
+            if($id!==null) $this->command(['/ip/pool/set','=.id='.$id,'=name='.$name,'=ranges='.$ranges]);
+            else $this->command(['/ip/pool/add','=name='.$name,'=ranges='.$ranges]);
+            return ['created'=>$id===null,'name'=>$name];
+        }
+
+        public function addOrUpdatePppProfile($name,$remoteAddress,$localAddress='') {
+            $name=trim((string)$name); $remoteAddress=trim((string)$remoteAddress); $localAddress=trim((string)$localAddress);
+            if($name==='' || $remoteAddress==='') throw new Exception('RouterOS PPP profile name and remote address pool are required.');
+            $rows=$this->command(['/ppp/profile/print','=.proplist=.id,name,local-address,remote-address','=name='.$name]);
+            $id=null;
+            foreach($rows as $row) if(($row['!type']??'')==='!re' && ($row['name']??'')===$name && !empty($row['.id'])) {$id=$row['.id'];break;}
+            $words=$id
+                ? ['/ppp/profile/set','=.id='.$id,'=name='.$name,'=remote-address='.$remoteAddress]
+                : ['/ppp/profile/add','=name='.$name,'=remote-address='.$remoteAddress];
+            if($localAddress!=='') $words[]='=local-address='.$localAddress;
+            $this->command($words);
+            return ['created'=>$id===null,'name'=>$name];
+        }
+
+        public function addOrUpdatePppSecret($username,$password,$disabled=false,$service='pppoe',$profile='default') {
+            $username=trim((string)$username); $password=(string)$password; $profile=trim((string)$profile);
             if($username==='') throw new Exception('PPPoE username is required.');
             if($password==='') throw new Exception('PPPoE password is required.');
             $existing=$this->findPppSecret($username);
@@ -106,8 +131,9 @@ if (!class_exists('FlexihubRouterOS')) {
             $words=$id
                 ? ['/ppp/secret/set','=.id='.$id,'=name='.$username,'=password='.$password,'=disabled='.($disabled?'yes':'no')]
                 : ['/ppp/secret/add','=name='.$username,'=password='.$password,'=service='.$service,'=disabled='.($disabled?'yes':'no')];
+            if($profile!=='') $words[]='=profile='.$profile;
             $this->command($words);
-            return ['created'=>$id===null,'id'=>$id];
+            return ['created'=>$id===null,'id'=>$id,'profile'=>$profile];
         }
 
         public function findPppSecret($username) {

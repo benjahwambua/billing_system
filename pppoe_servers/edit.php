@@ -24,6 +24,16 @@ if($has('ip_pool_id')&&$poolCols&&(!$poolHasTenant||$tid>0)){
 $data=['name'=>(string)($row['name']??$row['server_name']??''),'router_id'=>(string)($row['router_id']??''),'interface'=>(string)($row['interface']??''),'service_name'=>(string)($row['service_name']??''),'ip_pool_id'=>(string)($row['ip_pool_id']??''),'status'=>(string)($row['status']??'active'),'description'=>(string)($row['description']??'')];$errors=[];
 if($_SERVER['REQUEST_METHOD']==='POST'){
  requireCsrf();foreach($data as $k=>$v)$data[$k]=trim((string)($_POST[$k]??$v));
+ if($has('ip_pool_id') && (int)($row['ip_pool_id']??0)!==(int)$data['ip_pool_id'] && strtolower((string)($row['status']??''))==='active' && function_exists('flexihubTableHasColumn') && flexihubTableHasColumn('pppoe_accounts','pppoe_server_id')){
+  $acctCols=flexihubTableColumns('pppoe_accounts');
+  $accountSql="SELECT COUNT(*) AS n FROM pppoe_accounts WHERE pppoe_server_id=?".(in_array('tenant_id',$acctCols,true)?" AND tenant_id=?":"").(in_array('status',$acctCols,true)?" AND LOWER(status)='active'":"");
+  $activeStmt=$conn->prepare($accountSql);
+  if($activeStmt){
+   if(in_array('tenant_id',$acctCols,true))$activeStmt->bind_param('ii',$id,$tid);else $activeStmt->bind_param('i',$id);
+   $activeStmt->execute();$activeCount=(int)($activeStmt->get_result()->fetch_assoc()['n']??0);$activeStmt->close();
+   if($activeCount>0)$errors[]='This active PPPoE server has active subscriber accounts. Migrate those subscribers before changing its assigned IP pool.';
+  }else $errors[]='Unable to verify subscriber usage before changing the IP pool.';
+ }
  if(!in_array($data['status'],['active','inactive'],true))$errors[]='Invalid server status.';
  $poolId=(int)$data['ip_pool_id'];
  if($poolId>0){
