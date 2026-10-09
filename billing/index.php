@@ -1,7 +1,10 @@
 <?php
 require_once '../includes/auth.php';
-requireLogin();
-$tenantId=getCurrentTenantId(); $stats=['invoices'=>0,'payments'=>0,'outstanding'=>0];
+requireActiveUser();
+requireTenantContext();
+requireModulePermission('billing','view');
+$tenantId=(int)getCurrentTenantId();
+if($tenantId<=0){http_response_code(403);die('A valid tenant context is required to view billing data.');} $stats=['invoices'=>0,'payments'=>0,'outstanding'=>0];
 foreach([['invoices','invoices'],['payments','payments']] as $s){$q=$conn->query("SHOW TABLES LIKE '{$s[1]}'");if($q&&$q->num_rows){$sql="SELECT COUNT(*) total FROM {$s[1]}";if($tenantId)$sql.=" WHERE tenant_id=".(int)$tenantId;$r=$conn->query($sql);$stats[$s[0]]=$r?(int)$r->fetch_assoc()['total']:0;}}
 $q=$conn->query("SHOW TABLES LIKE 'invoices'");
 if($q&&$q->num_rows){$sql="SELECT COALESCE(SUM(GREATEST(total_amount-COALESCE(paid_amount,0),0)),0) total FROM invoices WHERE status NOT IN ('paid','cancelled')";if($tenantId)$sql.=" AND tenant_id=".(int)$tenantId;$r=$conn->query($sql);$stats['outstanding']=$r?(float)$r->fetch_assoc()['total']:0;}
