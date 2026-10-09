@@ -1,8 +1,12 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-requireLogin();
-$tenantId = isTenantUser() ? requireTenant() : null;
+requireActiveUser();
+requireTenantContext();
+requireModulePermission('customers', 'view');
+$tenantId = (int)getCurrentTenantId();
+if ($tenantId <= 0) { http_response_code(403); exit('A valid tenant context is required.'); }
 $pageTitle = 'Customers';
+if (!customerColumnExists('tenant_id')) { http_response_code(503); exit('Customer tenant isolation is unavailable. Please contact the administrator.'); }
 
 function customerColumnExists($column) {
     global $conn;
@@ -40,7 +44,7 @@ function customerCount($table, $conditions = [], $params = [], $types = '') {
     return (int)($row['total'] ?? 0);
 }
 
-$tenantClause = $tenantId && customerColumnExists('tenant_id') ? ['tenant_id = ?', [$tenantId], 'i'] : [[], [], ''];
+$tenantClause = ['tenant_id = ?', [$tenantId], 'i'];
 
 $totalCustomers = customerCount('customers', $tenantClause[0], $tenantClause[1], $tenantClause[2]);
 $activeCustomers = customerCount('customers', array_merge($tenantClause[0], ['status = ?']), array_merge($tenantClause[1], ['active']), $tenantClause[2] . 's');
@@ -62,11 +66,9 @@ if (customerTableExists('internet_accounts')) {
 $where = [];
 $params = [];
 $types = '';
-if ($tenantId && customerColumnExists('tenant_id')) {
-    $where[] = 'tenant_id = ?';
-    $params[] = $tenantId;
-    $types .= 'i';
-}
+$where[] = 'tenant_id = ?';
+$params[] = $tenantId;
+$types .= 'i';
 
 $statusFilter = strtolower(trim($_GET['status'] ?? ''));
 if (in_array($statusFilter, ['active','suspended','expired','inactive'], true)) {
