@@ -7,6 +7,8 @@ require_once '../includes/billing_workflow.php';
 
 global $conn;
 $tid=(int)getCurrentTenantId();
+if($tid<=0){http_response_code(403);exit('A valid tenant context is required.');}
+if(!flexihubTableHasColumn('customers','tenant_id')||!flexihubTableHasColumn('invoices','tenant_id')){http_response_code(503);exit('Invoice tenant isolation is unavailable. Please contact the administrator.');}
 $errors=[];
 $cols=flexihubTableColumns('invoices');
 
