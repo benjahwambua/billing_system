@@ -24,9 +24,9 @@ if($ia>0){
 }
 // RouterOS PPP secret usernames are router-wide, not tenant-scoped. Reject database collisions before provisioning.
 if($user!=='' && $has('username')){
- $usernameCheck=$conn->prepare('SELECT id FROM pppoe_accounts WHERE username=? LIMIT 1');
+ $usernameCheck=$has('pppoe_server_id')?$conn->prepare('SELECT id FROM pppoe_accounts WHERE username=? AND pppoe_server_id=? LIMIT 1'):$conn->prepare('SELECT id FROM pppoe_accounts WHERE username=? LIMIT 1');
  if(!$usernameCheck){$errors[]='Unable to validate PPPoE username uniqueness.';}
- else{$usernameCheck->bind_param('s',$user);$usernameCheck->execute();$usernameFound=$usernameCheck->get_result()->fetch_assoc();$usernameCheck->close();if($usernameFound)$errors[]='This PPPoE username is already assigned. Use a unique username before provisioning.';}
+ else{if($has('pppoe_server_id'))$usernameCheck->bind_param('si',$user,$serverId);else$usernameCheck->bind_param('s',$user);$usernameCheck->execute();$usernameFound=$usernameCheck->get_result()->fetch_assoc();$usernameCheck->close();if($usernameFound)$errors[]='This PPPoE username is already assigned on the selected server. Use a unique username on that router.';}
 }
 if(!$errors){$map=['internet_account_id'=>$ia,'pppoe_server_id'=>$serverId,'username'=>$user,'password'=>$secret,'status'=>$status];$f=[];$v=[];$t='';
 foreach($map as $c=>$x)if($has($c)){$f[]=$c;$v[]=$x;$t.=is_int($x)?'i':'s';}
