@@ -58,8 +58,8 @@ if($resultCode!=='0'){
  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;
 }
 if($receipt!==''){
- $dup=$conn->prepare("SELECT id FROM payment_gateway_transactions WHERE tenant_id=? AND provider='mpesa' AND provider_receipt=? AND id<>? LIMIT 1");
- if($dup){$dup->bind_param('isi',$tenantId,$receipt,$txId);$dup->execute();$duplicateReceipt=$dup->get_result()->fetch_assoc();$dup->close();
+ $dup=$conn->prepare("SELECT id FROM payment_gateway_transactions WHERE provider='mpesa' AND provider_receipt=? AND id<>? LIMIT 1");
+ if($dup){$dup->bind_param('si',$receipt,$txId);$dup->execute();$duplicateReceipt=$dup->get_result()->fetch_assoc();$dup->close();
   if($duplicateReceipt){
    $err='M-Pesa receipt has already been associated with another transaction.';
    $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='failed',result_code='DUPLICATE_RECEIPT',result_description=?,callback_payload=?,failure_reason=? WHERE id=? AND tenant_id=? AND status<>'completed'");
@@ -139,6 +139,12 @@ if (($tx['flow']??'')==='customer' || ($tx['flow']??'')==='internet' || ($tx['fl
 
   $duplicatePayment=dbFetchOne("SELECT * FROM payments WHERE tenant_id=? AND reference=? LIMIT 1",'is',$tenantId,$receipt);
   if($duplicatePayment){
+    // Idempotency is safe only when the existing receipt belongs to this exact invoice and amount.
+    $duplicateInvoiceId=(int)($duplicatePayment['invoice_id']??0);
+    $duplicateAmount=(float)($duplicatePayment['amount']??0);
+    if($duplicateInvoiceId!==(int)$invoice['id'] || abs($duplicateAmount-(float)$tx['amount'])>0.01){
+      throw new RuntimeException('M-Pesa receipt is already linked to a different invoice or amount.');
+    }
     $paymentId=(int)$duplicatePayment['id'];
   }else{
     $paymentData=[
