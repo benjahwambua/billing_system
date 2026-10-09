@@ -36,7 +36,9 @@ if (!function_exists('flexihubValidateIpPool')) {
         $end = trim((string)($data['end_ip'] ?? ''));
         if ($name === '') $errors[] = 'Pool name is required.';
         $cidr = null;
-        if ($networkValue !== '') {
+        if ($networkValue === '') {
+            $errors[] = 'Network / CIDR is required. Enter a valid IPv4 subnet such as 192.168.10.0/24.';
+        } else {
             $cidr = flexihubParsePoolCidr($networkValue);
             if (!$cidr) $errors[] = 'Network must be a valid IPv4 CIDR, for example 192.168.10.0/24.';
             elseif ($cidr['network_ip'] !== explode('/', $networkValue, 2)[0]) $errors[] = 'Use the subnet network address, not a host address, in the CIDR field.';
