@@ -13,6 +13,15 @@ if($_SERVER['REQUEST_METHOD']==='POST'){requireCsrf();$ia=(int)($_POST['internet
 if($has('internet_account_id')&&!$ia)$errors[]='Internet account is required.';
 if($has('pppoe_server_id')&&!$serverId)$errors[]='PPPoE server is required.';if($has('username')&&!$user)$errors[]='Username is required.';
 if($has('password')&&!$secret)$errors[]='Password is required.';
+// Never trust the submitted account ID: confirm it belongs to this tenant before inserting credentials.
+if($ia>0){
+ if($tid<=0){$errors[]='A valid tenant context is required to create a PPPoE account.';}
+ else{
+  $accountCheck=$conn->prepare('SELECT id FROM internet_accounts WHERE id=? AND tenant_id=? LIMIT 1');
+  if(!$accountCheck){$errors[]='Unable to validate the selected internet account.';}
+  else{$accountCheck->bind_param('ii',$ia,$tid);$accountCheck->execute();$accountFound=$accountCheck->get_result()->fetch_assoc();$accountCheck->close();if(!$accountFound)$errors[]='The selected internet account was not found for this tenant.';}
+ }
+}
 if(!$errors){$map=['internet_account_id'=>$ia,'pppoe_server_id'=>$serverId,'username'=>$user,'password'=>$secret,'status'=>$status];$f=[];$v=[];$t='';
 foreach($map as $c=>$x)if($has($c)){$f[]=$c;$v[]=$x;$t.=is_int($x)?'i':'s';}
 if($has('tenant_id')){$f[]='tenant_id';$v[]=$tid;$t.='i';}
