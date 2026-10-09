@@ -1,6 +1,6 @@
 <?php
-require_once '../includes/auth.php';require_once '../includes/functions.php';if(isTenantUser())requireTenant();global $conn;
-$cols=[];$res=$conn->query("SHOW COLUMNS FROM mikrotik_routers");if(!$res)die('Unable to read MikroTik router configuration.');while($row=$res->fetch_assoc())$cols[]=$row['Field'];$has=fn($c)=>in_array($c,$cols,true);$tenantId=getCurrentTenantId();$errors=[];
+require_once '../includes/auth.php';require_once '../includes/functions.php';requireActiveUser();requireTenantContext();requireModulePermission('network','create');global $conn;
+$cols=[];$res=$conn->query("SHOW COLUMNS FROM mikrotik_routers");if(!$res)die('Unable to read MikroTik router configuration.');while($row=$res->fetch_assoc())$cols[]=$row['Field'];$has=fn($c)=>in_array($c,$cols,true);$tenantId=(int)getCurrentTenantId();$errors=[];if($tenantId<=0||!$has('tenant_id')){http_response_code(503);die('Tenant-scoped router creation is unavailable for this session or database schema.');}
 if($_SERVER['REQUEST_METHOD']==='POST'){requireCsrf();$name=trim($_POST['name']??'');$host=trim($_POST['host']??'');$username=trim($_POST['username']??'');$password=$_POST['password']??'';$status=$_POST['status']??'active';$description=trim($_POST['description']??'');$hotspotLoginUrl=trim($_POST['hotspot_login_url']??'');$port=(int)($_POST['api_port']??8728);
 if(($has('name')||$has('router_name'))&&!$name)$errors[]='Router name is required.';if(($has('host')||$has('ip_address')||$has('ip'))&&!$host)$errors[]='Router host/IP is required.';
 if($hotspotLoginUrl!==''&&!filter_var($hotspotLoginUrl,FILTER_VALIDATE_URL))$errors[]='Hotspot login URL must be a valid URL.';
