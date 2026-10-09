@@ -137,6 +137,26 @@ if (!class_exists('FlexihubRouterOS')) {
             return ['created'=>$id===null,'id'=>$id,'profile'=>$profile];
         }
 
+        public function updatePppSecret($oldUsername,$newUsername,$password,$disabled=false,$service='pppoe',$profile='default') {
+            $oldUsername=trim((string)$oldUsername); $newUsername=trim((string)$newUsername);
+            $password=(string)$password; $profile=trim((string)$profile);
+            if($oldUsername==='' || $newUsername==='') throw new Exception('Old and new PPPoE usernames are required.');
+            if($password==='') throw new Exception('PPPoE password is required.');
+            $existing=$this->findPppSecret($oldUsername);
+            if(!$existing || empty($existing['.id'])) {
+                if($oldUsername!==$newUsername && $this->findPppSecret($newUsername)) throw new Exception('The new PPPoE username already exists on this router.');
+                return $this->addOrUpdatePppSecret($newUsername,$password,$disabled,$service,$profile);
+            }
+            if($oldUsername!==$newUsername) {
+                $collision=$this->findPppSecret($newUsername);
+                if($collision && !empty($collision['.id']) && $collision['.id']!==$existing['.id']) throw new Exception('The new PPPoE username already exists on this router.');
+            }
+            $words=['/ppp/secret/set','=.id='.$existing['.id'],'=name='.$newUsername,'=password='.$password,'=service='.$service,'=disabled='.($disabled?'yes':'no')];
+            if($profile!=='') $words[]='=profile='.$profile;
+            $this->command($words);
+            return ['updated'=>true,'name'=>$newUsername,'profile'=>$profile];
+        }
+
         public function findPppSecret($username) {
             $rows=$this->command(['/ppp/secret/print','=.proplist=.id,name,disabled','=name='.$username]);
             foreach($rows as $r) if(($r['!type']??'')==='!re' && ($r['name']??'')===$username) return $r;
