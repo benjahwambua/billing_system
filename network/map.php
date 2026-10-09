@@ -65,7 +65,7 @@ $pageTitle='Network Map';require_once '../includes/header.php';?>
 <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:8px">
 <?php foreach($links as $l): ?>
 <span style="display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:rgba(37,99,235,.10);border:1px solid rgba(59,130,246,.18);font-size:11px">
-<?=e($l['source_label']??$l['source_node_id')?> → <?=e($l['target_label']??$l['target_node_id'])?> · <?=e(strtoupper($l['link_type']))?>
+<?=e($l['source_label']??$l['source_node_id'])?> → <?=e($l['target_label']??$l['target_node_id'])?> · <?=e(strtoupper($l['link_type']))?>
 </span>
 <?php endforeach; ?>
 </div>
