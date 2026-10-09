@@ -45,6 +45,7 @@ if($st){
   }
  } else $errors[]=$st->error;
 }}
+}
 ?>
 <?php require '../includes/header.php';?><div class="page-content"><div class="page-header"><div><h1>Add PPPoE Account</h1><p>Create PPPoE credentials for an internet account.</p></div><a class="btn btn-secondary" href="index.php">Back</a></div>
 <?php if($errors):?><div class="alert alert-danger"><?=e(implode(' ',$errors))?></div><?php endif;?>
