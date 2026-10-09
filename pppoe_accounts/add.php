@@ -22,6 +22,12 @@ if($ia>0){
   else{$accountCheck->bind_param('ii',$ia,$tid);$accountCheck->execute();$accountFound=$accountCheck->get_result()->fetch_assoc();$accountCheck->close();if(!$accountFound)$errors[]='The selected internet account was not found for this tenant.';}
  }
 }
+// RouterOS PPP secret usernames are router-wide, not tenant-scoped. Reject database collisions before provisioning.
+if($user!=='' && $has('username')){
+ $usernameCheck=$conn->prepare('SELECT id FROM pppoe_accounts WHERE username=? LIMIT 1');
+ if(!$usernameCheck){$errors[]='Unable to validate PPPoE username uniqueness.';}
+ else{$usernameCheck->bind_param('s',$user);$usernameCheck->execute();$usernameFound=$usernameCheck->get_result()->fetch_assoc();$usernameCheck->close();if($usernameFound)$errors[]='This PPPoE username is already assigned. Use a unique username before provisioning.';}
+}
 if(!$errors){$map=['internet_account_id'=>$ia,'pppoe_server_id'=>$serverId,'username'=>$user,'password'=>$secret,'status'=>$status];$f=[];$v=[];$t='';
 foreach($map as $c=>$x)if($has($c)){$f[]=$c;$v[]=$x;$t.=is_int($x)?'i':'s';}
 if($has('tenant_id')){$f[]='tenant_id';$v[]=$tid;$t.='i';}
