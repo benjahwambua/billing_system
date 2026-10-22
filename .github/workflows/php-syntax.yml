@@ -45,3 +45,6 @@ jobs:
 
       - name: Run manual payment input regression tests
         run: php tests/payment_input_validation.php
+
+      - name: Run internet account status regression tests
+        run: php tests/internet_account_status_policy.php
