@@ -4,6 +4,7 @@ requireActiveUser();
 requireTenantContext();
 requireModulePermission('payments','create');
 require_once '../includes/billing_workflow.php';
+require_once '../includes/payment_input_validation.php';
 
 global $conn;
 $tid=(int)getCurrentTenantId();
@@ -22,6 +23,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     requireCsrf();
     foreach($v as $k=>$d)$v[$k]=trim((string)($_POST[$k]??$d));
     $iid=(int)$v['invoice_id']; $aid=(int)$v['account_id']; $amount=(float)$v['amount'];
+    $errors=array_merge($errors, flexihubValidateManualPaymentInput($v['payment_method'], $v['payment_date'], $v['reference']));
     if(!$iid||$amount<=0)$errors[]='Invoice and positive payment amount are required.';
 
     $invoice=null;
