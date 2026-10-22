@@ -30,9 +30,9 @@ if((int)($_GET['platform']??0)===1){
   $invoice=dbFetchOne("SELECT * FROM platform_invoices WHERE id=? AND tenant_id=? FOR UPDATE",'ii',(int)$p['invoice_id'],$tenantId);if(!$invoice)throw new RuntimeException('SaaS invoice not found.');
   $balance=max(0,(float)$invoice['total_amount']-(float)$invoice['paid_amount']);if($balance<=0.0001)throw new RuntimeException('SaaS invoice is already paid.');if((float)$p['amount']>$balance+0.01)throw new RuntimeException('Payment exceeds SaaS invoice balance.');
   $newPaid=(float)$invoice['paid_amount']+(float)$p['amount'];$newStatus=$newPaid+0.0001>=(float)$invoice['total_amount']?'paid':'partial';
-  $stmt=$conn->prepare("UPDATE platform_payments SET status='completed',external_transaction_id=?,reference=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW(),expires_at=NULL WHERE id=? AND tenant_id=?");if(!$stmt)throw new RuntimeException('Unable to finalize platform payment.');$stmt->bind_param('ssssssi',$receipt,$receipt,$rc,$rd,$json,$paymentId,$tenantId);$stmt->execute();$stmt->close();
-  $stmt=$conn->prepare("UPDATE platform_invoices SET paid_amount=?,status=?,updated_at=NOW() WHERE id=? AND tenant_id=?");$stmt->bind_param('dsii',$newPaid,$newStatus,(int)$invoice['id'],$tenantId);$stmt->execute();$stmt->close();
-  if($newStatus==='paid'){$sub=dbFetchOne("SELECT s.*,p.billing_cycle FROM tenant_platform_subscriptions s JOIN platform_plans p ON p.id=s.plan_id WHERE s.id=? FOR UPDATE",'i',(int)$invoice['subscription_id']);if($sub){$nextStart=$invoice['period_end'];$nextEnd=flexihubPlatformAddCycle($nextStart,$sub['billing_cycle']);$stmt=$conn->prepare("UPDATE tenant_platform_subscriptions SET status='active',current_period_start=?,current_period_end=?,grace_ends_at=NULL,updated_at=NOW() WHERE id=?");if($stmt){$stmt->bind_param('ssi',$nextStart,$nextEnd,$sub['id']);$stmt->execute();$stmt->close();}$conn->query("UPDATE tenants SET status='active' WHERE id=".$tenantId." AND status IN ('past_due','suspended','trial')");}}
+  $stmt=$conn->prepare("UPDATE platform_payments SET status='completed',external_transaction_id=?,reference=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW(),expires_at=NULL WHERE id=? AND tenant_id=?");if(!$stmt)throw new RuntimeException('Unable to finalize platform payment.');$stmt->bind_param('ssssssi',$receipt,$receipt,$rc,$rd,$json,$paymentId,$tenantId);if(!$stmt->execute()||$stmt->affected_rows!==1){$stmt->close();throw new RuntimeException('Unable to finalize platform payment.');}$stmt->close();
+  $stmt=$conn->prepare("UPDATE platform_invoices SET paid_amount=?,status=?,updated_at=NOW() WHERE id=? AND tenant_id=?");if(!$stmt)throw new RuntimeException('Unable to update SaaS invoice.');$stmt->bind_param('dsii',$newPaid,$newStatus,(int)$invoice['id'],$tenantId);if(!$stmt->execute()||$stmt->affected_rows!==1){$stmt->close();throw new RuntimeException('Unable to update SaaS invoice.');}$stmt->close();
+  if($newStatus==='paid'){$sub=dbFetchOne("SELECT s.*,p.billing_cycle FROM tenant_platform_subscriptions s JOIN platform_plans p ON p.id=s.plan_id WHERE s.id=? AND s.tenant_id=? FOR UPDATE",'ii',(int)$invoice['subscription_id'],$tenantId);if(!$sub)throw new RuntimeException('SaaS subscription does not match the paid invoice tenant.');$nextStart=$invoice['period_end'];$nextEnd=flexihubPlatformAddCycle($nextStart,$sub['billing_cycle']);$stmt=$conn->prepare("UPDATE tenant_platform_subscriptions SET status='active',current_period_start=?,current_period_end=?,grace_ends_at=NULL,updated_at=NOW() WHERE id=? AND tenant_id=?");if(!$stmt)throw new RuntimeException('Unable to renew SaaS subscription.');$subId=(int)$sub['id'];$stmt->bind_param('ssii',$nextStart,$nextEnd,$subId,$tenantId);if(!$stmt->execute()||$stmt->affected_rows!==1){$stmt->close();throw new RuntimeException('Unable to renew SaaS subscription.');}$stmt->close();$tenantStmt=$conn->prepare("UPDATE tenants SET status='active' WHERE id=? AND status IN ('past_due','suspended','trial')");if(!$tenantStmt)throw new RuntimeException('Unable to restore SaaS tenant status.');$tenantStmt->bind_param('i',$tenantId);if(!$tenantStmt->execute()){$tenantStmt->close();throw new RuntimeException('Unable to restore SaaS tenant status.');}$tenantStmt->close();}}
   $conn->commit();echo json_encode(['ResultCode'=>0,'ResultDesc'=>'SaaS payment received and allocated']);exit;
  }catch(Throwable $e){$conn->rollback();$err=substr($e->getMessage(),0,500);$stmt=$conn->prepare("UPDATE platform_payments SET status='failed',failure_reason=? WHERE id=? AND tenant_id=? AND status<>'completed'");if($stmt){$stmt->bind_param('sii',$err,$paymentId,$tenantId);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;}
 }
@@ -80,7 +80,7 @@ $conn->begin_transaction();
 try{
  $stmt=$conn->prepare("SELECT * FROM payment_gateway_transactions WHERE id=? AND tenant_id=? FOR UPDATE");$stmt->bind_param('ii',$txId,$tenantId);$stmt->execute();$tx=$stmt->get_result()->fetch_assoc();$stmt->close();
  if(($tx['status']??'')==='completed'){$conn->commit();$stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback already processed']);exit;}
- $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='confirmed',provider_receipt=?,provider_transaction_id=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW() WHERE id=? AND tenant_id=?");$stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);$stmt->execute();$stmt->close();
+ $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='confirmed',provider_receipt=?,provider_transaction_id=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW() WHERE id=? AND tenant_id=?");if(!$stmt)throw new RuntimeException('Unable to confirm provider transaction.');$stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);if(!$stmt->execute()||$stmt->affected_rows!==1){$stmt->close();throw new RuntimeException('Unable to confirm provider transaction.');}$stmt->close();
  if (($tx['flow']??'')==='platform') {
   $platformInvoiceId=(int)($tx['platform_invoice_id']??0);$invoice=$platformInvoiceId>0?dbFetchOne("SELECT * FROM platform_invoices WHERE id=? AND tenant_id=? FOR UPDATE",'ii',$platformInvoiceId,$tenantId):dbFetchOne("SELECT * FROM platform_invoices WHERE tenant_id=? AND invoice_number=? FOR UPDATE",'is',$tenantId,$tx['account_reference']);
   if(!$invoice) throw new RuntimeException('Flexihub SaaS invoice is not linked to this payment.');
@@ -90,7 +90,10 @@ try{
   $existingPlatformPayment=dbFetchOne("SELECT * FROM platform_payments WHERE tenant_id=? AND invoice_id=? AND provider='mpesa' AND external_transaction_id=? LIMIT 1",'iis',$tenantId,(int)$invoice['id'],$receipt);
   if($existingPlatformPayment){
    $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='completed',provider_receipt=?,provider_transaction_id=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW() WHERE id=? AND tenant_id=?");
-   if($stmt){$stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);$stmt->execute();$stmt->close();}
+   if(!$stmt) throw new RuntimeException('Unable to finalize SaaS provider transaction.');
+   $stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);
+   if(!$stmt->execute() || $stmt->affected_rows !== 1) { $stmt->close(); throw new RuntimeException('Unable to finalize SaaS provider transaction.'); }
+   $stmt->close();
    $conn->commit();
    $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");
    if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}
@@ -103,18 +106,29 @@ try{
   $newPaid=(float)$invoice['paid_amount']+(float)$tx['amount'];$newStatus=$newPaid+0.0001>=(float)$invoice['total_amount']?'paid':'partial';
   $stmt=$conn->prepare("UPDATE platform_invoices SET paid_amount=?,status=?,updated_at=NOW() WHERE id=? AND tenant_id=?");
   if(!$stmt) throw new RuntimeException('Unable to update SaaS invoice.');
-  $stmt->bind_param('dsii',$newPaid,$newStatus,$invoiceId,$tenantId);$stmt->execute();$stmt->close();
+  $stmt->bind_param('dsii',$newPaid,$newStatus,$invoiceId,$tenantId);
+  if(!$stmt->execute() || $stmt->affected_rows !== 1) { $stmt->close(); throw new RuntimeException('Unable to update SaaS invoice.'); }
+  $stmt->close();
   if($newStatus==='paid'){
-    $sub=dbFetchOne("SELECT s.*,p.billing_cycle FROM tenant_platform_subscriptions s JOIN platform_plans p ON p.id=s.plan_id WHERE s.id=? FOR UPDATE",'i',(int)$invoice['subscription_id']);
-    if($sub){
-      $nextStart=$invoice['period_end'];$nextEnd=flexihubPlatformAddCycle($nextStart,$sub['billing_cycle']);
-      $stmt=$conn->prepare("UPDATE tenant_platform_subscriptions SET status='active',current_period_start=?,current_period_end=?,grace_ends_at=NULL,updated_at=NOW() WHERE id=?");
-      if($stmt){$stmt->bind_param('ssi',$nextStart,$nextEnd,$sub['id']);$stmt->execute();$stmt->close();}
-      $conn->query("UPDATE tenants SET status='active' WHERE id=".$tenantId." AND status IN ('past_due','suspended','trial')");
-    }
+    $sub=dbFetchOne("SELECT s.*,p.billing_cycle FROM tenant_platform_subscriptions s JOIN platform_plans p ON p.id=s.plan_id WHERE s.id=? AND s.tenant_id=? FOR UPDATE",'ii',(int)$invoice['subscription_id'],$tenantId);
+    if(!$sub) throw new RuntimeException('SaaS subscription does not match the paid invoice tenant.');
+    $nextStart=$invoice['period_end'];$nextEnd=flexihubPlatformAddCycle($nextStart,$sub['billing_cycle']);
+    $stmt=$conn->prepare("UPDATE tenant_platform_subscriptions SET status='active',current_period_start=?,current_period_end=?,grace_ends_at=NULL,updated_at=NOW() WHERE id=? AND tenant_id=?");
+    if(!$stmt) throw new RuntimeException('Unable to renew SaaS subscription.');
+    $subId=(int)$sub['id'];$stmt->bind_param('ssii',$nextStart,$nextEnd,$subId,$tenantId);
+    if(!$stmt->execute() || $stmt->affected_rows !== 1) { $stmt->close(); throw new RuntimeException('Unable to renew SaaS subscription.'); }
+    $stmt->close();
+    $tenantStmt=$conn->prepare("UPDATE tenants SET status='active' WHERE id=? AND status IN ('past_due','suspended','trial')");
+    if(!$tenantStmt) throw new RuntimeException('Unable to restore SaaS tenant status.');
+    $tenantStmt->bind_param('i',$tenantId);
+    if(!$tenantStmt->execute()) { $tenantStmt->close(); throw new RuntimeException('Unable to restore SaaS tenant status.'); }
+    $tenantStmt->close();
   }
   $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='completed',provider_receipt=?,provider_transaction_id=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW() WHERE id=? AND tenant_id=?");
-  if($stmt){$stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);$stmt->execute();$stmt->close();}
+  if(!$stmt) throw new RuntimeException('Unable to finalize SaaS provider transaction.');
+  $stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);
+  if(!$stmt->execute() || $stmt->affected_rows !== 1) { $stmt->close(); throw new RuntimeException('Unable to finalize SaaS provider transaction.'); }
+  $stmt->close();
   $conn->commit();
   $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");
   if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}
