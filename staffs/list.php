@@ -1,8 +1,9 @@
 <?php
 
-require_once '../includes/auth.php';
-
-requireLogin();
+require_once __DIR__ . '/../includes/auth.php';
+requireActiveUser();
+$tenantId = (int) requireTenantContext();
+requireModulePermission('staff', 'view');
 
 $pageTitle = 'All Staff';
 
@@ -19,7 +20,8 @@ if ($search !== '') {
     $stmt = $conn->prepare("
         SELECT *
         FROM staffs
-        WHERE
+        WHERE tenant_id = ?
+          AND (
             staff_code LIKE ?
             OR first_name LIKE ?
             OR last_name LIKE ?
@@ -27,11 +29,13 @@ if ($search !== '') {
             OR email LIKE ?
             OR department LIKE ?
             OR position LIKE ?
+          )
         ORDER BY id DESC
     ");
 
     $stmt->bind_param(
-        "sssssss",
+        "isssssss",
+        $tenantId,
         $searchTerm,
         $searchTerm,
         $searchTerm,
@@ -47,11 +51,15 @@ if ($search !== '') {
 
 } else {
 
-    $staffResult = $conn->query("
+    $stmt = $conn->prepare("
         SELECT *
         FROM staffs
+        WHERE tenant_id = ?
         ORDER BY id DESC
     ");
+    $stmt->bind_param("i", $tenantId);
+    $stmt->execute();
+    $staffResult = $stmt->get_result();
 
 }
 
