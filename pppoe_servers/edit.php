@@ -7,6 +7,9 @@ global $conn;
 $id=(int)($_GET['id']??0);if($id<=0)die('Invalid PPPoE server ID.');
 $cols=[];$q=$conn->query("SHOW COLUMNS FROM pppoe_servers");if(!$q)die('Unable to read PPPoE server schema.');while($x=$q->fetch_assoc())$cols[]=$x['Field'];
 $has=fn($c)=>in_array($c,$cols,true);$tid=(int)getCurrentTenantId();
+if(isTenantUser() && (!$has('tenant_id') || $tid<=0)){http_response_code(503);exit('PPPoE server tenant isolation is unavailable. Please contact the administrator.');}
+$routerCols=[];$routerSchema=$conn->query("SHOW COLUMNS FROM mikrotik_routers");if($routerSchema)while($routerColumn=$routerSchema->fetch_assoc())$routerCols[]=$routerColumn['Field'];
+$routerHasTenant=in_array('tenant_id',$routerCols,true);$routerHasStatus=in_array('status',$routerCols,true);
 $sql="SELECT * FROM pppoe_servers WHERE id=?";$params=[$id];$types='i';
 if($has('tenant_id')){if($tid<=0)die('A valid tenant context is required.');$sql.=' AND tenant_id=?';$params[]=$tid;$types.='i';}
 $st=$conn->prepare($sql);$st->bind_param($types,...$params);$st->execute();$row=$st->get_result()->fetch_assoc();$st->close();if(!$row)die('PPPoE server not found.');
@@ -35,6 +38,12 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   }else $errors[]='Unable to verify subscriber usage before changing the IP pool.';
  }
  if(!in_array($data['status'],['active','inactive'],true))$errors[]='Invalid server status.';
+ if($has('router_id')){
+  $routerId=(int)$data['router_id'];
+  if($routerId<=0)$errors[]='Select an active MikroTik router.';
+  elseif(!$routerHasTenant||!$routerHasStatus||$tid<=0)$errors[]='Router assignment requires tenant-scoped active routers and a valid tenant context.';
+  else{$routerCheck=$conn->prepare("SELECT id FROM mikrotik_routers WHERE id=? AND tenant_id=? AND status='active' LIMIT 1");if(!$routerCheck)$errors[]='Unable to validate selected MikroTik router.';else{$routerCheck->bind_param('ii',$routerId,$tid);if(!$routerCheck->execute())$errors[]='Unable to validate selected MikroTik router.';else{$routerFound=$routerCheck->get_result()->fetch_assoc();if(!$routerFound)$errors[]='Choose an active MikroTik router belonging to this tenant.';}$routerCheck->close();}}
+ }
  $poolId=(int)$data['ip_pool_id'];
  if($poolId>0){
   if(!$has('ip_pool_id'))$errors[]='Run database migration 034 before assigning an IP pool.';
