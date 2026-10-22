@@ -1,5 +1,5 @@
 <?php
-require_once '../includes/auth.php';requireLogin();requireHostContext();
+require_once '../includes/auth.php';requireActiveUser();requireHostContext();
 $rows=[];$available=false;
 $check=$conn->query("SHOW TABLES LIKE 'platform_invoices'");
 if($check&&$check->num_rows){
