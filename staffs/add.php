@@ -1,8 +1,13 @@
 <?php
 
-require_once '../includes/auth.php';
-
-requireLogin();
+require_once __DIR__ . '/../includes/auth.php';
+requireActiveUser();
+$tenantId = (int) requireTenantContext();
+requireModulePermission('staff', 'create');
+if (!flexihubTableHasColumn('staffs', 'tenant_id')) {
+    http_response_code(503);
+    exit('Tenant-scoped staff records are unavailable for this database schema.');
+}
 
 $pageTitle = 'Add Staff';
 
@@ -11,6 +16,8 @@ $success = '';
 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    requireCsrf();
 
     $firstName = trim($_POST['first_name'] ?? '');
     $lastName = trim($_POST['last_name'] ?? '');
@@ -32,6 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $conn->prepare("
             INSERT INTO staffs
             (
+                tenant_id,
                 staff_code,
                 first_name,
                 last_name,
@@ -42,11 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 date_joined,
                 status
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')
         ");
 
         $stmt->bind_param(
-            "ssssssss",
+            "issssssss",
+            $tenantId,
             $staffCode,
             $firstName,
             $lastName,
@@ -72,11 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
 
-            header(
-                "Location: view.php?id=" .
-                $staffId .
-                "&created=1"
-            );
+            header('Location: view.php?id=' . $staffId . '&created=1');
 
             exit;
 
@@ -138,6 +143,8 @@ require_once '../includes/header.php';
 
 
         <form method="POST">
+
+            <?= csrfField() ?>
 
 
             <div style="
