@@ -8,7 +8,7 @@ if(!function_exists('flexihubSmsEndpointPolicy')){
   if(!is_array($parts)||strtolower((string)($parts['scheme']??''))!=='https'||empty($parts['host'])||isset($parts['user'])||isset($parts['pass'])||isset($parts['fragment'])){
    return ['valid'=>false,'message'=>'SMS gateway endpoints must be HTTPS URLs without embedded credentials or fragments.','resolve'=>null];
   }
-  $host=strtolower(rtrim((string)$parts['host'],'.'));
+  $host=strtolower(rtrim((string)$parts['host'],'.'));if(str_starts_with($host,'[')&&str_ends_with($host,']'))$host=substr($host,1,-1);
   $port=(int)($parts['port']??443);
   if($host===''||$port!==443||$host==='localhost'||str_ends_with($host,'.localhost')||str_ends_with($host,'.local')||str_ends_with($host,'.internal')||str_ends_with($host,'.test')){
    return ['valid'=>false,'message'=>'SMS gateway endpoint host or port is not permitted. Use a public HTTPS endpoint on port 443.','resolve'=>null];
