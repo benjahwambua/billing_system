@@ -42,3 +42,6 @@ jobs:
 
       - name: Run service activation retry regression tests
         run: php tests/service_activation_retry_policy.php
+
+      - name: Run manual payment input regression tests
+        run: php tests/payment_input_validation.php
