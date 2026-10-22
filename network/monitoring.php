@@ -1,9 +1,9 @@
 <?php
-require_once '../includes/auth.php';
-require_once '../includes/functions.php';
-requireLogin();
-if (isTenantUser()) requireTenant();
-$tenantId=(int)getCurrentTenantId();
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/functions.php';
+requireActiveUser();
+$tenantId = (int) requireTenantContext();
+requireModulePermission('network', 'view');
 if(!$tenantId) die('Tenant context is required.');
 $routerRows=[];
 $stmt=$conn->prepare("SELECT * FROM mikrotik_routers WHERE tenant_id=? ORDER BY id DESC");
