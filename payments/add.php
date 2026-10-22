@@ -53,9 +53,11 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         // Keep the financial workflow atomic. RouterOS/network work is deliberately
         // deferred to the activation queue and therefore happens after commit.
         $transactionStarted=$conn->begin_transaction();
-        $workflowError='';
         $paymentId=false;
         $receiptId=false;
+        if(!$transactionStarted){
+            $errors[]='Unable to start the payment transaction. No payment was recorded.';
+        } else {
         try{
             // Serialize payment attempts for this invoice, then recheck the balance
             // inside the same transaction before creating any financial records.
@@ -130,6 +132,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         }catch(Throwable $e){
             if($transactionStarted) $conn->rollback();
             $errors[]=$e->getMessage();
+        }
         }
     }
 }
