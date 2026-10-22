@@ -1,5 +1,6 @@
 <?php
 require_once '../includes/auth.php';
+requireActiveUser();
 require_once '../includes/functions.php';
 if(isTenantUser()) requireTenant();
 requireModulePermission('pppoe', 'view');
