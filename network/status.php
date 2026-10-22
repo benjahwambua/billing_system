@@ -1,6 +1,10 @@
 <?php
-require_once '../includes/auth.php';
-requireLogin();
+require_once __DIR__ . '/../includes/auth.php';
+requireActiveUser();
+if (isTenantUser()) {
+    requireTenantContext();
+}
+requireModulePermission('network', 'view');
 $tenantId = getCurrentTenantId();
 $tables = ['mikrotik_routers','pppoe_servers','active_sessions'];
 $counts=[];
