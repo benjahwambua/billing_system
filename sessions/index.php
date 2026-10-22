@@ -1,5 +1,5 @@
 <?php
-require_once '../includes/auth.php';requireActiveUser();requireTenantContext();
+require_once '../includes/auth.php';requireActiveUser();requireTenantContext();requireModulePermission('staff','view');
 $rows=[];$q=$conn->query("SHOW TABLES LIKE 'user_sessions'");
 if($q&&$q->num_rows&&flexihubTableHasColumn('user_sessions','tenant_id')){
  $st=$conn->prepare("SELECT id,user_id,ip_address,user_agent,last_activity_at,expires_at,created_at,revoked_at FROM user_sessions WHERE tenant_id=? ORDER BY id DESC LIMIT 200");
