@@ -169,11 +169,21 @@ if (($tx['flow']??'')==='customer' || ($tx['flow']??'')==='internet' || ($tx['fl
       if($aq){$customerId=(int)($invoice['customer_id']??0);$aq->bind_param('ii',$tenantId,$customerId);$aq->execute();$accountId=(int)($aq->get_result()->fetch_assoc()['id']??0);$aq->close();}
     }
     if($accountId){
-      if(flexihubAccountHasOverdueBalance($accountId,$tenantId)) throw new RuntimeException('Customer still has an overdue balance; service was not activated.');
-      if(!flexihubRenewInternetAccount($accountId,$tenantId)) throw new RuntimeException('Customer payment recorded but service renewal could not be prepared.');
-      $subscriptionId=flexihubCreateServiceSubscription($accountId,$tenantId,(int)$invoice['id'],$paymentId);
-      if(!$subscriptionId) throw new RuntimeException('Customer payment recorded but service subscription could not be created.');
-      if(!flexihubQueueServiceActivation($accountId,$tenantId,$paymentId,$subscriptionId,'activate')) throw new RuntimeException('Customer payment recorded but service activation could not be queued.');
+      if(flexihubAccountHasOverdueBalance($accountId,$tenantId)){
+        // The M-Pesa funds were received: commit the payment even when separate overdue
+        // debt blocks service activation. Never roll back a real payment for a provisioning rule.
+        flexihubWorkflowInsert('service_events',[
+          'tenant_id'=>$tenantId,'account_id'=>$accountId,'customer_id'=>$invoice['customer_id']??null,
+          'event_type'=>'service_activation_blocked_overdue_balance','old_status'=>null,'new_status'=>'not_activated',
+          'source'=>'payment','reference'=>$receipt,
+          'details'=>json_encode(['invoice_id'=>(int)$invoice['id'],'payment_id'=>$paymentId],JSON_UNESCAPED_SLASHES)
+        ]);
+      }else{
+        if(!flexihubRenewInternetAccount($accountId,$tenantId)) throw new RuntimeException('Customer payment recorded but service renewal could not be prepared.');
+        $subscriptionId=flexihubCreateServiceSubscription($accountId,$tenantId,(int)$invoice['id'],$paymentId);
+        if(!$subscriptionId) throw new RuntimeException('Customer payment recorded but service subscription could not be created.');
+        if(!flexihubQueueServiceActivation($accountId,$tenantId,$paymentId,$subscriptionId,'activate')) throw new RuntimeException('Customer payment recorded but service activation could not be queued.');
+      }
     }
   }
 
