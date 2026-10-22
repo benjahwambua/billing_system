@@ -30,3 +30,6 @@ jobs:
             fi
           done < <(find . -type f -name '*.php' -not -path './.git/*' -print0)
           exit "$failed"
+
+      - name: Run SMS endpoint security regression tests
+        run: php tests/security_sms_endpoint_policy.php
