@@ -33,3 +33,6 @@ jobs:
 
       - name: Run SMS endpoint security regression tests
         run: php tests/security_sms_endpoint_policy.php
+
+      - name: Run invoice amount regression tests
+        run: php tests/billing_amount_regressions.php
