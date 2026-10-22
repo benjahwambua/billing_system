@@ -11,6 +11,9 @@ if(!$q) die('Unable to read PPPoE server schema.');
 while($x=$q->fetch_assoc()) $cols[]=$x['Field'];
 $has=fn($c)=>in_array($c,$cols,true);
 $tid=(int)getCurrentTenantId();
+if(isTenantUser() && (!$has('tenant_id') || $tid<=0)){http_response_code(503);exit('PPPoE server tenant isolation is unavailable. Please contact the administrator.');}
+$routerCols=[];$routerSchema=$conn->query("SHOW COLUMNS FROM mikrotik_routers");if($routerSchema)while($routerColumn=$routerSchema->fetch_assoc())$routerCols[]=$routerColumn['Field'];
+$routerHasTenant=in_array('tenant_id',$routerCols,true);$routerHasStatus=in_array('status',$routerCols,true);
 $errors=[];$pools=[];$poolHasTenant=false;$poolHasStatus=false;
 $poolCols=[];
 $pc=$conn->query("SHOW COLUMNS FROM ip_pools");
@@ -33,6 +36,12 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   foreach($data as $k=>$v)$data[$k]=trim((string)($_POST[$k]??$v));
   if(($has('name')||$has('server_name')) && $data['name']==='')$errors[]='Server name is required.';
   if(!in_array($data['status'],['active','inactive'],true))$errors[]='Invalid server status.';
+  if($has('router_id')){
+    $routerId=(int)$data['router_id'];
+    if($routerId<=0)$errors[]='Select an active MikroTik router.';
+    elseif(!$routerHasTenant||!$routerHasStatus||$tid<=0)$errors[]='Router assignment requires tenant-scoped active routers and a valid tenant context.';
+    else{$routerCheck=$conn->prepare("SELECT id FROM mikrotik_routers WHERE id=? AND tenant_id=? AND status='active' LIMIT 1");if(!$routerCheck)$errors[]='Unable to validate selected MikroTik router.';else{$routerCheck->bind_param('ii',$routerId,$tid);if(!$routerCheck->execute())$errors[]='Unable to validate selected MikroTik router.';else{$routerFound=$routerCheck->get_result()->fetch_assoc();if(!$routerFound)$errors[]='Choose an active MikroTik router belonging to this tenant.';}$routerCheck->close();}}
+  }
   $poolId=(int)$data['ip_pool_id'];
   if($poolId>0){
     if(!$has('ip_pool_id'))$errors[]='Run database migration 034 before assigning an IP pool.';
