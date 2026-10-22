@@ -8,7 +8,7 @@ $cases = [
     ['fourth failure retries after twenty minutes', 4, 'pending', 20],
     ['fifth failure exhausts retry budget', 5, 'failed', 0],
     ['attempt count cannot be negative', -3, 'pending', 0],
-    ['delay caps at one hour with a larger retry budget', 20, 'failed', 0],
+    ['delay caps at one hour with a larger retry budget', 20, 'pending', 60],
 ];
 $failed = 0;
 foreach ($cases as [$name, $attempts, $status, $delay]) {
