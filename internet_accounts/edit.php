@@ -5,7 +5,9 @@ $tenantId = requireTenantContext();
 requireModulePermission('internet_accounts', 'edit');
 $pageTitle = 'Edit Customer Internet Account';
 function ec(){global $conn;$a=[];$r=$conn->query("SHOW COLUMNS FROM internet_accounts");if($r)while($x=$r->fetch_assoc())$a[]=$x['Field'];return $a;}
-$cols=ec();$id=(int)($_GET['id']??$_POST['id']??0);if($id<1)redirect('index.php');
+$cols=ec();
+if(!in_array('tenant_id',$cols,true)){http_response_code(503);exit('Internet account tenant isolation is unavailable. Please contact the administrator.');}
+$id=(int)($_GET['id']??$_POST['id']??0);if($id<1)redirect('index.php');
 $sql='SELECT * FROM internet_accounts WHERE id=?';$types='i';$p=[$id];if(in_array('tenant_id',$cols,true)){$sql.=' AND tenant_id=?';$types.='i';$p[]=$tenantId;}$sql.=' LIMIT 1';$s=$conn->prepare($sql);$b=[$types];foreach($p as $k=>$v)$b[]=&$p[$k];call_user_func_array([$s,'bind_param'],$b);$s->execute();$a=$s->get_result()->fetch_assoc();$s->close();if(!$a)die('Internet account not found.');
 $customers=[];$s=$conn->prepare("SELECT id,customer_number,first_name,last_name FROM customers WHERE tenant_id=? ORDER BY first_name,last_name");$s->bind_param('i',$tenantId);$s->execute();$r=$s->get_result();while($x=$r->fetch_assoc())$customers[]=$x;$s->close();
 $plans=[];$s=$conn->prepare("SELECT * FROM internet_plans WHERE tenant_id=? ORDER BY name");$s->bind_param('i',$tenantId);$s->execute();$r=$s->get_result();while($x=$r->fetch_assoc())$plans[]=$x;$s->close();
