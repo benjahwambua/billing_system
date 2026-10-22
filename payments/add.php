@@ -57,6 +57,28 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         $paymentId=false;
         $receiptId=false;
         try{
+            // Serialize payment attempts for this invoice, then recheck the balance
+            // inside the same transaction before creating any financial records.
+            $lockStmt=$conn->prepare("SELECT * FROM invoices WHERE id=? AND tenant_id=? LIMIT 1 FOR UPDATE");
+            if(!$lockStmt) throw new Exception('Unable to lock the invoice for payment processing.');
+            $lockStmt->bind_param('ii',$iid,$tid);
+            if(!$lockStmt->execute()) { $lockStmt->close(); throw new Exception('Unable to lock the invoice for payment processing.'); }
+            $lockedInvoice=$lockStmt->get_result()->fetch_assoc();
+            $lockStmt->close();
+            if(!$lockedInvoice) throw new Exception('Invoice not found.');
+
+            $lockedTotal=flexihubInvoiceTotal($lockedInvoice);
+            $paidStmt=$conn->prepare("SELECT COALESCE(SUM(amount),0) AS paid FROM payments WHERE invoice_id=? AND tenant_id=?");
+            if(!$paidStmt) throw new Exception('Unable to verify the invoice balance.');
+            $paidStmt->bind_param('ii',$iid,$tid);
+            if(!$paidStmt->execute()) { $paidStmt->close(); throw new Exception('Unable to verify the invoice balance.'); }
+            $lockedPaid=(float)($paidStmt->get_result()->fetch_assoc()['paid']??0);
+            $paidStmt->close();
+            $lockedBalance=max(0,$lockedTotal-$lockedPaid);
+            if($lockedBalance<=0.00001) throw new Exception('This invoice is already fully paid.');
+            if($amount>$lockedBalance+0.00001) throw new Exception('Payment exceeds the current outstanding invoice balance of '.formatMoney($lockedBalance).'.');
+            $invoice=$lockedInvoice;
+
             $paymentId=flexihubWorkflowInsert('payments',$data);
             if(!$paymentId) throw new Exception('Unable to record the payment.');
 
