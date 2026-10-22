@@ -1,8 +1,9 @@
 <?php
 
-require_once '../includes/auth.php';
-
-requireLogin();
+require_once __DIR__ . '/../includes/auth.php';
+requireActiveUser();
+requireTenantContext();
+requireModulePermission('operations', 'view');
 
 $pageTitle = 'Operations';
 
