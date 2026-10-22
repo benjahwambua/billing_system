@@ -1,5 +1,5 @@
 <?php
-require_once '../includes/auth.php';requireLogin();requireHostContext();require_once '../includes/platform_billing.php';
+require_once '../includes/auth.php';requireActiveUser();requireHostContext();require_once '../includes/platform_billing.php';
 $invoiceId=(int)($_GET['invoice_id']??$_POST['invoice_id']??0);
 $invoice=$invoiceId?dbFetchOne("SELECT pi.*,t.tenant_code,t.name tenant_name FROM platform_invoices pi JOIN tenants t ON t.id=pi.tenant_id WHERE pi.id=? LIMIT 1",'i',$invoiceId):null;
 if($_SERVER['REQUEST_METHOD']==='POST'){
