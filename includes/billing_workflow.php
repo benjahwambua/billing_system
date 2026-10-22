@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/mikrotik_api.php';
+require_once __DIR__ . '/invoice_amounts.php';
 /**
  * Flexihub billing workflow helpers.
  * These helpers adapt to the existing legacy billing schema while enforcing tenant scope.
@@ -116,13 +117,13 @@ if (!function_exists('flexihubRefreshInvoiceStatus')) {
 
         $total = flexihubInvoiceTotal($invoice);
         $paid = flexihubInvoicePaid($invoiceId, $tenantId);
-        $status = $paid <= 0 ? 'unpaid' : ($paid + 0.00001 >= $total ? 'paid' : 'partial');
+        $status = flexihubInvoicePaymentStatus($total, $paid);
 
         $sets = [];
         $values = [];
         $types = '';
         if (in_array('paid_amount', $cols, true)) { $sets[]='paid_amount=?'; $values[]=$paid; $types.='d'; }
-        if (in_array('balance', $cols, true)) { $sets[]='balance=?'; $values[]=max(0,$total-$paid); $types.='d'; }
+        if (in_array('balance', $cols, true)) { $sets[]='balance=?'; $values[]=flexihubInvoiceOutstandingBalance($total,$paid); $types.='d'; }
         if (in_array('status', $cols, true)) { $sets[]='status=?'; $values[]=$status; $types.='s'; }
         if (!$sets) return true;
 
