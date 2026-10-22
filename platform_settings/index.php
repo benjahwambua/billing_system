@@ -1,6 +1,6 @@
 <?php
 require_once '../includes/auth.php';
-requireLogin();
+requireActiveUser();
 requireHostContext();
 require_once '../includes/payment_gateway.php';
 

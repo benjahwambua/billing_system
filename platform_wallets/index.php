@@ -1,5 +1,5 @@
 <?php
-require_once '../includes/auth.php'; requireLogin(); requireHostContext();
+require_once '../includes/auth.php'; requireActiveUser(); requireHostContext();
 $pageTitle='Tenant Wallets'; $rows=[]; $available=false;
 $check=$conn->query("SHOW TABLES LIKE 'tenant_wallets'");
 if($check && $check->num_rows){$available=true;$r=$conn->query("SELECT tw.*,t.name AS tenant_name,t.tenant_code FROM tenant_wallets tw LEFT JOIN tenants t ON t.id=tw.tenant_id ORDER BY tw.tenant_id");if($r)while($x=$r->fetch_assoc())$rows[]=$x;}

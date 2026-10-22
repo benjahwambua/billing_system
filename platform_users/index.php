@@ -1,5 +1,5 @@
 <?php
-require_once '../includes/auth.php'; requireLogin(); requireHostContext();
+require_once '../includes/auth.php'; requireActiveUser(); requireHostContext();
 $pageTitle='Platform Users';
 $users=[];
 $sql="SELECT u.id,u.username,u.role,u.status,u.user_scope,u.tenant_id,u.last_login,u.last_activity_at,t.name AS tenant_name
