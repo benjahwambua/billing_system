@@ -1,6 +1,6 @@
 <?php
 require_once '../includes/auth.php';
-requireLogin();
+requireActiveUser();
 requireHostContext();
 
 $totals=['invoiced'=>0.0,'collected'=>0.0,'outstanding'=>0.0,'overdue'=>0.0];
