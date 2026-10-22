@@ -7,7 +7,10 @@ if(isTenantUser()) requireTenant();
 requireModulePermission('pppoe', 'create');
 global $conn;
 $cols=[];$q=$conn->query("SHOW COLUMNS FROM ip_pools");if(!$q)die('Unable to read IP pool schema.');while($x=$q->fetch_assoc())$cols[]=$x['Field'];
-$has=fn($c)=>in_array($c,$cols,true);$tid=(int)getCurrentTenantId();$errors=[];
+$has=fn($c)=>in_array($c,$cols,true);$tid=(int)getCurrentTenantId();
+if(isTenantUser()&&!$has('tenant_id')){http_response_code(503);exit('IP pool tenant isolation is unavailable. Please contact the administrator.');}
+if(isTenantUser()&&$tid<=0){http_response_code(403);exit('A valid tenant context is required.');}
+$errors=[];
 $data=['name'=>'','network'=>'','cidr'=>'','gateway'=>'','start_ip'=>'','end_ip'=>'','status'=>'active','description'=>''];
 if($_SERVER['REQUEST_METHOD']==='POST'){
  requireCsrf();
