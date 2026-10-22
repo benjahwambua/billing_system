@@ -2,6 +2,30 @@
 if(!function_exists('flexihubSmsKey')){
  function flexihubSmsKey(){ $raw=getenv('FLEXIHUB_SMS_KEY'); return $raw!==false&&$raw!==''?$raw:null; }
 }
+if(!function_exists('flexihubSmsIpInCidr')){
+ function flexihubSmsIpInCidr($ip,$cidr){
+  $parts=explode('/',(string)$cidr,2);$network=inet_pton($parts[0]??'');$address=inet_pton((string)$ip);
+  if($network===false||$address===false||strlen($network)!==strlen($address))return false;
+  $bits=isset($parts[1])?(int)$parts[1]:(strlen($network)*8);
+  if($bits<0||$bits>strlen($network)*8)return false;
+  $whole=intdiv($bits,8);$remaining=$bits%8;
+  if($whole>0&&substr($address,0,$whole)!==substr($network,0,$whole))return false;
+  if($remaining>0){$mask=(0xff<<(8-$remaining))&0xff;if((ord($address[$whole])&$mask)!==(ord($network[$whole])&$mask))return false;}
+  return true;
+ }
+}
+if(!function_exists('flexihubSmsIpIsPublic')){
+ function flexihubSmsIpIsPublic($ip){
+  if(!filter_var($ip,FILTER_VALIDATE_IP,FILTER_FLAG_NO_PRIV_RANGE|FILTER_FLAG_NO_RES_RANGE))return false;
+  $blocked=[
+   '0.0.0.0/8','100.64.0.0/10','192.0.0.0/24','192.0.2.0/24','192.88.99.0/24',
+   '198.18.0.0/15','198.51.100.0/24','203.0.113.0/24','224.0.0.0/4','240.0.0.0/4',
+   '100::/64','2001:db8::/32','fc00::/7','fe80::/10','ff00::/8','::/128','::1/128'
+  ];
+  foreach($blocked as $cidr)if(flexihubSmsIpInCidr($ip,$cidr))return false;
+  return true;
+ }
+}
 if(!function_exists('flexihubSmsEndpointPolicy')){
  function flexihubSmsEndpointPolicy($url){
   $parts=parse_url(trim((string)$url));
@@ -26,7 +50,7 @@ if(!function_exists('flexihubSmsEndpointPolicy')){
   $ips=array_values(array_unique($ips));
   if(!$ips)return ['valid'=>false,'message'=>'SMS gateway hostname could not be resolved to a public IP address.','resolve'=>null];
   foreach($ips as $ip){
-   if(!filter_var($ip,FILTER_VALIDATE_IP,FILTER_FLAG_NO_PRIV_RANGE|FILTER_FLAG_NO_RES_RANGE)){
+   if(!flexihubSmsIpIsPublic($ip)){
     return ['valid'=>false,'message'=>'SMS gateway endpoint resolves to a private or reserved IP address.','resolve'=>null];
    }
   }
