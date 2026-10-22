@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/mikrotik_api.php';
 require_once __DIR__ . '/invoice_amounts.php';
+require_once __DIR__ . '/service_activation_policy.php';
 /**
  * Flexihub billing workflow helpers.
  * These helpers adapt to the existing legacy billing schema while enforcing tenant scope.
@@ -356,13 +357,14 @@ if (!function_exists('flexihubProcessServiceActivationQueue')) {
                         'details'=>json_encode(['payment_id'=>$item['payment_id']??null],JSON_UNESCAPED_SLASHES)
                     ]);
                 }
-            }catch(Throwable $e){$error=$e->getMessage();}
+            }catch(Throwable $e){$ok=false;$error=$e->getMessage();}
             if($ok){
                 $done=$conn->prepare("UPDATE service_activation_queue SET status='completed',processed_at=NOW(),last_error=NULL WHERE id=? AND tenant_id=?");
                 if($done){$done->bind_param('ii',$id,$tenantId);$done->execute();$done->close();}$stats['completed']++;
             }else{
-                $retry=$conn->prepare("UPDATE service_activation_queue SET status=IF(attempts>=5,'failed','pending'),available_at=DATE_ADD(NOW(),INTERVAL LEAST(attempts*5,60) MINUTE),last_error=? WHERE id=? AND tenant_id=?");
-                if($retry){$retry->bind_param('sii',$error,$id,$tenantId);$retry->execute();$retry->close();}$stats['failed']++;
+                $retryDecision=flexihubServiceActivationRetryDecision((int)($item['attempts']??0)+1);
+                $retry=$conn->prepare("UPDATE service_activation_queue SET status=?,available_at=DATE_ADD(NOW(),INTERVAL ? MINUTE),last_error=? WHERE id=? AND tenant_id=?");
+                if($retry){$retryStatus=$retryDecision['status'];$retryDelay=(int)$retryDecision['delay_minutes'];$retry->bind_param('sisii',$retryStatus,$retryDelay,$error,$id,$tenantId);$retry->execute();$retry->close();}$stats['failed']++;
             }
         }
         return $stats;
