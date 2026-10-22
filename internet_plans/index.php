@@ -1,10 +1,10 @@
 <?php
-require_once '../includes/auth.php';
-
-requireLogin();
+require_once __DIR__ . '/../includes/auth.php';
+requireActiveUser();
+requireModulePermission('internet_plans', 'view');
 
 $isTenant = isTenantUser();
-$tenantId = $isTenant ? requireTenant() : null;
+$tenantId = $isTenant ? requireTenantContext() : null;
 
 $pageTitle = 'Internet Plans';
 

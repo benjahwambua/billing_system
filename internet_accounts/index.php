@@ -1,7 +1,8 @@
 <?php
-require_once '../includes/auth.php';
-requireLogin();
-$tenantId = requireTenant();
+require_once __DIR__ . '/../includes/auth.php';
+requireActiveUser();
+$tenantId = requireTenantContext();
+requireModulePermission('internet_accounts', 'view');
 $pageTitle = 'Customer Internet Accounts';
 
 function accountCols() {

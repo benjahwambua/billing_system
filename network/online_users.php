@@ -1,5 +1,8 @@
 <?php
-require_once '../includes/auth.php';requireLogin();requireTenantContext();$tenantId=getCurrentTenantId();$rows=[];
+require_once __DIR__ . '/../includes/auth.php';
+requireActiveUser();
+$tenantId = requireTenantContext();
+requireModulePermission('network', 'view');$rows=[];
 if(flexihubTableHasColumn('active_sessions','tenant_id')){
  $st=$conn->prepare("SELECT * FROM active_sessions WHERE tenant_id=? ORDER BY id DESC LIMIT 200");
  if($st){$st->bind_param('i',$tenantId);$st->execute();$r=$st->get_result();while($x=$r->fetch_assoc())$rows[]=$x;$st->close();}

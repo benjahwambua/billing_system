@@ -13,9 +13,7 @@ if (session_status() === PHP_SESSION_NONE) {
 |--------------------------------------------------------------------------
 */
 
-if (function_exists('requireLogin')) {
-    requireLogin();
-}
+requireActiveUser();
 
 $userScope = $_SESSION['user_scope'] ?? 'tenant';
 $isHost = ($userScope === 'host');

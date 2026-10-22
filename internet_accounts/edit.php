@@ -1,6 +1,9 @@
 <?php
-require_once '../includes/auth.php';
-requireLogin(); $tenantId=requireTenant(); $pageTitle='Edit Customer Internet Account';
+require_once __DIR__ . '/../includes/auth.php';
+requireActiveUser();
+$tenantId = requireTenantContext();
+requireModulePermission('internet_accounts', 'edit');
+$pageTitle = 'Edit Customer Internet Account';
 function ec(){global $conn;$a=[];$r=$conn->query("SHOW COLUMNS FROM internet_accounts");if($r)while($x=$r->fetch_assoc())$a[]=$x['Field'];return $a;}
 $cols=ec();$id=(int)($_GET['id']??$_POST['id']??0);if($id<1)redirect('index.php');
 $sql='SELECT * FROM internet_accounts WHERE id=?';$types='i';$p=[$id];if(in_array('tenant_id',$cols,true)){$sql.=' AND tenant_id=?';$types.='i';$p[]=$tenantId;}$sql.=' LIMIT 1';$s=$conn->prepare($sql);$b=[$types];foreach($p as $k=>$v)$b[]=&$p[$k];call_user_func_array([$s,'bind_param'],$b);$s->execute();$a=$s->get_result()->fetch_assoc();$s->close();if(!$a)die('Internet account not found.');
