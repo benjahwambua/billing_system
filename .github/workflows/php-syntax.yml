@@ -39,3 +39,6 @@ jobs:
 
       - name: Run M-Pesa callback policy regression tests
         run: php tests/mpesa_callback_policy.php
+
+      - name: Run service activation retry regression tests
+        run: php tests/service_activation_retry_policy.php
