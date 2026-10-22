@@ -7,6 +7,7 @@ $pageTitle='Create Customer Internet Account';
 
 function acctCols(){global $conn;$a=[];$r=$conn->query("SHOW COLUMNS FROM internet_accounts");if($r)while($x=$r->fetch_assoc())$a[]=$x['Field'];return $a;}
 $cols=acctCols(); if(!$cols)die('Internet accounts table is not available.');
+if(!in_array('tenant_id',$cols,true)){http_response_code(503);exit('Internet account tenant isolation is unavailable. Please contact the administrator.');}
 $customers=[];$s=$conn->prepare("SELECT id,customer_number,first_name,last_name FROM customers WHERE tenant_id=? ORDER BY first_name,last_name");if($s){$s->bind_param('i',$tenantId);$s->execute();$r=$s->get_result();while($x=$r->fetch_assoc())$customers[]=$x;$s->close();}
 $plans=[];$s=$conn->prepare("SELECT * FROM internet_plans WHERE tenant_id=? AND (status='active' OR status IS NULL) ORDER BY name");if($s){$s->bind_param('i',$tenantId);$s->execute();$r=$s->get_result();while($x=$r->fetch_assoc())$plans[]=$x;$s->close();}
 $values=['customer_id'=>'','plan_id'=>'','connection_type'=>'pppoe','username'=>'','status'=>'pending','activation_date'=>date('Y-m-d'),'expiry_date'=>'','billing_date'=>''];
