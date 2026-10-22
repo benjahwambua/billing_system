@@ -7,7 +7,10 @@ requireModulePermission('pppoe', 'view');
 global $conn;
 $cols=[];$q=$conn->query("SHOW COLUMNS FROM ip_pools");if(!$q)die('Unable to read IP pool schema.');while($x=$q->fetch_assoc())$cols[]=$x['Field'];
 $has=fn($c)=>in_array($c,$cols,true);$tid=(int)getCurrentTenantId();
-if($has('tenant_id')&&$tid<=0)die('A valid tenant context is required to view IP pools.');
+if(isTenantUser()&&!$has('tenant_id')){http_response_code(503);exit('IP pool tenant isolation is unavailable. Please contact the administrator.');}
+if(isTenantUser()&&$tid<=0){http_response_code(403);exit('A valid tenant context is required to view IP pools.');
+}
+if($has('tenant_id')&&$tid<=0&&isTenantUser())die('A valid tenant context is required to view IP pools.');
 $where=[];$params=[];$types='';
 if($has('tenant_id')){$where[]='tenant_id=?';$params[]=$tid;$types.='i';}
 $sql='SELECT * FROM ip_pools'.($where?' WHERE '.implode(' AND ',$where):'').' ORDER BY id DESC LIMIT 200';
