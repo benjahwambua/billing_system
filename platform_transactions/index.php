@@ -1,5 +1,5 @@
 <?php
-require_once '../includes/auth.php';requireLogin();requireHostContext();
+require_once '../includes/auth.php';requireActiveUser();requireHostContext();
 $rows=[];$available=false;$total=0;$completed=0;$pending=0;$failed=0;
 $check=$conn->query("SHOW TABLES LIKE 'platform_payments'");
 if($check&&$check->num_rows){
