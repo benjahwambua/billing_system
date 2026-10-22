@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
              
 
-                elseif (($user['status'] ?? '') !== 'Active') {
+                elseif (strtolower(trim((string) ($user['status'] ?? ''))) !== 'active') {
 
                     $error =
                         'Your account is inactive. Please contact the administrator.';
