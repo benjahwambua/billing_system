@@ -179,7 +179,12 @@ if (($tx['flow']??'')==='customer' || ($tx['flow']??'')==='internet' || ($tx['fl
 
   $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='completed',provider_receipt=?,provider_transaction_id=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW(),expires_at=NULL WHERE id=? AND tenant_id=?");
   if(!$stmt) throw new RuntimeException('Unable to finalize customer M-Pesa transaction.');
-  $stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);$stmt->execute();$stmt->close();
+  $stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);
+  if(!$stmt->execute() || $stmt->affected_rows !== 1) {
+    $stmt->close();
+    throw new RuntimeException('Unable to finalize customer M-Pesa transaction.');
+  }
+  $stmt->close();
   $conn->commit();
   $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");
   if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}
