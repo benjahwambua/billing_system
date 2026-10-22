@@ -48,3 +48,6 @@ jobs:
 
       - name: Run internet account status regression tests
         run: php tests/internet_account_status_policy.php
+
+      - name: Run hotspot package status regression tests
+        run: php tests/hotspot_package_policy.php
