@@ -1,7 +1,8 @@
 <?php
-require_once '../includes/auth.php';
-requireLogin();
-$tenantId=requireTenant();
+require_once __DIR__ . '/../includes/auth.php';
+requireActiveUser();
+$tenantId = requireTenantContext();
+requireModulePermission('internet_accounts', 'create');
 $pageTitle='Create Customer Internet Account';
 
 function acctCols(){global $conn;$a=[];$r=$conn->query("SHOW COLUMNS FROM internet_accounts");if($r)while($x=$r->fetch_assoc())$a[]=$x['Field'];return $a;}
