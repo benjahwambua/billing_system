@@ -1,8 +1,8 @@
 <?php
-require_once '../includes/auth.php';
-
-requireLogin();
-$tenantId = requireTenant();
+require_once __DIR__ . '/../includes/auth.php';
+requireActiveUser();
+$tenantId = requireTenantContext();
+requireModulePermission('internet_plans', 'create');
 
 $pageTitle = 'Add Internet Plan';
 
