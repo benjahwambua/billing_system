@@ -36,3 +36,6 @@ jobs:
 
       - name: Run invoice amount regression tests
         run: php tests/billing_amount_regressions.php
+
+      - name: Run M-Pesa callback policy regression tests
+        run: php tests/mpesa_callback_policy.php
