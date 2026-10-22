@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
 
-            header('Location: index.php?created=1');
+            header('Location: view.php?id=' . $staffId . '&created=1');
 
             exit;
 
@@ -142,7 +142,9 @@ require_once '../includes/header.php';
     <div class="dashboard-card">
 
 
-        <form method="POST">\n\n            <?= csrfField() ?>
+        <form method="POST">
+
+            <?= csrfField() ?>
 
 
             <div style="
