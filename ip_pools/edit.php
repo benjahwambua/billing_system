@@ -1,5 +1,6 @@
 <?php
 require_once '../includes/auth.php';
+requireActiveUser();
 require_once '../includes/functions.php';
 require_once '../includes/ip_pool_validation.php';
 if(isTenantUser()) requireTenant();
