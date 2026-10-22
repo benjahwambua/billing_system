@@ -28,8 +28,19 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             $protocol=in_array($_POST['protocol']??'snmp',['snmp','api','ssh'],true)?$_POST['protocol']:'snmp';
             $port=max(1,min(65535,(int)($_POST['api_port']??161)));
             $siteId=(int)($_POST['site_id']??0);
-            if ($name==='') $error='OLT name is required.';
-            else {
+            if ($name==='') {
+                $error='OLT name is required.';
+            } elseif ($siteId > 0) {
+                $siteCheck=$conn->prepare("SELECT id FROM network_sites WHERE id=? AND tenant_id=? LIMIT 1");
+                $siteCheck->bind_param('ii',$siteId,$tenantId);
+                $siteCheck->execute();
+                $siteExists=(bool)$siteCheck->get_result()->fetch_assoc();
+                $siteCheck->close();
+                if (!$siteExists) {
+                    $error='Select a network site belonging to your organisation.';
+                }
+            }
+            if ($error==='') {
                 $q=$conn->prepare("INSERT INTO olt_devices (tenant_id,name,vendor,model,host,api_port,protocol,status,site_id) VALUES (?,?,?,?,?,?,?,'active',NULLIF(?,0))");
                 if($q){$q->bind_param('issssisi',$tenantId,$name,$vendor,$model,$host,$port,$protocol,$siteId);$q->execute();$q->close();$message='OLT registered successfully.';}
                 else $error='Unable to prepare OLT registration.';
@@ -44,11 +55,40 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             $mac=trim((string)($_POST['mac_address']??''));
             $vendor=trim((string)($_POST['onu_vendor']??''));
             $model=trim((string)($_POST['onu_model']??''));
-            if($serial==='') $error='ONU serial number is required.';
-            else {
-                $q=$conn->prepare("INSERT INTO onu_devices (tenant_id,olt_id,serial_number,name,pon_port,customer_id,service_account_id,mac_address,vendor,model,status) VALUES (?,?,?,?,?,?,?,?,?,?,'unknown')");
-                if($q){$q->bind_param('iisssiisss',$tenantId,$oltId,$serial,$name,$pon,$customerId,$serviceAccountId,$mac,$vendor,$model);$q->execute();$q->close();$message='ONU registered successfully.';}
-                else $error='Unable to prepare ONU registration.';
+            if($serial==='') {
+                $error='ONU serial number is required.';
+            } elseif ($oltId<=0) {
+                $error='Select an OLT belonging to your organisation.';
+            } else {
+                $refCheck=$conn->prepare("SELECT id FROM olt_devices WHERE id=? AND tenant_id=? LIMIT 1");
+                $refCheck->bind_param('ii',$oltId,$tenantId);
+                $refCheck->execute();
+                $oltExists=(bool)$refCheck->get_result()->fetch_assoc();
+                $refCheck->close();
+                if (!$oltExists) {
+                    $error='Select an OLT belonging to your organisation.';
+                }
+                if ($error==='' && $customerId>0) {
+                    $refCheck=$conn->prepare("SELECT id FROM customers WHERE id=? AND tenant_id=? LIMIT 1");
+                    $refCheck->bind_param('ii',$customerId,$tenantId);
+                    $refCheck->execute();
+                    $customerExists=(bool)$refCheck->get_result()->fetch_assoc();
+                    $refCheck->close();
+                    if (!$customerExists) $error='Select a customer belonging to your organisation.';
+                }
+                if ($error==='' && $serviceAccountId>0) {
+                    $refCheck=$conn->prepare("SELECT id FROM internet_accounts WHERE id=? AND tenant_id=? LIMIT 1");
+                    $refCheck->bind_param('ii',$serviceAccountId,$tenantId);
+                    $refCheck->execute();
+                    $accountExists=(bool)$refCheck->get_result()->fetch_assoc();
+                    $refCheck->close();
+                    if (!$accountExists) $error='Select an internet account belonging to your organisation.';
+                }
+                if ($error==='') {
+                    $q=$conn->prepare("INSERT INTO onu_devices (tenant_id,olt_id,serial_number,name,pon_port,customer_id,service_account_id,mac_address,vendor,model,status) VALUES (?,?,?,?,?,?,?,?,?,?,'unknown')");
+                    if($q){$q->bind_param('iisssiisss',$tenantId,$oltId,$serial,$name,$pon,$customerId,$serviceAccountId,$mac,$vendor,$model);$q->execute();$q->close();$message='ONU registered successfully.';}
+                    else $error='Unable to prepare ONU registration.';
+                }
             }
         }
     }
