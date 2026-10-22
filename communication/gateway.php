@@ -17,10 +17,12 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         $method=strtoupper(trim((string)($_POST['api_method']??'POST')));$auth=trim((string)($_POST['auth_type']??'bearer'));
         $template=trim((string)($_POST['request_template']??''));$balance=trim((string)($_POST['balance_endpoint']??''));
         $status=trim((string)($_POST['status']??'inactive'));$credentials=trim((string)($_POST['credentials']??''));
+        require_once __DIR__ . '/../includes/sms_gateway.php';
         if($name===''||$endpoint==='')$error='Gateway name and endpoint are required.';
         elseif(!in_array($method,['POST','GET','PUT'],true)||!in_array($auth,['none','bearer','api_key','basic'],true)||!in_array($status,['active','inactive'],true))$error='Invalid gateway configuration.';
+        elseif(!flexihubSmsEndpointPolicy($endpoint)['valid'])$error=flexihubSmsEndpointPolicy($endpoint)['message'];
+        elseif($balance!==''&&!flexihubSmsEndpointPolicy($balance)['valid'])$error='Balance endpoint: '.flexihubSmsEndpointPolicy($balance)['message'];
         else{
-            require_once '../includes/sms_gateway.php';
             $encrypted=$credentials!==''?flexihubSmsEncryptCredentials($credentials):null;
             if($credentials!==''&&$encrypted===false)$error='SMS credentials could not be encrypted. Set FLEXIHUB_SMS_KEY in the server environment.';
             else{
