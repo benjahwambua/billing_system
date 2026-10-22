@@ -67,17 +67,12 @@ if (!function_exists('getCurrentUser')) {
             return null;
         }
 
+        // Fetch the current row without assuming every optional user column
+        // exists in older/local database schemas. Authentication only relies
+        // on the user's ID and status, while returning any other columns that
+        // are present for existing callers.
         $stmt = $conn->prepare("
-            SELECT
-                id,
-                tenant_id,
-                user_scope,
-                staff_id,
-                username,
-                role,
-                status,
-                last_login,
-                last_activity_at
+            SELECT *
             FROM users
             WHERE id = ?
             LIMIT 1
