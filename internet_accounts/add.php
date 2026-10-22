@@ -3,6 +3,7 @@ require_once __DIR__ . '/../includes/auth.php';
 requireActiveUser();
 $tenantId = requireTenantContext();
 requireModulePermission('internet_accounts', 'create');
+require_once __DIR__ . '/../includes/internet_account_status_policy.php';
 $pageTitle='Create Customer Internet Account';
 
 function acctCols(){global $conn;$a=[];$r=$conn->query("SHOW COLUMNS FROM internet_accounts");if($r)while($x=$r->fetch_assoc())$a[]=$x['Field'];return $a;}
@@ -14,6 +15,8 @@ $values=['customer_id'=>'','plan_id'=>'','connection_type'=>'pppoe','username'=>
 $errors=[];
 if($_SERVER['REQUEST_METHOD']==='POST'){
  requireCsrf(); foreach($values as $f=>$d)$values[$f]=trim((string)($_POST[$f]??$d));
+ // Account creation must not bypass payment and network provisioning.
+ $values['status']=flexihubInitialInternetAccountStatus($values['status']??null);
  if((int)$values['customer_id']<=0)$errors[]='Select a customer.';
  if((int)$values['plan_id']<=0)$errors[]='Select an internet plan.';
  $customerOk=false;$plan=null;
@@ -41,5 +44,5 @@ require_once '../includes/header.php';?>
 <div class="form-group"><label>Internet Plan *</label><select name="plan_id" required><option value="">Select plan</option><?php foreach($plans as $p):?><option value="<?=$p['id']?>" <?=$values['plan_id']==$p['id']?'selected':''?>><?=e($p['name'].' — '.formatMoney($p['price']??0))?></option><?php endforeach;?></select></div>
 <?php if(in_array('connection_type',$cols,true)):?><div class="form-group"><label>Connection Type</label><select name="connection_type"><option value="pppoe" <?=$values['connection_type']==='pppoe'?'selected':''?>>PPPoE</option><option value="hotspot" <?=$values['connection_type']==='hotspot'?'selected':''?>>Hotspot</option><option value="static" <?=$values['connection_type']==='static'?'selected':''?>>Static / Routed</option><option value="other" <?=$values['connection_type']==='other'?'selected':''?>>Other</option></select></div><?php endif;?><?php if(in_array('username',$cols,true)):?><div class="form-group"><label>Username</label><input name="username" value="<?=e($values['username'])?>"></div><?php endif;?>
 <?php if(in_array('activation_date',$cols,true)):?><div class="form-group"><label>Activation Date</label><input type="date" name="activation_date" value="<?=e($values['activation_date'])?>"></div><?php endif;?>
-<?php if(in_array('status',$cols,true)):?><div class="form-group"><label>Status</label><select name="status"><?php foreach(['active','pending','suspended','inactive'] as $x):?><option value="<?=$x?>" <?=$values['status']===$x?'selected':''?>><?=ucfirst($x)?></option><?php endforeach;?></select></div><?php endif;?>
+<?php if(in_array('status',$cols,true)):?><div class="form-group"><label>Initial Status</label><input type="text" value="Pending — payment and activation required" readonly></div><?php endif;?>
 </div><div style="margin-top:20px;"><button class="btn btn-primary">Create Account</button> <a href="index.php" class="btn btn-light">Cancel</a></div></form></div><?php require_once '../includes/footer.php';?>
