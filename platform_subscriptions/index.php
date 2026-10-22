@@ -1,5 +1,5 @@
 <?php
-require_once '../includes/auth.php';requireLogin();requireHostContext();
+require_once '../includes/auth.php';requireActiveUser();requireHostContext();
 $rows=[];$available=false;$message='';
 if ($_SERVER['REQUEST_METHOD']==='POST') {
     requireCsrf();
