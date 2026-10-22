@@ -5,6 +5,7 @@ require_once __DIR__.'/../includes/payment_gateway.php';
 require_once __DIR__.'/../includes/hotspot_workflow.php';
 require_once __DIR__.'/../includes/billing_workflow.php';
 require_once __DIR__.'/../includes/platform_billing.php';
+require_once __DIR__.'/../includes/mpesa_callback_policy.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $gatewayId=(int)($_GET['gateway']??0);$token=trim((string)($_GET['token']??''));$raw=file_get_contents('php://input');$payload=json_decode($raw,true);
@@ -22,7 +23,7 @@ if((int)($_GET['platform']??0)===1){
  $receipt=(string)($meta['MpesaReceiptNumber']??'');$amount=isset($meta['Amount'])?(float)$meta['Amount']:null;$phone=(string)($meta['PhoneNumber']??'');$json=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$tenantId=(int)$payment['tenant_id'];$paymentId=(int)$payment['id'];
  if($payment['status']==='completed'){echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback already processed']);exit;}
  if($rc!=='0'){$stmt=$conn->prepare("UPDATE platform_payments SET status='failed',result_code=?,result_description=?,callback_payload=?,failure_reason=? WHERE id=? AND tenant_id=? AND status<>'completed'");if($stmt){$stmt->bind_param('ssssii',$rc,$rd,$json,$rd,$paymentId,$tenantId);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;}
- if($receipt===''||$amount===null||abs($amount-(float)$payment['amount'])>0.01||($phone!==''&&$phone!==(string)$payment['phone_number'])){$err=$receipt===''?'M-Pesa receipt is missing from the successful platform callback.':'Callback amount or phone does not match the platform payment.';$stmt=$conn->prepare("UPDATE platform_payments SET status='failed',result_code='VALIDATION_FAILED',result_description=?,callback_payload=?,failure_reason=? WHERE id=? AND tenant_id=? AND status<>'completed'");if($stmt){$stmt->bind_param('sssii',$err,$json,$err,$paymentId,$tenantId);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;}
+ if(!flexihubMpesaCallbackMatchesTransaction($receipt,$amount,$payment['amount'],$phone,$payment['phone_number']??'')){$err=$receipt===''?'M-Pesa receipt is missing from the successful platform callback.':'Callback amount or phone does not match the platform payment.';$stmt=$conn->prepare("UPDATE platform_payments SET status='failed',result_code='VALIDATION_FAILED',result_description=?,callback_payload=?,failure_reason=? WHERE id=? AND tenant_id=? AND status<>'completed'");if($stmt){$stmt->bind_param('sssii',$err,$json,$err,$paymentId,$tenantId);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;}
  $conn->begin_transaction();try{
   $p=dbFetchOne("SELECT * FROM platform_payments WHERE id=? AND tenant_id=? FOR UPDATE",'ii',$paymentId,$tenantId);if(!$p)throw new RuntimeException('Platform payment not found.');if($p['status']==='completed'){$conn->commit();echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback already processed']);exit;}
   if($receipt!==''){ $dup=dbFetchOne("SELECT id FROM platform_payments WHERE provider='mpesa' AND external_transaction_id=? AND id<>? LIMIT 1",'si',$receipt,$paymentId);if($dup)throw new RuntimeException('M-Pesa receipt already used.'); }
@@ -68,7 +69,7 @@ if($receipt!==''){
   }
  }
 }
-if($receipt===''||$paidAmount===null||abs($paidAmount-(float)$tx['amount'])>0.01||($paidPhone!==''&&$paidPhone!==(string)$tx['phone_number'])){
+if(!flexihubMpesaCallbackMatchesTransaction($receipt,$paidAmount,$tx['amount'],$paidPhone,$tx['phone_number']??'')){
  $err=$receipt===''?'M-Pesa receipt is missing from the successful callback.':'Callback amount or phone does not match the initiated transaction.';
  $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='failed',result_code=?,result_description=?,callback_payload=?,failure_reason=? WHERE id=? AND tenant_id=? AND status<>'completed'");if($stmt){$code='VALIDATION_FAILED';$stmt->bind_param('ssssii',$code,$resultDesc,$callbackJson,$err,$txId,$tenantId);$stmt->execute();$stmt->close();}
  $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='failed',error_message=? WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('sis',$err,$tenantId,$external);$stmt->execute();$stmt->close();}
