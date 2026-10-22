@@ -79,6 +79,7 @@ if (!function_exists('getCurrentUser')) {
         ");
 
         if (!$stmt) {
+            error_log('Flexihub auth: unable to prepare current-user lookup.');
             return null;
         }
 
@@ -86,12 +87,17 @@ if (!function_exists('getCurrentUser')) {
         $stmt->bind_param('i', $userId);
 
         if (!$stmt->execute()) {
+            error_log('Flexihub auth: current-user lookup execution failed.');
             $stmt->close();
             return null;
         }
 
         $user = $stmt->get_result()->fetch_assoc();
         $stmt->close();
+
+        if (!$user) {
+            error_log('Flexihub auth: current-user lookup returned no matching row.');
+        }
 
         return $user ?: null;
     }
@@ -114,7 +120,14 @@ if (!function_exists('requireActiveUser')) {
     {
         requireLogin();
 
-        if (!isCurrentUserActive()) {
+        $user = getCurrentUser();
+
+        if (!$user) {
+            http_response_code(403);
+            exit('Unable to verify your user account. Please sign in again or contact the administrator.');
+        }
+
+        if (strtolower(trim((string)($user['status'] ?? ''))) !== 'active') {
             http_response_code(403);
             exit('Your user account is inactive. Please contact the administrator.');
         }
