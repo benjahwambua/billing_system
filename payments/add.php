@@ -76,7 +76,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             if(!$paidStmt->execute()) { $paidStmt->close(); throw new Exception('Unable to verify the invoice balance.'); }
             $lockedPaid=(float)($paidStmt->get_result()->fetch_assoc()['paid']??0);
             $paidStmt->close();
-            $lockedBalance=max(0,$lockedTotal-$lockedPaid);
+            $lockedBalance=flexihubInvoiceOutstandingBalance($lockedTotal,$lockedPaid);
             if($lockedBalance<=0.00001) throw new Exception('This invoice is already fully paid.');
             if($amount>$lockedBalance+0.00001) throw new Exception('Payment exceeds the current outstanding invoice balance of '.formatMoney($lockedBalance).'.');
             $invoice=$lockedInvoice;
@@ -95,7 +95,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             // A partial invoice payment must never renew or activate the service.
             $paidAfterPayment=flexihubInvoicePaid($iid,$tid);
             $totalAfterPayment=flexihubInvoiceTotal($invoice);
-            $invoiceFullyPaid=($totalAfterPayment<=0 || $paidAfterPayment+0.00001 >= $totalAfterPayment);
+            $invoiceFullyPaid=flexihubInvoiceIsFullyPaid($totalAfterPayment,$paidAfterPayment);
 
             if($aid && $invoiceFullyPaid && !flexihubAccountHasOverdueBalance($aid,$tid)){
                 if(!flexihubRenewInternetAccount($aid,$tid)){
