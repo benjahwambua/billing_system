@@ -42,14 +42,16 @@ $f=[];$v=[];$t='';$map=['username'=>trim($_POST['username']??''),'status'=>($req
     $poolName='fh_t'.(int)$tid.'_pool'.(int)$poolId;$profileName='fh_t'.(int)$tid.'_pppoe'.(int)$sid;
     $ros->addOrUpdateIpPool($poolName,$start.'-'.$end);$ros->addOrUpdatePppProfile($profileName,$poolName,$gateway);
    }
-   $ros->updatePppSecret($oldUsername,$newUsername,$syncPassword,$newStatus!=='active','pppoe',$profileName);
+   $ros->updatePppSecret($oldUsername,$newUsername,$syncPassword,true,'pppoe',$profileName);
    if($newStatus!=='active')$ros->disconnectPppActive($newUsername);
   // Keep the database pending until RouterOS has accepted the requested state.
   $statusSql='UPDATE pppoe_accounts SET status=? WHERE id=?'.($has('tenant_id')?' AND tenant_id=?':'');
   $statusStmt=$conn->prepare($statusSql);
   if(!$statusStmt)throw new Exception('RouterOS synchronized, but the final account status could not be saved.');
   if($has('tenant_id'))$statusStmt->bind_param('sii',$newStatus,$id,$tid);else$statusStmt->bind_param('si',$newStatus,$id);
-  if(!$statusStmt->execute()){$statusStmt->close();throw new Exception('RouterOS synchronized, but the final account status could not be saved.');}
+  if(!$statusStmt->execute()){$statusStmt->close();
+  // Enable only after the account status write succeeded; on failure the catch block reverts it to pending_activation.
+  if($newStatus==='active')$ros->updatePppSecret($newUsername,$newUsername,$syncPassword,false,'pppoe',$profileName);throw new Exception('RouterOS synchronized, but the final account status could not be saved.');}
   $statusStmt->close();
   }finally{$ros->close();}
   redirect('index.php');
