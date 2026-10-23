@@ -139,3 +139,6 @@ Reference: [Database README](../database/README.md) and [Migration Dependency Au
 
 
 - **Migration registry — in progress (branch `deployment/tracked-migration-registry`):** added stable logical identities for every numbered historical migration, explicitly disambiguated both duplicate-prefix pairs, and documented known prerequisites and release gates. This is a review registry, not an executable order. The canonical clean-install baseline, migration-history tracking, and disposable-database install/upgrade verification remain open; no SQL was executed and no local database was changed.
+
+
+- **M-Pesa receipt concurrency protection — PR in progress (`payments/global-mpesa-receipt-claims`):** callback paths now reserve a receipt in `mpesa_receipt_claims` inside the same transaction as finalization. The new FEATURE-036 migration backfills existing receipts and uses a unique primary key as the cross-flow concurrency guard; a read-only preflight identifies duplicate and oversized historical receipts. Do not apply the migration to the working database until preflight results are reconciled and the migration is tested on a disposable copy. CI/runtime results are pending.
