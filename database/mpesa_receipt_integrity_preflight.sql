@@ -29,9 +29,9 @@ ORDER BY occurrences DESC, receipt;
 SELECT 'payment_gateway_transactions' AS source_table, id, provider_receipt AS receipt
 FROM payment_gateway_transactions
 WHERE provider='mpesa' AND provider_receipt IS NOT NULL
-  AND CHAR_LENGTH(TRIM(provider_receipt)) > 100
+  AND CHAR_LENGTH(TRIM(provider_receipt)) > 191
 UNION ALL
 SELECT 'platform_payments' AS source_table, id, external_transaction_id AS receipt
 FROM platform_payments
 WHERE provider='mpesa' AND external_transaction_id IS NOT NULL
-  AND CHAR_LENGTH(TRIM(external_transaction_id)) > 100;
+  AND CHAR_LENGTH(TRIM(external_transaction_id)) > 191;
