@@ -150,3 +150,9 @@ Reference: [Database README](../database/README.md) and [Migration Dependency Au
 - **SaaS platform payment renewal — pending PR:** manual/platform payment recording now requires the invoice's subscription to match the same tenant and requires the subscription renewal/reactivation writes to succeed before commit. Previously a missing subscription or failed renewal update could still leave the invoice recorded as paid. Runtime/database verification remains pending.
 
 - **M-Pesa whole-shilling amount validation — pending PR:** STK Push now rejects fractional-KES charge amounts before creating a transaction, instead of rounding the provider request while retaining a different decimal ledger amount. A focused policy test covers whole amounts, fractions, zero/negative values, invalid input, and infinity; CI and end-to-end provider verification remain pending.
+
+- **M-Pesa callback status monotonicity — PR #160 merged:** a delayed/replayed failure callback cannot downgrade a tenant-gateway transaction already marked `confirmed`; the failure update also excludes `confirmed` at SQL level to reduce race risk. CI PHP syntax checks passed; database-backed callback replay/concurrency testing and confirmed-but-unfinalized reconciliation remain pending.
+
+- **SaaS platform payment renewal — PR #161 merged:** invoice updates are tenant-scoped and a fully paid SaaS invoice now requires successful tenant-owned subscription renewal/reactivation before commit. CI PHP syntax checks passed; MySQL transaction/rollback testing remains pending.
+
+- **M-Pesa whole-shilling amount validation — PR #162 merged:** STK Push rejects fractional KES amounts before creating a transaction, preventing provider charge rounding from diverging from the decimal ledger amount. CI syntax and focused amount-policy regression tests passed; database-backed billing and Safaricom sandbox verification remain pending.
