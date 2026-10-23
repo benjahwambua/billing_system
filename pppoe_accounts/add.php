@@ -41,7 +41,7 @@ if($user!=='' && $has('username')){
  if(!$usernameCheck){$errors[]='Unable to validate PPPoE username uniqueness.';}
  else{if($has('pppoe_server_id'))$usernameCheck->bind_param('si',$user,$serverId);else$usernameCheck->bind_param('s',$user);$usernameCheck->execute();$usernameFound=$usernameCheck->get_result()->fetch_assoc();$usernameCheck->close();if($usernameFound)$errors[]='This PPPoE username is already assigned on the selected server. Use a unique username on that router.';}
 }
-if(!$errors){$map=['internet_account_id'=>$ia,'pppoe_server_id'=>$serverId,'username'=>$user,'password'=>$secret,'status'=>$status];$f=[];$v=[];$t='';
+if(!$errors){$map=['internet_account_id'=>$ia,'pppoe_server_id'=>$serverId,'username'=>$user,'password'=>$secret,'status'=>($status==='active'?'pending_activation':$status)];$f=[];$v=[];$t='';
 foreach($map as $c=>$x)if($has($c)){$f[]=$c;$v[]=$x;$t.=is_int($x)?'i':'s';}
 if($has('tenant_id')){$f[]='tenant_id';$v[]=$tid;$t.='i';}
 $st=$conn->prepare("INSERT INTO pppoe_accounts (".implode(',',$f).") VALUES (".implode(',',array_fill(0,count($f),'?')).")");
@@ -82,10 +82,15 @@ if($st){
      $ros->addOrUpdatePppProfile($routerProfileName,$routerPoolName,$gateway);
      $profileName=$routerProfileName;
     }
-    $ros->addOrUpdatePppSecret($user,$secret,$status!=='active','pppoe',$profileName);
+    $ros->addOrUpdatePppSecret($user,$secret,true,'pppoe',$profileName);
    }finally{$ros->close();}
+   $doneStatus=$status==='active'?'active':($status?:'inactive');
    $done=$conn->prepare("UPDATE pppoe_accounts SET status=? WHERE id=? AND tenant_id=?");
-   if($done){$doneStatus=$status==='active'?'active':($status?:'inactive');$done->bind_param('sii',$doneStatus,$pppoeId,$tid);$done->execute();$done->close();}
+   if(!$done)throw new Exception('RouterOS accepted the credentials, but the account status could not be prepared for saving.');
+   $done->bind_param('sii',$doneStatus,$pppoeId,$tid);
+   $statusSaved=$done->execute();$done->close();
+   if(!$statusSaved)throw new Exception('RouterOS accepted the credentials, but the account status could not be saved.');
+   if($status==='active')$ros->addOrUpdatePppSecret($user,$secret,false,'pppoe',$profileName);
    if(function_exists('flexihubWorkflowInsert')){
     flexihubWorkflowInsert('router_sync_logs',['tenant_id'=>$tid,'router_id'=>(int)$router['router_id'],'service_type'=>'pppoe','external_username'=>$user,'action'=>'provision','status'=>'success','message'=>'PPPoE secret provisioned on MikroTik using profile '.$profileName.'.']);
    }
