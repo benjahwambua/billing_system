@@ -2,13 +2,13 @@
 require_once '../includes/auth.php';
 requireActiveUser();
 require_once '../includes/functions.php';
-if(isTenantUser()) requireTenant();
+requireTenantContext();
 requireModulePermission('pppoe', 'view');
 global $conn;
 $cols=[];$q=$conn->query("SHOW COLUMNS FROM ip_pools");if(!$q)die('Unable to read IP pool schema.');while($x=$q->fetch_assoc())$cols[]=$x['Field'];
 $has=fn($c)=>in_array($c,$cols,true);$tid=(int)getCurrentTenantId();
-if(isTenantUser()&&!$has('tenant_id')){http_response_code(503);exit('IP pool tenant isolation is unavailable. Please contact the administrator.');}
-if(isTenantUser()&&$tid<=0){http_response_code(403);exit('A valid tenant context is required to view IP pools.');
+if(!$has('tenant_id')){http_response_code(503);exit('IP pool tenant isolation is unavailable. Please contact the administrator.');}
+if($tid<=0){http_response_code(403);exit('A valid tenant context is required to view IP pools.');
 }
 $where=[];$params=[];$types='';
 if($has('tenant_id')){$where[]='tenant_id=?';$params[]=$tid;$types.='i';}
