@@ -113,24 +113,36 @@ if (!function_exists('flexihubRecordPlatformPayment')) {
 
             $newPaid=(float)$invoice['paid_amount']+$amount;
             $newStatus=$newPaid+0.0001 >= (float)$invoice['total_amount'] ? 'paid' : 'partial';
-            $stmt=$conn->prepare("UPDATE platform_invoices SET paid_amount=?,status=?,updated_at=NOW() WHERE id=?");
+            $stmt=$conn->prepare("UPDATE platform_invoices SET paid_amount=?,status=?,updated_at=NOW() WHERE id=? AND tenant_id=?");
             if(!$stmt) throw new Exception('Unable to update SaaS invoice.');
-            $stmt->bind_param('dsi',$newPaid,$newStatus,$invoiceId);
-            if(!$stmt->execute()) { $stmt->close(); throw new Exception('Unable to update SaaS invoice.'); }
+            $stmt->bind_param('dsii',$newPaid,$newStatus,$invoiceId,$tenantId);
+            if(!$stmt->execute() || $stmt->affected_rows!==1) { $stmt->close(); throw new Exception('Unable to update SaaS invoice for the verified tenant.'); }
             $stmt->close();
 
             if($newStatus==='paid'){
-            // SaaS payment restores the subscription only; tenant internet
-            // service provisioning is handled by the tenant's own billing/runtime.
-
-                $sub=dbFetchOne("SELECT s.*,p.billing_cycle FROM tenant_platform_subscriptions s JOIN platform_plans p ON p.id=s.plan_id WHERE s.id=? FOR UPDATE",'i',(int)$invoice['subscription_id']);
-                if($sub){
-                    $nextStart=$invoice['period_end'];
-                    $nextEnd=flexihubPlatformAddCycle($nextStart,$sub['billing_cycle']);
-                    $stmt=$conn->prepare("UPDATE tenant_platform_subscriptions SET status='active',current_period_start=?,current_period_end=?,grace_ends_at=NULL,updated_at=NOW() WHERE id=?");
-                    if($stmt){$stmt->bind_param('ssi',$nextStart,$nextEnd,$sub['id']);$stmt->execute();$stmt->close();}
-                    $conn->query("UPDATE tenants SET status='active' WHERE id=".$tenantId." AND status IN ('past_due','suspended','trial')");
-                }
+                // SaaS payment restores the subscription only; tenant internet
+                // service provisioning is handled by the tenant's own billing/runtime.
+                $sub=dbFetchOne(
+                    "SELECT s.*,p.billing_cycle
+                     FROM tenant_platform_subscriptions s
+                     JOIN platform_plans p ON p.id=s.plan_id
+                     WHERE s.id=? AND s.tenant_id=? FOR UPDATE",
+                    'ii',(int)$invoice['subscription_id'],$tenantId
+                );
+                if(!$sub) throw new Exception('Paid SaaS invoice has no matching tenant subscription; payment was rolled back.');
+                $nextStart=$invoice['period_end'];
+                $nextEnd=flexihubPlatformAddCycle($nextStart,$sub['billing_cycle']);
+                $stmt=$conn->prepare("UPDATE tenant_platform_subscriptions SET status='active',current_period_start=?,current_period_end=?,grace_ends_at=NULL,updated_at=NOW() WHERE id=? AND tenant_id=?");
+                if(!$stmt) throw new Exception('Unable to prepare SaaS subscription renewal.');
+                $subId=(int)$sub['id'];
+                $stmt->bind_param('ssii',$nextStart,$nextEnd,$subId,$tenantId);
+                if(!$stmt->execute() || $stmt->affected_rows!==1) { $stmt->close(); throw new Exception('Unable to renew the tenant SaaS subscription; payment was rolled back.'); }
+                $stmt->close();
+                $tenantStmt=$conn->prepare("UPDATE tenants SET status='active' WHERE id=? AND status IN ('past_due','suspended','trial')");
+                if(!$tenantStmt) throw new Exception('Unable to prepare SaaS tenant reactivation.');
+                $tenantStmt->bind_param('i',$tenantId);
+                if(!$tenantStmt->execute()) { $tenantStmt->close(); throw new Exception('Unable to reactivate the SaaS tenant; payment was rolled back.'); }
+                $tenantStmt->close();
             }
 
             $conn->commit();
