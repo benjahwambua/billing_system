@@ -145,14 +145,15 @@ Reference: [Database README](../database/README.md) and [Migration Dependency Au
 
 - **Receipt migration correctness follow-ups — PRs #157 and #158 merged:** FEATURE-036 no longer silently filters oversized historical receipts, and the preflight/backfill exclude the matching `platform_payments` mirror when a tenant-gateway `flow='platform'` transaction represents the same tenant, receipt, and invoice. Unrelated duplicate receipts remain a release blocker. The migration is still not applied; run the preflight and test on a disposable database before deployment.
 
-- **M-Pesa callback status monotonicity — pending PR:** a delayed/replayed failure callback can no longer downgrade a tenant-gateway transaction already marked `confirmed` after successful callback validation. This preserves the successful receipt for finalization/reconciliation. Confirmed-but-unfinalized cases still need a monitored retry/reconciliation path; this guard is not a substitute for the database-backed callback test.
+- **M-Pesa callback status monotonicity — PR #160 merged:** a delayed/replayed failure callback cannot downgrade a tenant-gateway transaction already marked `confirmed`; the SQL update also excludes `confirmed` to reduce race risk. CI passed; database-backed callback replay/concurrency testing and confirmed-but-unfinalized reconciliation remain pending.
 
-- **SaaS platform payment renewal — pending PR:** manual/platform payment recording now requires the invoice's subscription to match the same tenant and requires the subscription renewal/reactivation writes to succeed before commit. Previously a missing subscription or failed renewal update could still leave the invoice recorded as paid. Runtime/database verification remains pending.
+- **SaaS platform payment renewal — PR #161 merged:** invoice updates are tenant-scoped and a fully paid SaaS invoice now requires successful tenant-owned subscription renewal/reactivation before commit. CI passed; MySQL transaction/rollback testing remains pending.
 
-- **M-Pesa whole-shilling amount validation — pending PR:** STK Push now rejects fractional-KES charge amounts before creating a transaction, instead of rounding the provider request while retaining a different decimal ledger amount. A focused policy test covers whole amounts, fractions, zero/negative values, invalid input, and infinity; CI and end-to-end provider verification remain pending.
 
-- **M-Pesa callback status monotonicity — PR #160 merged:** a delayed/replayed failure callback cannot downgrade a tenant-gateway transaction already marked `confirmed`; the failure update also excludes `confirmed` at SQL level to reduce race risk. CI PHP syntax checks passed; database-backed callback replay/concurrency testing and confirmed-but-unfinalized reconciliation remain pending.
-
-- **SaaS platform payment renewal — PR #161 merged:** invoice updates are tenant-scoped and a fully paid SaaS invoice now requires successful tenant-owned subscription renewal/reactivation before commit. CI PHP syntax checks passed; MySQL transaction/rollback testing remains pending.
 
 - **M-Pesa whole-shilling amount validation — PR #162 merged:** STK Push rejects fractional KES amounts before creating a transaction, preventing provider charge rounding from diverging from the decimal ledger amount. CI syntax and focused amount-policy regression tests passed; database-backed billing and Safaricom sandbox verification remain pending.
+
+
+- **Payment artifact idempotency — PR #164 merged:** receipt and account-ledger artifact creation now fails closed when required `payment_id`/`tenant_id` fields are missing, rather than skipping duplicate checks on retries. CI syntax and configured regression tests passed; runtime schema and concurrent-retry verification remain pending.
+
+- **Payment artifact idempotency preflight — pending PR:** a read-only SQL script reports duplicate receipt and account-ledger entries by tenant/payment so historical data can be reconciled before a unique-index migration is designed. No SQL has been executed against the working database.
