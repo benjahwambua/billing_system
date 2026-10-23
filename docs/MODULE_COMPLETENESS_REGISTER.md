@@ -115,4 +115,12 @@ Reference: [Database README](../database/README.md) and [Migration Dependency Au
  
 - **Migration preflight guardrail — branch `deployment/migration-registry-preflight`:** added `database/migration_preflight.php`, a read-only CLI inventory that flags duplicate numeric prefixes, common non-idempotent DDL patterns for review, and the absence of a recognized clean-install baseline. Documented usage in `database/README.md`. This does not create a baseline, choose a safe execution order, connect to MySQL, or certify migration safety; database installation remains a release blocker.
 
+
+- **Deployment guardrail — PR #136 merged:** added a read-only CLI migration preflight and usage instructions. Migration ordering and a canonical clean-install schema remain unresolved release blockers.
+- **M-Pesa callback validation — PR #137 merged:** successful callbacks now require a present phone number that matches the normalized phone stored for the STK request; focused regression cases were updated.
+- **M-Pesa receipt verification — PR #138 merged:** receipt-uniqueness lookup errors no longer silently allow callback finalization. Database-level uniqueness and reconciliation of pre-existing duplicates remain open.
+- **Service operations dashboard — PR #139 merged:** the authenticated queue page is now read-only; lifecycle mutations are left to the locked CLI worker.
+- **Account expiry recovery — PR #140 merged:** the expiry job is queued before the account is marked expired, so a queue-creation failure does not prematurely exclude the account from future expiry attempts.
+- **Current validation boundary:** the repository PHP syntax and focused regression workflows have passed for these changes. Local MySQL, real M-Pesa, and MikroTik lifecycle verification have not been performed.
+
 **Important:** This register is an initial inventory based on repository files and existing database audit notes. It intentionally does not claim that any module is functionally complete merely because a PHP file exists.
