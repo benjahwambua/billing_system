@@ -136,3 +136,6 @@ Reference: [Database README](../database/README.md) and [Migration Dependency Au
 |---|---|---|
 | PR #152 — Network and Usage report field redaction | Merged; reports exclude credential/secret/token-like fields and retain tenant-scoped queries; load failures are shown explicitly | Confirm the actual production schema's sensitive field names and run tenant-scoped report checks against MySQL |
 | Route-level authorization and tenant isolation batches (#142, #143, #145, #148, #150) | Merged; shared permission/session helpers, IP pool routes, shared tenant lookups, and wallet transactions hardened | Database-backed role, tenant-boundary, and runtime checks remain pending |
+
+
+- **Migration registry — in progress (branch `deployment/tracked-migration-registry`):** added stable logical identities for every numbered historical migration, explicitly disambiguated both duplicate-prefix pairs, and documented known prerequisites and release gates. This is a review registry, not an executable order. The canonical clean-install baseline, migration-history tracking, and disposable-database install/upgrade verification remain open; no SQL was executed and no local database was changed.
