@@ -628,15 +628,9 @@ if (!function_exists('flexihubProcessAccountExpiry')) {
             $accountId=(int)($account['id']??0);
             if(!$accountId){$stats['failed']++;continue;}
 
-            $u=$conn->prepare("UPDATE internet_accounts SET status='expired'
-                WHERE id=? AND tenant_id=? AND expiry_date < CURDATE()
-                  AND status NOT IN ('suspended','expired')");
-            if(!$u){$stats['failed']++;continue;}
-            $u->bind_param('ii',$accountId,$tenantId);
-            $changed=$u->execute() && $u->affected_rows>0;
-            $u->close();
-            if(!$changed) continue;
-
+            // Queue the network expiry first. If queue creation fails, leave the
+            // account eligible for the next worker run instead of marking it
+            // expired and permanently excluding it from future expiry candidates.
             if(!flexihubQueueServiceActivation($accountId,$tenantId,null,null,'expire')){
                 $stats['failed']++;
                 flexihubWorkflowInsert('service_events',[
@@ -652,6 +646,15 @@ if (!function_exists('flexihubProcessAccountExpiry')) {
                 ]);
                 continue;
             }
+
+            $u=$conn->prepare("UPDATE internet_accounts SET status='expired'
+                WHERE id=? AND tenant_id=? AND expiry_date < CURDATE()
+                  AND status NOT IN ('suspended','expired')");
+            if(!$u){$stats['failed']++;continue;}
+            $u->bind_param('ii',$accountId,$tenantId);
+            $changed=$u->execute() && $u->affected_rows>0;
+            $u->close();
+            if(!$changed) continue;
 
             flexihubWorkflowInsert('service_events',[
                 'tenant_id'=>$tenantId,
