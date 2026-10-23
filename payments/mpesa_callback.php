@@ -26,7 +26,12 @@ if((int)($_GET['platform']??0)===1){
  if(!flexihubMpesaCallbackMatchesTransaction($receipt,$amount,$payment['amount'],$phone,$payment['phone_number']??'')){$err=$receipt===''?'M-Pesa receipt is missing from the successful platform callback.':'Callback amount or phone does not match the platform payment.';$stmt=$conn->prepare("UPDATE platform_payments SET status='failed',result_code='VALIDATION_FAILED',result_description=?,callback_payload=?,failure_reason=? WHERE id=? AND tenant_id=? AND status<>'completed'");if($stmt){$stmt->bind_param('sssii',$err,$json,$err,$paymentId,$tenantId);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;}
  $conn->begin_transaction();try{
   $p=dbFetchOne("SELECT * FROM platform_payments WHERE id=? AND tenant_id=? FOR UPDATE",'ii',$paymentId,$tenantId);if(!$p)throw new RuntimeException('Platform payment not found.');if($p['status']==='completed'){$conn->commit();echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback already processed']);exit;}
-  if($receipt!==''){ $dup=dbFetchOne("SELECT id FROM platform_payments WHERE provider='mpesa' AND external_transaction_id=? AND id<>? LIMIT 1",'si',$receipt,$paymentId);if($dup)throw new RuntimeException('M-Pesa receipt already used.'); }
+  $claim=$conn->prepare("INSERT INTO mpesa_receipt_claims (receipt,tenant_id,source_type,source_transaction_id) VALUES (?,?,?,?)");
+  if(!$claim)throw new RuntimeException('Unable to enforce M-Pesa receipt uniqueness.');
+  $sourceType='platform_payment';
+  $claim->bind_param('sisi',$receipt,$tenantId,$sourceType,$paymentId);
+  if(!$claim->execute()){$claim->close();throw new RuntimeException('M-Pesa receipt has already been claimed or could not be reserved.');}
+  $claim->close();
   $invoice=dbFetchOne("SELECT * FROM platform_invoices WHERE id=? AND tenant_id=? FOR UPDATE",'ii',(int)$p['invoice_id'],$tenantId);if(!$invoice)throw new RuntimeException('SaaS invoice not found.');
   $balance=max(0,(float)$invoice['total_amount']-(float)$invoice['paid_amount']);if($balance<=0.0001)throw new RuntimeException('SaaS invoice is already paid.');if((float)$p['amount']>$balance+0.01)throw new RuntimeException('Payment exceeds SaaS invoice balance.');
   $newPaid=(float)$invoice['paid_amount']+(float)$p['amount'];$newStatus=$newPaid+0.0001>=(float)$invoice['total_amount']?'paid':'partial';
@@ -95,8 +100,15 @@ if(!flexihubMpesaCallbackMatchesTransaction($receipt,$paidAmount,$tx['amount'],$
 $customerBillingFlow=false;
 $conn->begin_transaction();
 try{
- $stmt=$conn->prepare("SELECT * FROM payment_gateway_transactions WHERE id=? AND tenant_id=? FOR UPDATE");$stmt->bind_param('ii',$txId,$tenantId);$stmt->execute();$tx=$stmt->get_result()->fetch_assoc();$stmt->close();
+ $stmt=$conn->prepare("SELECT * FROM payment_gateway_transactions WHERE id=? AND tenant_id=? FOR UPDATE");if(!$stmt)throw new RuntimeException('Unable to lock provider transaction.');$stmt->bind_param('ii',$txId,$tenantId);if(!$stmt->execute())throw new RuntimeException('Unable to lock provider transaction.');$tx=$stmt->get_result()->fetch_assoc();$stmt->close();if(!$tx)throw new RuntimeException('Provider transaction not found.');
  if(($tx['status']??'')==='completed'){$conn->commit();$stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW() WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$stmt->bind_param('is',$tenantId,$external);$stmt->execute();$stmt->close();}echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback already processed']);exit;}
+ $customerBillingFlow=in_array((string)($tx['flow']??''),['customer','internet','billing'],true);
+ $claim=$conn->prepare("INSERT INTO mpesa_receipt_claims (receipt,tenant_id,source_type,source_transaction_id) VALUES (?,?,?,?)");
+ if(!$claim)throw new RuntimeException('Unable to enforce M-Pesa receipt uniqueness.');
+ $sourceType='gateway_transaction';
+ $claim->bind_param('sisi',$receipt,$tenantId,$sourceType,$txId);
+ if(!$claim->execute()){$claim->close();throw new RuntimeException('M-Pesa receipt has already been claimed or could not be reserved.');}
+ $claim->close();
  $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='confirmed',provider_receipt=?,provider_transaction_id=?,result_code=?,result_description=?,callback_payload=?,confirmed_at=NOW() WHERE id=? AND tenant_id=?");if(!$stmt)throw new RuntimeException('Unable to confirm provider transaction.');$stmt->bind_param('sssssii',$receipt,$receipt,$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);if(!$stmt->execute()||$stmt->affected_rows!==1){$stmt->close();throw new RuntimeException('Unable to confirm provider transaction.');}$stmt->close();
  if (($tx['flow']??'')==='platform') {
   $platformInvoiceId=(int)($tx['platform_invoice_id']??0);$invoice=$platformInvoiceId>0?dbFetchOne("SELECT * FROM platform_invoices WHERE id=? AND tenant_id=? FOR UPDATE",'ii',$platformInvoiceId,$tenantId):dbFetchOne("SELECT * FROM platform_invoices WHERE tenant_id=? AND invoice_number=? FOR UPDATE",'is',$tenantId,$tx['account_reference']);
