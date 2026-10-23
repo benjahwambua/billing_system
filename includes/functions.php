@@ -1469,52 +1469,18 @@ if (!function_exists('getCustomer')) {
     function getCustomer($id)
     {
         global $conn;
-
         $tenantId = getCurrentTenantId();
-
-        $sql = "
-            SELECT *
-            FROM customers
-            WHERE id = ?
-        ";
-
-        if ($tenantId) {
-            $sql .= " AND tenant_id = ?";
-        }
-
-        $sql .= " LIMIT 1";
-
-        $stmt = $conn->prepare($sql);
-
-        if (!$stmt) {
-            return null;
-        }
-
-        if ($tenantId) {
-            $stmt->bind_param(
-                'ii',
-                $id,
-                $tenantId
-            );
-        } else {
-            $stmt->bind_param(
-                'i',
-                $id
-            );
-        }
-
-        $stmt->execute();
-
-        $customer = $stmt
-            ->get_result()
-            ->fetch_assoc();
-
+        if (!$tenantId || !isTenantUser()) return null;
+        $stmt = $conn->prepare("SELECT * FROM customers WHERE id=? AND tenant_id=? LIMIT 1");
+        if (!$stmt) return null;
+        $id=(int)$id; $tenantId=(int)$tenantId;
+        $stmt->bind_param('ii',$id,$tenantId);
+        if (!$stmt->execute()) { $stmt->close(); return null; }
+        $result=$stmt->get_result(); $row=$result ? $result->fetch_assoc() : null;
         $stmt->close();
-
-        return $customer ?: null;
+        return $row ?: null;
     }
 }
-
 
 if (!function_exists('customerExists')) {
     function customerExists($id)
@@ -1546,122 +1512,44 @@ if (!function_exists('getCustomerAccounts')) {
     function getCustomerAccounts($customerId)
     {
         global $conn;
-
         $tenantId = getCurrentTenantId();
-
-        $sql = "
-            SELECT *
-            FROM internet_accounts
-            WHERE customer_id = ?
-        ";
-
-        if ($tenantId) {
-            $sql .= " AND tenant_id = ?";
-        }
-
-        $sql .= " ORDER BY id DESC";
-
-        $stmt = $conn->prepare($sql);
-
-        if (!$stmt) {
-            return [];
-        }
-
-        if ($tenantId) {
-            $stmt->bind_param(
-                'ii',
-                $customerId,
-                $tenantId
-            );
-        } else {
-            $stmt->bind_param(
-                'i',
-                $customerId
-            );
-        }
-
-        $stmt->execute();
-
-        $result = $stmt->get_result();
-
-        $accounts = [];
-
-        while ($row = $result->fetch_assoc()) {
-            $accounts[] = $row;
-        }
-
+        if (!$tenantId || !isTenantUser()) return [];
+        $stmt=$conn->prepare("SELECT * FROM internet_accounts WHERE customer_id=? AND tenant_id=? ORDER BY id DESC");
+        if (!$stmt) return [];
+        $customerId=(int)$customerId; $tenantId=(int)$tenantId;
+        $stmt->bind_param('ii',$customerId,$tenantId);
+        if (!$stmt->execute()) { $stmt->close(); return []; }
+        $result=$stmt->get_result();
+        if (!$result) { $stmt->close(); return []; }
+        $rows=[]; while($row=$result->fetch_assoc()) $rows[]=$row;
         $stmt->close();
-
-        return $accounts;
+        return $rows;
     }
 }
-
-
-/*
-|--------------------------------------------------------------------------
-| INTERNET ACCOUNT HELPERS
-|--------------------------------------------------------------------------
-*/
 
 if (!function_exists('getInternetAccount')) {
     function getInternetAccount($id)
     {
         global $conn;
-
         $tenantId = getCurrentTenantId();
-
-        $sql = "
-            SELECT ia.*,
-                   c.customer_number,
-                   c.first_name,
-                   c.last_name,
-                   ip.name AS plan_name,
-                   ip.price AS plan_price
+        if (!$tenantId || !isTenantUser()) return null;
+        $stmt=$conn->prepare("
+            SELECT ia.*, c.customer_number, c.first_name, c.last_name,
+                   ip.name AS plan_name, ip.price AS plan_price
             FROM internet_accounts ia
-            LEFT JOIN customers c
-                ON c.id = ia.customer_id
-            LEFT JOIN internet_plans ip
-                ON ip.id = ia.plan_id
-            WHERE ia.id = ?
-        ";
-
-        if ($tenantId) {
-            $sql .= " AND ia.tenant_id = ?";
-        }
-
-        $sql .= " LIMIT 1";
-
-        $stmt = $conn->prepare($sql);
-
-        if (!$stmt) {
-            return null;
-        }
-
-        if ($tenantId) {
-            $stmt->bind_param(
-                'ii',
-                $id,
-                $tenantId
-            );
-        } else {
-            $stmt->bind_param(
-                'i',
-                $id
-            );
-        }
-
-        $stmt->execute();
-
-        $account = $stmt
-            ->get_result()
-            ->fetch_assoc();
-
+            LEFT JOIN customers c ON c.id=ia.customer_id AND c.tenant_id=ia.tenant_id
+            LEFT JOIN internet_plans ip ON ip.id=ia.plan_id AND ip.tenant_id=ia.tenant_id
+            WHERE ia.id=? AND ia.tenant_id=? LIMIT 1
+        ");
+        if (!$stmt) return null;
+        $id=(int)$id; $tenantId=(int)$tenantId;
+        $stmt->bind_param('ii',$id,$tenantId);
+        if (!$stmt->execute()) { $stmt->close(); return null; }
+        $result=$stmt->get_result(); $row=$result ? $result->fetch_assoc() : null;
         $stmt->close();
-
-        return $account ?: null;
+        return $row ?: null;
     }
 }
-
 
 if (!function_exists('getInternetAccountStatus')) {
     function getInternetAccountStatus($account)
@@ -1738,114 +1626,41 @@ if (!function_exists('getPppoeAccount')) {
     function getPppoeAccount($id)
     {
         global $conn;
-
         $tenantId = getCurrentTenantId();
-
-        $sql = "
-            SELECT pa.*,
-                   ia.account_number,
-                   ia.customer_id,
-                   ia.plan_id
+        if (!$tenantId || !isTenantUser()) return null;
+        $stmt=$conn->prepare("
+            SELECT pa.*, ia.account_number, ia.customer_id, ia.plan_id
             FROM pppoe_accounts pa
             INNER JOIN internet_accounts ia
-                ON ia.id = pa.internet_account_id
-            WHERE pa.id = ?
-        ";
-
-        if ($tenantId) {
-            $sql .= " AND pa.tenant_id = ?";
-        }
-
-        $sql .= " LIMIT 1";
-
-        $stmt = $conn->prepare($sql);
-
-        if (!$stmt) {
-            return null;
-        }
-
-        if ($tenantId) {
-            $stmt->bind_param(
-                'ii',
-                $id,
-                $tenantId
-            );
-        } else {
-            $stmt->bind_param(
-                'i',
-                $id
-            );
-        }
-
-        $stmt->execute();
-
-        $account = $stmt
-            ->get_result()
-            ->fetch_assoc();
-
+                ON ia.id=pa.internet_account_id AND ia.tenant_id=pa.tenant_id
+            WHERE pa.id=? AND pa.tenant_id=? LIMIT 1
+        ");
+        if (!$stmt) return null;
+        $id=(int)$id; $tenantId=(int)$tenantId;
+        $stmt->bind_param('ii',$id,$tenantId);
+        if (!$stmt->execute()) { $stmt->close(); return null; }
+        $result=$stmt->get_result(); $row=$result ? $result->fetch_assoc() : null;
         $stmt->close();
-
-        return $account ?: null;
+        return $row ?: null;
     }
 }
-
-
-/*
-|--------------------------------------------------------------------------
-| MIKROTIK HELPERS
-|--------------------------------------------------------------------------
-*/
 
 if (!function_exists('getMikrotikRouter')) {
     function getMikrotikRouter($id)
     {
         global $conn;
-
         $tenantId = getCurrentTenantId();
-
-        $sql = "
-            SELECT *
-            FROM mikrotik_routers
-            WHERE id = ?
-        ";
-
-        if ($tenantId) {
-            $sql .= " AND tenant_id = ?";
-        }
-
-        $sql .= " LIMIT 1";
-
-        $stmt = $conn->prepare($sql);
-
-        if (!$stmt) {
-            return null;
-        }
-
-        if ($tenantId) {
-            $stmt->bind_param(
-                'ii',
-                $id,
-                $tenantId
-            );
-        } else {
-            $stmt->bind_param(
-                'i',
-                $id
-            );
-        }
-
-        $stmt->execute();
-
-        $router = $stmt
-            ->get_result()
-            ->fetch_assoc();
-
+        if (!$tenantId || !isTenantUser()) return null;
+        $stmt=$conn->prepare("SELECT * FROM mikrotik_routers WHERE id=? AND tenant_id=? LIMIT 1");
+        if (!$stmt) return null;
+        $id=(int)$id; $tenantId=(int)$tenantId;
+        $stmt->bind_param('ii',$id,$tenantId);
+        if (!$stmt->execute()) { $stmt->close(); return null; }
+        $result=$stmt->get_result(); $row=$result ? $result->fetch_assoc() : null;
         $stmt->close();
-
-        return $router ?: null;
+        return $row ?: null;
     }
 }
-
 
 if (!function_exists('getRouterStatus')) {
     function getRouterStatus($router)
@@ -1866,91 +1681,39 @@ if (!function_exists('getRouterStatus')) {
 */
 
 if (!function_exists('getActiveSessions')) {
-    function getActiveSessions(
-        $limit = 100
-    ) {
+    function getActiveSessions($limit = 100)
+    {
         global $conn;
-
         $tenantId = getCurrentTenantId();
-
-        $limit = max(
-            1,
-            min(
-                (int)$limit,
-                500
-            )
-        );
-
-        $sql = "
-            SELECT *
-            FROM active_sessions
-            WHERE status = 'online'
-        ";
-
-        if ($tenantId) {
-            $sql .= " AND tenant_id = " .
-                (int)$tenantId;
-        }
-
-        $sql .= "
-            ORDER BY connected_at DESC
-            LIMIT {$limit}
-        ";
-
-        $result = $conn->query($sql);
-
-        if (!$result) {
-            return [];
-        }
-
-        $sessions = [];
-
-        while ($row = $result->fetch_assoc()) {
-            $sessions[] = $row;
-        }
-
-        return $sessions;
+        if (!$tenantId || !isTenantUser()) return [];
+        $limit=max(1,min((int)$limit,500));
+        $stmt=$conn->prepare("SELECT * FROM active_sessions WHERE status='online' AND tenant_id=? ORDER BY connected_at DESC LIMIT {$limit}");
+        if (!$stmt) return [];
+        $tenantId=(int)$tenantId; $stmt->bind_param('i',$tenantId);
+        if (!$stmt->execute()) { $stmt->close(); return []; }
+        $result=$stmt->get_result();
+        if (!$result) { $stmt->close(); return []; }
+        $rows=[]; while($row=$result->fetch_assoc()) $rows[]=$row;
+        $stmt->close();
+        return $rows;
     }
 }
-
 
 if (!function_exists('countActiveSessions')) {
     function countActiveSessions()
     {
         global $conn;
-
         $tenantId = getCurrentTenantId();
-
-        $sql = "
-            SELECT COUNT(*) AS total
-            FROM active_sessions
-            WHERE status = 'online'
-        ";
-
-        if ($tenantId) {
-            $sql .= "
-                AND tenant_id = " .
-                (int)$tenantId;
-        }
-
-        $result = $conn->query($sql);
-
-        if (!$result) {
-            return 0;
-        }
-
-        $row = $result->fetch_assoc();
-
-        return (int)$row['total'];
+        if (!$tenantId || !isTenantUser()) return 0;
+        $stmt=$conn->prepare("SELECT COUNT(*) AS total FROM active_sessions WHERE status='online' AND tenant_id=?");
+        if (!$stmt) return 0;
+        $tenantId=(int)$tenantId; $stmt->bind_param('i',$tenantId);
+        if (!$stmt->execute()) { $stmt->close(); return 0; }
+        $result=$stmt->get_result(); $row=$result ? $result->fetch_assoc() : null;
+        $stmt->close();
+        return (int)($row['total']??0);
     }
 }
-
-
-/*
-|--------------------------------------------------------------------------
-| AUDIT LOGGING
-|--------------------------------------------------------------------------
-*/
 
 if (!function_exists('logAudit')) {
     function logAudit(
@@ -2223,58 +1986,18 @@ if (!function_exists('getPayment')) {
     function getPayment($id)
     {
         global $conn;
-
         $tenantId = getCurrentTenantId();
-
-        $sql = "
-            SELECT *
-            FROM payments
-            WHERE id = ?
-        ";
-
-        if ($tenantId) {
-            $sql .= " AND tenant_id = ?";
-        }
-
-        $sql .= " LIMIT 1";
-
-        $stmt = $conn->prepare($sql);
-
-        if (!$stmt) {
-            return null;
-        }
-
-        if ($tenantId) {
-            $stmt->bind_param(
-                'ii',
-                $id,
-                $tenantId
-            );
-        } else {
-            $stmt->bind_param(
-                'i',
-                $id
-            );
-        }
-
-        $stmt->execute();
-
-        $payment = $stmt
-            ->get_result()
-            ->fetch_assoc();
-
+        if (!$tenantId || !isTenantUser()) return null;
+        $stmt=$conn->prepare("SELECT * FROM payments WHERE id=? AND tenant_id=? LIMIT 1");
+        if (!$stmt) return null;
+        $id=(int)$id; $tenantId=(int)$tenantId;
+        $stmt->bind_param('ii',$id,$tenantId);
+        if (!$stmt->execute()) { $stmt->close(); return null; }
+        $result=$stmt->get_result(); $row=$result ? $result->fetch_assoc() : null;
         $stmt->close();
-
-        return $payment ?: null;
+        return $row ?: null;
     }
 }
-
-
-/*
-|--------------------------------------------------------------------------
-| INVOICE HELPERS
-|--------------------------------------------------------------------------
-*/
 
 if (!function_exists('calculateInvoiceStatus')) {
     function calculateInvoiceStatus(
@@ -2324,6 +2047,13 @@ if (!function_exists('getDashboardStats')) {
         global $conn;
 
         $tenantId = getCurrentTenantId();
+        if (!$tenantId || !isTenantUser()) {
+            return [
+                'customers'=>0, 'active_accounts'=>0, 'expired_accounts'=>0,
+                'online_users'=>0, 'revenue_today'=>0, 'revenue_month'=>0,
+                'payments_today'=>0, 'outstanding'=>0
+            ];
+        }
 
         $stats = [
             'customers' => 0,
@@ -2387,12 +2117,13 @@ if (!function_exists('getDashboardStats')) {
         $sql = "
             SELECT COUNT(*) AS total
             FROM internet_accounts
-            WHERE
+            WHERE (
                 status = 'expired'
                 OR (
                     expiry_date IS NOT NULL
                     AND expiry_date < CURDATE()
                 )
+            )
         ";
 
         if ($tenantId) {
