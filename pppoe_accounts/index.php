@@ -4,15 +4,88 @@ requireActiveUser();
 require_once '../includes/functions.php';
 if (isTenantUser()) requireTenant();
 global $conn;
-$cols=[];$q=$conn->query("SHOW COLUMNS FROM pppoe_accounts");while($x=$q->fetch_assoc())$cols[]=$x['Field'];
-$has=fn($c)=>in_array($c,$cols,true);$tid=(int)getCurrentTenantId();
-if(isTenantUser() && (!$has('tenant_id') || $tid<=0)){http_response_code(503);exit('PPPoE account tenant isolation is unavailable. Please contact the administrator.');}
-$where=[];$params=[];$types='';
-if($has('tenant_id')&&$tid>0){$where[]='pa.tenant_id=?';$params[]=$tid;$types.='i';}
-$search=trim($_GET['search']??'');
-if($search!==''&&$has('username')){$where[]='pa.username LIKE ?';$params[]='%'.$search.'%';$types.='s';}
-$sql="SELECT pa.*,ia.account_number,c.first_name,c.last_name FROM pppoe_accounts pa LEFT JOIN internet_accounts ia ON ia.id=pa.internet_account_id AND ia.tenant_id=pa.tenant_id LEFT JOIN customers c ON c.id=ia.customer_id AND c.tenant_id=ia.tenant_id".($where?' WHERE '.implode(' AND ',$where):'')." ORDER BY pa.id DESC LIMIT 200";
-$s=$conn->prepare($sql);if($params)$s->bind_param($types,...$params);$s->execute();$rows=$s->get_result();
+$tableCols = static function ($table) use ($conn) {
+    $out = [];
+    $result = $conn->query("SHOW COLUMNS FROM `" . str_replace("`", "", $table) . "`");
+    if ($result) {
+        while ($column = $result->fetch_assoc()) {
+            $out[] = $column['Field'];
+        }
+        $result->free();
+    }
+    return $out;
+};
+$cols = $tableCols('pppoe_accounts');
+$internetCols = $tableCols('internet_accounts');
+$customerCols = $tableCols('customers');
+$has = static fn($column) => in_array($column, $cols, true);
+$tid = (int)getCurrentTenantId();
+if (!$cols) {
+    http_response_code(503);
+    exit('PPPoE accounts are unavailable because the database table could not be read.');
+}
+if (isTenantUser() && (!$has('tenant_id') || $tid <= 0 || !in_array('tenant_id', $internetCols, true) || !in_array('tenant_id', $customerCols, true))) {
+    http_response_code(503);
+    exit('PPPoE account tenant isolation is unavailable. Please contact the administrator.');
+}
+$where = [];
+$params = [];
+$types = '';
+if ($has('tenant_id') && $tid > 0) {
+    $where[] = 'pa.tenant_id = ?';
+    $params[] = $tid;
+    $types .= 'i';
+}
+$search = trim($_GET['search'] ?? '');
+if ($search !== '' && $has('username')) {
+    $where[] = 'pa.username LIKE ?';
+    $params[] = '%' . $search . '%';
+    $types .= 's';
+}
+
+$select = ['pa.*', 'NULL AS account_number', "'' AS first_name", "'' AS last_name"];
+$joins = '';
+if ($has('internet_account_id') && in_array('id', $internetCols, true)) {
+    $accountJoin = 'ia.id = pa.internet_account_id';
+    if (in_array('tenant_id', $cols, true) && in_array('tenant_id', $internetCols, true)) {
+        $accountJoin .= ' AND ia.tenant_id = pa.tenant_id';
+    }
+    $joins .= ' LEFT JOIN internet_accounts ia ON ' . $accountJoin;
+    if (in_array('account_number', $internetCols, true)) {
+        $select[1] = 'ia.account_number';
+    }
+    if (in_array('customer_id', $internetCols, true) && in_array('id', $customerCols, true)) {
+        $customerJoin = 'c.id = ia.customer_id';
+        if (in_array('tenant_id', $internetCols, true) && in_array('tenant_id', $customerCols, true)) {
+            $customerJoin .= ' AND c.tenant_id = ia.tenant_id';
+        }
+        $joins .= ' LEFT JOIN customers c ON ' . $customerJoin;
+        if (in_array('first_name', $customerCols, true)) {
+            $select[2] = 'c.first_name';
+        }
+        if (in_array('last_name', $customerCols, true)) {
+            $select[3] = 'c.last_name';
+        }
+    }
+}
+$sql = 'SELECT ' . implode(', ', $select) . ' FROM pppoe_accounts pa' . $joins
+    . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
+    . ' ORDER BY pa.id DESC LIMIT 200';
+$s = $conn->prepare($sql);
+if (!$s) {
+    error_log('PPPoE account list query preparation failed: ' . $conn->error);
+    http_response_code(500);
+    exit('Unable to load PPPoE accounts. Please check the database schema and contact the administrator.');
+}
+if ($params) {
+    $s->bind_param($types, ...$params);
+}
+if (!$s->execute()) {
+    error_log('PPPoE account list query execution failed: ' . $s->error);
+    http_response_code(500);
+    exit('Unable to load PPPoE accounts. Please contact the administrator.');
+}
+$rows = $s->get_result();
 $serverCount=0;
 if($tid>0){$serverStmt=$conn->prepare('SELECT COUNT(*) AS n FROM pppoe_servers WHERE tenant_id=?');if($serverStmt){$serverStmt->bind_param('i',$tid);$serverStmt->execute();$serverCount=(int)($serverStmt->get_result()->fetch_assoc()['n']??0);$serverStmt->close();}}
 else{$serverResult=$conn->query('SELECT COUNT(*) AS n FROM pppoe_servers');if($serverResult)$serverCount=(int)($serverResult->fetch_assoc()['n']??0);}
