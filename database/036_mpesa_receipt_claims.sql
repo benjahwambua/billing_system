@@ -34,5 +34,4 @@ FROM (
     FROM platform_payments
     WHERE provider = 'mpesa' AND external_transaction_id IS NOT NULL
       AND TRIM(external_transaction_id) <> ''
-) AS existing_receipts
-WHERE CHAR_LENGTH(receipt) <= 191;
+) AS existing_receipts;
