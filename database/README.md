@@ -23,6 +23,12 @@ The clean-install baseline and tested upgrade path are still release blockers. P
 - `010_repair_tenant_foreign_keys.sql` — one-time legacy repair. **Do not rerun against the already repaired local database.** It drops/recreates the users FK and adds other FKs without existence guards.
 - `010_service_activation_hotspot_runtime.sql` through `035_support_ticket_workflow.sql` — feature-specific incremental migrations. Apply only after reviewing the registry, verifying prerequisites, and confirming that each change is absent from the target schema.
 
+## M-Pesa receipt uniqueness migration
+
+Before applying `036_mpesa_receipt_claims.sql`, run `mpesa_receipt_integrity_preflight.sql` against the intended database. Resolve every duplicate receipt across `payment_gateway_transactions` and `platform_payments`, and review receipts longer than 191 characters. The migration backfills a single global receipt-claim table and deliberately fails if a duplicate remains. Do not use `INSERT IGNORE` or delete financial records to force it through. The callback code reserves receipts inside the same transaction as payment finalization; the database primary key is the concurrency guard.
+
+This migration is a release-sensitive, one-time change and must be tested on a disposable database copy first. Do not apply it to the working XAMPP database as part of this code change.
+
 ## Read-only migration preflight
 
 From the repository root, run:
