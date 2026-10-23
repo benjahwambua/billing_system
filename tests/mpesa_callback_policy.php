@@ -8,7 +8,8 @@ $cases = [
     ['missing receipt rejected', '', 100.00, 100.00, '254712345678', '254712345678', false],
     ['missing amount rejected', 'QWE123', null, 100.00, '254712345678', '254712345678', false],
     ['wrong phone rejected', 'QWE123', 100.00, 100.00, '254700000000', '254712345678', false],
-    ['missing phone metadata remains optional', 'QWE123', 100.00, 100.00, '', '254712345678', true],
+    ['missing callback phone metadata rejected', 'QWE123', 100.00, 100.00, '', '254712345678', false],
+    ['missing expected phone rejected', 'QWE123', 100.00, 100.00, '254712345678', '', false],
     ['different phone format is not silently normalized', 'QWE123', 100.00, 100.00, '0712345678', '254712345678', false],
     ['invalid expected amount rejected', 'QWE123', 100.00, 'invalid', '254712345678', '254712345678', false],
 ];

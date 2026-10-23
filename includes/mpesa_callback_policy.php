@@ -6,11 +6,19 @@ if (!function_exists('flexihubMpesaCallbackMatchesTransaction')) {
         if (trim((string)$receipt) === '' || $paidAmount === null || !is_numeric($paidAmount) || !is_numeric($expectedAmount)) {
             return false;
         }
+
+        // A successful STK callback must include the phone used to initiate the
+        // request. Do not accept missing metadata as a match for a known number.
+        $paidPhone = trim((string)$paidPhone);
+        $expectedPhone = trim((string)$expectedPhone);
+        if ($paidPhone === '' || $expectedPhone === '') {
+            return false;
+        }
+
         if (abs((float)$paidAmount - (float)$expectedAmount) > (max(0.0, (float)$tolerance) + 0.000001)) {
             return false;
         }
-        $paidPhone = trim((string)$paidPhone);
-        $expectedPhone = trim((string)$expectedPhone);
-        return $paidPhone === '' || $paidPhone === $expectedPhone;
+
+        return hash_equals($expectedPhone, $paidPhone);
     }
 }
