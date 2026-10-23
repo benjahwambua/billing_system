@@ -823,86 +823,110 @@ if (!function_exists('getCurrentTenantId')) {
     {
         global $conn;
 
-        $userId = !empty($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 0;
-
-        if ($userId > 0 && $conn instanceof mysqli) {
-            $stmt = $conn->prepare("SELECT tenant_id, user_scope FROM users WHERE id=? LIMIT 1");
-            if ($stmt) {
-                $stmt->bind_param('i', $userId);
-                if ($stmt->execute()) {
-                    $row = $stmt->get_result()->fetch_assoc();
-                    $stmt->close();
-
-                    $scope = strtolower(trim((string) ($row['user_scope'] ?? '')));
-                    if ($scope !== '') {
-                        $_SESSION['user_scope'] = $scope;
-                    }
-
-                    if ($scope === 'host') {
-                        $_SESSION['tenant_id'] = null;
-                        return null;
-                    }
-
-                    if (isset($row['tenant_id']) && $row['tenant_id'] !== null && (int)$row['tenant_id'] > 0) {
-                        $_SESSION['tenant_id'] = (int) $row['tenant_id'];
-                        return (int) $row['tenant_id'];
-                    }
-                } else {
-                    $stmt->close();
-                }
-            }
+        $userId = !empty($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
+        if ($userId <= 0 || !($conn instanceof mysqli)) {
+            unset($_SESSION['tenant_id']);
+            return null;
         }
 
-        if (isset($_SESSION['tenant_id']) && (int)$_SESSION['tenant_id'] > 0) {
-            return (int) $_SESSION['tenant_id'];
+        $stmt = $conn->prepare("SELECT tenant_id, user_scope FROM users WHERE id=? LIMIT 1");
+        if (!$stmt) {
+            error_log('Flexihub tenant context: unable to prepare current-user scope lookup.');
+            unset($_SESSION['tenant_id']);
+            return null;
         }
 
-        return null;
+        $stmt->bind_param('i', $userId);
+        if (!$stmt->execute()) {
+            error_log('Flexihub tenant context: current-user scope lookup failed.');
+            $stmt->close();
+            unset($_SESSION['tenant_id']);
+            return null;
+        }
+
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+
+        if (!$row) {
+            unset($_SESSION['tenant_id']);
+            return null;
+        }
+
+        $scope = strtolower(trim((string)($row['user_scope'] ?? '')));
+        $_SESSION['user_scope'] = $scope;
+
+        if ($scope === 'host') {
+            $_SESSION['tenant_id'] = null;
+            return null;
+        }
+
+        if ($scope !== 'tenant' || empty($row['tenant_id']) || (int)$row['tenant_id'] <= 0) {
+            unset($_SESSION['tenant_id']);
+            return null;
+        }
+
+        $_SESSION['tenant_id'] = (int)$row['tenant_id'];
+        return (int)$row['tenant_id'];
     }
 }
-
 
 if (!function_exists('getCurrentUserScope')) {
     function getCurrentUserScope()
     {
         global $conn;
 
-        $userId = !empty($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 0;
-
-        if ($userId > 0 && $conn instanceof mysqli) {
-            $stmt = $conn->prepare("SELECT user_scope, tenant_id FROM users WHERE id=? LIMIT 1");
-            if ($stmt) {
-                $stmt->bind_param('i', $userId);
-                if ($stmt->execute()) {
-                    $row = $stmt->get_result()->fetch_assoc();
-                    $stmt->close();
-
-                    $scope = strtolower(trim((string) ($row['user_scope'] ?? '')));
-                    if ($scope !== '') {
-                        $_SESSION['user_scope'] = $scope;
-                    }
-
-                    if ($scope === 'host') {
-                        $_SESSION['tenant_id'] = null;
-                    } elseif (isset($row['tenant_id']) && $row['tenant_id'] !== null && (int)$row['tenant_id'] > 0) {
-                        $_SESSION['tenant_id'] = (int) $row['tenant_id'];
-                    }
-
-                    return $scope !== '' ? $scope : null;
-                } else {
-                    $stmt->close();
-                }
-            }
+        $userId = !empty($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
+        if ($userId <= 0 || !($conn instanceof mysqli)) {
+            unset($_SESSION['user_scope'], $_SESSION['tenant_id']);
+            return null;
         }
 
-        if (!empty($_SESSION['user_scope'])) {
-            return strtolower(trim((string) $_SESSION['user_scope']));
+        $stmt = $conn->prepare("SELECT user_scope, tenant_id FROM users WHERE id=? LIMIT 1");
+        if (!$stmt) {
+            error_log('Flexihub user scope: unable to prepare current-user lookup.');
+            unset($_SESSION['user_scope'], $_SESSION['tenant_id']);
+            return null;
         }
 
-        return null;
+        $stmt->bind_param('i', $userId);
+        if (!$stmt->execute()) {
+            error_log('Flexihub user scope: current-user lookup failed.');
+            $stmt->close();
+            unset($_SESSION['user_scope'], $_SESSION['tenant_id']);
+            return null;
+        }
+
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+
+        if (!$row) {
+            unset($_SESSION['user_scope'], $_SESSION['tenant_id']);
+            return null;
+        }
+
+        $scope = strtolower(trim((string)($row['user_scope'] ?? '')));
+        if (!in_array($scope, ['host', 'tenant'], true)) {
+            unset($_SESSION['user_scope'], $_SESSION['tenant_id']);
+            return null;
+        }
+
+        $_SESSION['user_scope'] = $scope;
+        if ($scope === 'host') {
+            $_SESSION['tenant_id'] = null;
+            return 'host';
+        }
+
+        if (empty($row['tenant_id']) || (int)$row['tenant_id'] <= 0) {
+            unset($_SESSION['tenant_id']);
+            return null;
+        }
+
+        $_SESSION['tenant_id'] = (int)$row['tenant_id'];
+        return 'tenant';
     }
 }
-
 
 if (!function_exists('isHostUser')) {
     function isHostUser()
