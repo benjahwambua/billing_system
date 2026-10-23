@@ -59,20 +59,30 @@ if($resultCode!=='0'){
  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;
 }
 if($receipt!==''){
+ $duplicateReceipt=null;$verificationError='';
  $dup=$conn->prepare("SELECT id FROM payment_gateway_transactions WHERE provider='mpesa' AND provider_receipt=? AND id<>? LIMIT 1");
- if(!$dup) throw new RuntimeException('Unable to verify M-Pesa receipt uniqueness.');
- $dup->bind_param('si',$receipt,$txId);
- if(!$dup->execute()){$dup->close();throw new RuntimeException('Unable to verify M-Pesa receipt uniqueness.');}
- $duplicateReceipt=$dup->get_result()->fetch_assoc();
- if($dup->errno){$dup->close();throw new RuntimeException('Unable to verify M-Pesa receipt uniqueness.');}
- $dup->close();
+ if(!$dup){
+  $verificationError='Unable to verify M-Pesa receipt uniqueness.';
+ }else{
+  $dup->bind_param('si',$receipt,$txId);
+  if(!$dup->execute()){
+   $verificationError='Unable to verify M-Pesa receipt uniqueness.';
+  }else{
+   $result=$dup->get_result();
+   if($result===false)$verificationError='Unable to verify M-Pesa receipt uniqueness.';
+   else $duplicateReceipt=$result->fetch_assoc();
+  }
+  $dup->close();
+ }
+ if($verificationError!==''){
+  $u=$conn->prepare("UPDATE payment_gateway_transactions SET status='confirmed',failure_reason=?,callback_payload=? WHERE id=? AND tenant_id=? AND status<>'completed'");
+  if($u){$u->bind_param('ssii',$verificationError,$callbackJson,$txId,$tenantId);$u->execute();$u->close();}
+  http_response_code(200);echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received; receipt verification pending']);exit;
+ }
  if($duplicateReceipt){
   $err='M-Pesa receipt has already been associated with another transaction.';
   $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='failed',result_code='DUPLICATE_RECEIPT',result_description=?,callback_payload=?,failure_reason=? WHERE id=? AND tenant_id=? AND status<>'completed'");
-  if(!$stmt) throw new RuntimeException('Unable to record duplicate M-Pesa receipt rejection.');
-  $stmt->bind_param('sssii',$err,$callbackJson,$err,$txId,$tenantId);
-  if(!$stmt->execute()){$stmt->close();throw new RuntimeException('Unable to record duplicate M-Pesa receipt rejection.');}
-  $stmt->close();
+  if($stmt){$stmt->bind_param('sssii',$err,$callbackJson,$err,$txId,$tenantId);$stmt->execute();$stmt->close();}
   echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;
  }
 }
