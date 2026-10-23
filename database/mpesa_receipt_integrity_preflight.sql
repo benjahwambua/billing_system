@@ -15,11 +15,27 @@ FROM (
 
     UNION ALL
 
-    SELECT TRIM(external_transaction_id) AS receipt, tenant_id,
-           'platform_payment' AS source_type, id AS source_transaction_id
-    FROM platform_payments
-    WHERE provider = 'mpesa' AND external_transaction_id IS NOT NULL
-      AND TRIM(external_transaction_id) <> ''
+    SELECT TRIM(pp.external_transaction_id) AS receipt, pp.tenant_id,
+           'platform_payment' AS source_type, pp.id AS source_transaction_id
+    FROM platform_payments pp
+    WHERE pp.provider = 'mpesa' AND pp.external_transaction_id IS NOT NULL
+      AND TRIM(pp.external_transaction_id) <> ''
+      -- The tenant gateway callback records the same SaaS payment in both ledgers.
+      -- Count the mirrored platform_payments row only when it has no matching
+      -- platform-flow gateway transaction for the same tenant, receipt and invoice.
+      AND NOT EXISTS (
+          SELECT 1
+          FROM payment_gateway_transactions pgt
+          JOIN platform_invoices pi
+            ON pi.tenant_id = pgt.tenant_id
+           AND (pi.id = pgt.platform_invoice_id
+                OR (pgt.platform_invoice_id IS NULL AND pi.invoice_number = pgt.account_reference))
+          WHERE pgt.provider = 'mpesa'
+            AND pgt.flow = 'platform'
+            AND pgt.tenant_id = pp.tenant_id
+            AND TRIM(pgt.provider_receipt) = TRIM(pp.external_transaction_id)
+            AND pi.id = pp.invoice_id
+      )
 ) AS all_receipts
 GROUP BY receipt
 HAVING COUNT(*) > 1
