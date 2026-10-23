@@ -3,6 +3,7 @@ require_once '../includes/auth.php';
 requireActiveUser();
 require_once '../includes/functions.php';
 require_once '../includes/mikrotik_api.php';
+require_once '../includes/pppoe_activation_policy.php';
 if(isTenantUser()) requireTenant();
 requireModulePermission('pppoe', 'create');
 global $conn;
@@ -13,6 +14,7 @@ $accounts=[];$servers=[];$srv=$conn->prepare("SELECT id,name,server_name FROM pp
 $r=$conn->query($sql);if($r)while($x=$r->fetch_assoc())$accounts[]=$x;
 if($_SERVER['REQUEST_METHOD']==='POST'){requireCsrf();$ia=(int)($_POST['internet_account_id']??0);$serverId=(int)($_POST['pppoe_server_id']??0);$user=trim($_POST['username']??'');$secret=$_POST['password']??'';$status=$_POST['status']??'active';
 if($has('internet_account_id')&&!$ia)$errors[]='Internet account is required.';
+if(!flexihubIsValidPppoeStatus($status))$errors[]='Select a valid PPPoE account status.';
 if($has('pppoe_server_id')&&!$serverId)$errors[]='PPPoE server is required.';if($has('username')&&!$user)$errors[]='Username is required.';
 if($serverId>0 && $tid>0){
  $serverCheck=$conn->prepare("SELECT id FROM pppoe_servers WHERE id=? AND tenant_id=? AND status='active' LIMIT 1");
@@ -24,9 +26,9 @@ if($has('password')&&!$secret)$errors[]='Password is required.';
 if($ia>0){
  if($tid<=0){$errors[]='A valid tenant context is required to create a PPPoE account.';}
  else{
-  $accountCheck=$conn->prepare('SELECT id FROM internet_accounts WHERE id=? AND tenant_id=? LIMIT 1');
+  $accountCheck=$conn->prepare('SELECT id,status FROM internet_accounts WHERE id=? AND tenant_id=? LIMIT 1');
   if(!$accountCheck){$errors[]='Unable to validate the selected internet account.';}
-  else{$accountCheck->bind_param('ii',$ia,$tid);$accountCheck->execute();$accountFound=$accountCheck->get_result()->fetch_assoc();$accountCheck->close();if(!$accountFound)$errors[]='The selected internet account was not found for this tenant.';}
+  else{$accountCheck->bind_param('ii',$ia,$tid);if(!$accountCheck->execute())$errors[]='Unable to validate the selected internet account.';else{$accountFound=$accountCheck->get_result()->fetch_assoc();if(!$accountFound)$errors[]='The selected internet account was not found for this tenant.';else{$activationError=flexihubPppoeActivationError($accountFound['status']??'', $status);if($activationError!=='')$errors[]=$activationError;}}$accountCheck->close();}
  }
 }
 // RouterOS PPP secret usernames are router-wide, not tenant-scoped. Reject database collisions before provisioning.
