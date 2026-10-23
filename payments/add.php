@@ -14,6 +14,19 @@ $invoices=[];
 $q=$conn->prepare("SELECT * FROM invoices WHERE tenant_id=? ORDER BY id DESC LIMIT 300");
 if($q){$q->bind_param('i',$tid);$q->execute();$z=$q->get_result();while($x=$z->fetch_assoc())$invoices[]=$x;$q->close();}
 
+// Precompute balances safely so a schema/query failure is shown as an error,
+// not as a fatal page error or a misleading zero balance.
+$invoicePaidAmounts=[];
+foreach($invoices as $invoiceRow){
+    try{
+        $invoicePaidAmounts[(int)$invoiceRow['id']]=flexihubInvoicePaid((int)$invoiceRow['id'],$tid);
+    }catch(Throwable $e){
+        error_log('Flexihub payment form: invoice balance lookup failed for invoice '.(int)$invoiceRow['id'].': '.$e->getMessage());
+        $errors[]='Invoice balances could not be verified. Please check the database setup before recording a payment.';
+        break;
+    }
+}
+
 $accounts=[];
 $q=$conn->prepare("SELECT ia.*,c.customer_number,c.first_name,c.last_name,ip.name plan_name FROM internet_accounts ia JOIN customers c ON c.id=ia.customer_id AND c.tenant_id=ia.tenant_id LEFT JOIN internet_plans ip ON ip.id=ia.plan_id AND ip.tenant_id=ia.tenant_id WHERE ia.tenant_id=? ORDER BY c.first_name,c.last_name");
 if($q){$q->bind_param('i',$tid);$q->execute();$z=$q->get_result();while($x=$z->fetch_assoc())$accounts[]=$x;$q->close();}
@@ -40,10 +53,15 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 
     if(!$errors){
         $total=flexihubInvoiceTotal($invoice);
-        $paid=flexihubInvoicePaid($iid,$tid);
-        $balance=max(0,$total-$paid);
-        if($balance<=0)$errors[]='This invoice is already fully paid.';
-        elseif($amount>$balance+0.00001)$errors[]='Payment exceeds the outstanding invoice balance of '.formatMoney($balance).'.';
+        try{
+            $paid=flexihubInvoicePaid($iid,$tid);
+            $balance=max(0,$total-$paid);
+            if($balance<=0)$errors[]='This invoice is already fully paid.';
+            elseif($amount>$balance+0.00001)$errors[]='Payment exceeds the outstanding invoice balance of '.formatMoney($balance).'.';
+        }catch(Throwable $e){
+            error_log('Flexihub payment validation: invoice balance lookup failed: '.$e->getMessage());
+            $errors[]='The invoice balance could not be verified. No payment was recorded.';
+        }
     }
 
     if(!$errors){
@@ -148,7 +166,7 @@ require_once '../includes/sidebar.php';
 <?php if($errors):?><div class="alert alert-danger"><?=e(implode(' ',$errors))?></div><?php endif;?>
 <form method="post"><?=csrfField()?>
 <div class="form-grid">
-<label>Invoice *<select name="invoice_id" required><option value="">Select invoice</option><?php foreach($invoices as $x):?><option value="<?=$x['id']?>" <?=$v['invoice_id']==$x['id']?'selected':''?>><?=e($x['invoice_number']??$x['id'])?> — <?=e(formatMoney(flexihubInvoiceTotal($x)-flexihubInvoicePaid($x['id'],$tid)))?> outstanding</option><?php endforeach;?></select></label>
+<label>Invoice *<select name="invoice_id" required><option value="">Select invoice</option><?php foreach($invoices as $x):?><option value="<?=$x['id']?>" <?=$v['invoice_id']==$x['id']?'selected':''?>><?=e($x['invoice_number']??$x['id'])?> — <?=array_key_exists((int)$x['id'],$invoicePaidAmounts)?e(formatMoney(max(0,flexihubInvoiceTotal($x)-$invoicePaidAmounts[(int)$x['id']]))):'Balance unavailable'?> outstanding</option><?php endforeach;?></select></label>
 <label>Internet Account (optional)<select name="account_id"><option value="">No service renewal</option><?php foreach($accounts as $x):?><option value="<?=$x['id']?>" <?=$v['account_id']==$x['id']?'selected':''?>><?=e(($x['customer_number']??'').' — '.trim(($x['first_name']??'').' '.($x['last_name']??'')).' — '.($x['plan_name']??($x['username']??$x['id'])))?></option><?php endforeach;?></select></label>
 <label>Amount *<input type="number" name="amount" step="0.01" min="0.01" value="<?=e($v['amount'])?>" required></label>
 <label>Payment Method<select name="payment_method"><option value="cash" <?=$v['payment_method']==='cash'?'selected':''?>>Cash</option><option value="mpesa" <?=$v['payment_method']==='mpesa'?'selected':''?>>M-Pesa</option><option value="bank" <?=$v['payment_method']==='bank'?'selected':''?>>Bank</option><option value="card" <?=$v['payment_method']==='card'?'selected':''?>>Card</option></select></label>

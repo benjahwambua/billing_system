@@ -778,7 +778,13 @@ if (!function_exists('flexihubProcessOverdueSuspensions')) {
             $graceEnds=date('Y-m-d',strtotime($due." +{$grace} days"));
             if(strtotime(date('Y-m-d')) <= strtotime($graceEnds)) continue;
 
-            $paid=flexihubInvoicePaid($invoiceId,$tenantId);
+            try{
+                $paid=flexihubInvoicePaid($invoiceId,$tenantId);
+            }catch(Throwable $e){
+                error_log('Flexihub overdue suspension worker: invoice balance lookup failed for invoice '.$invoiceId.': '.$e->getMessage());
+                $stats['failed']++;
+                continue;
+            }
             $total=flexihubInvoiceTotal($invoice);
             if($total>0 && $paid+0.00001 >= $total) continue;
 
