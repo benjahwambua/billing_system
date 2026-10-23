@@ -44,15 +44,16 @@ $f=[];$v=[];$t='';$map=['username'=>trim($_POST['username']??''),'status'=>($req
    }
    $ros->updatePppSecret($oldUsername,$newUsername,$syncPassword,true,'pppoe',$profileName);
    if($newStatus!=='active')$ros->disconnectPppActive($newUsername);
-  // Keep the database pending until RouterOS has accepted the requested state.
-  $statusSql='UPDATE pppoe_accounts SET status=? WHERE id=?'.($has('tenant_id')?' AND tenant_id=?':'');
-  $statusStmt=$conn->prepare($statusSql);
-  if(!$statusStmt)throw new Exception('RouterOS synchronized, but the final account status could not be saved.');
-  if($has('tenant_id'))$statusStmt->bind_param('sii',$newStatus,$id,$tid);else$statusStmt->bind_param('si',$newStatus,$id);
-  if(!$statusStmt->execute()){$statusStmt->close();
-  // Enable only after the account status write succeeded; on failure the catch block reverts it to pending_activation.
-  if($newStatus==='active')$ros->updatePppSecret($newUsername,$newUsername,$syncPassword,false,'pppoe',$profileName);throw new Exception('RouterOS synchronized, but the final account status could not be saved.');}
-  $statusStmt->close();
+   // Persist the requested state only after RouterOS accepted the credential update.
+   $statusSql='UPDATE pppoe_accounts SET status=? WHERE id=?'.($has('tenant_id')?' AND tenant_id=?':'');
+   $statusStmt=$conn->prepare($statusSql);
+   if(!$statusStmt)throw new Exception('RouterOS synchronized, but the final account status could not be saved.');
+   if($has('tenant_id'))$statusStmt->bind_param('sii',$newStatus,$id,$tid);else$statusStmt->bind_param('si',$newStatus,$id);
+   $statusSaved=$statusStmt->execute();
+   $statusStmt->close();
+   if(!$statusSaved)throw new Exception('RouterOS synchronized, but the final account status could not be saved.');
+   // Enable only after the status write succeeds. Any failure falls back to pending_activation.
+   if($newStatus==='active')$ros->updatePppSecret($newUsername,$newUsername,$syncPassword,false,'pppoe',$profileName);
   }finally{$ros->close();}
   redirect('index.php');
  }catch(Throwable $e){
