@@ -22,6 +22,11 @@ if($serverId>0 && $tid>0){
 }
 if($has('password')&&!$secret)$errors[]='Password is required.';
 // Never trust the submitted account ID: confirm it belongs to this tenant before inserting credentials.
+if($ia>0 && $status==='active'){
+ $serviceCheck=$conn->prepare('SELECT * FROM internet_accounts WHERE id=? AND tenant_id=? LIMIT 1');
+ if(!$serviceCheck){$errors[]='Unable to verify the linked internet service status.';}
+ else{$serviceCheck->bind_param('ii',$ia,$tid);if(!$serviceCheck->execute()){$errors[]='Unable to verify the linked internet service status.';}else{$service=$serviceCheck->get_result()->fetch_assoc();if(!$service){$errors[]='The linked internet service was not found for this tenant.';}elseif(!isInternetAccountActive($service)){$errors[]='The linked internet service must be active and unexpired before PPPoE can be activated.';}}$serviceCheck->close();}
+}
 if($ia>0){
  if($tid<=0){$errors[]='A valid tenant context is required to create a PPPoE account.';}
  else{
