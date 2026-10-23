@@ -489,10 +489,11 @@ if (!function_exists('flexihubProcessSubscriptionExpiry')) {
         if(!in_array('end_date',$cols,true) || !in_array('status',$cols,true) || !in_array('account_id',$cols,true)) return $stats;
 
         $stmt=$conn->prepare("SELECT * FROM service_subscriptions WHERE tenant_id=? AND status='active' AND end_date IS NOT NULL AND end_date < CURDATE() ORDER BY end_date ASC,id ASC LIMIT {$limit}");
-        if(!$stmt) return $stats;
+        if(!$stmt){$stats['failed']++;error_log('Flexihub subscription expiry: candidate query prepare failed.');return $stats;}
         $stmt->bind_param('i',$tenantId);
-        $stmt->execute();
+        if(!$stmt->execute()){$stats['failed']++;error_log('Flexihub subscription expiry: candidate query failed.');$stmt->close();return $stats;}
         $res=$stmt->get_result();
+        if(!$res){$stats['failed']++;error_log('Flexihub subscription expiry: candidate query returned no result set.');$stmt->close();return $stats;}
         $items=[];
         while($row=$res->fetch_assoc()) $items[]=$row;
         $stmt->close();
@@ -613,10 +614,11 @@ if (!function_exists('flexihubProcessAccountExpiry')) {
               )
             ORDER BY ia.expiry_date ASC, ia.id ASC
             LIMIT {$limit}");
-        if(!$stmt) return $stats;
+        if(!$stmt){$stats['failed']++;error_log('Flexihub account expiry: candidate query prepare failed.');return $stats;}
         $stmt->bind_param('i',$tenantId);
-        $stmt->execute();
+        if(!$stmt->execute()){$stats['failed']++;error_log('Flexihub account expiry: candidate query failed.');$stmt->close();return $stats;}
         $res=$stmt->get_result();
+        if(!$res){$stats['failed']++;error_log('Flexihub account expiry: candidate query returned no result set.');$stmt->close();return $stats;}
         $items=[];
         while($row=$res->fetch_assoc()) $items[]=$row;
         $stmt->close();
