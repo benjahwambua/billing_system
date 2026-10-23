@@ -54,3 +54,8 @@ Keep migration files atomic and ordered; consolidate the **instructions and runn
 ## Release gate
 
 Until the canonical baseline is derived from a reviewed schema snapshot and both empty-install and existing-schema upgrade paths pass on disposable databases, database installation/upgrade remains a deployment blocker. See [Migration Dependency Audit](MIGRATION_DEPENDENCY_AUDIT.md).
+
+
+## Payment artifact idempotency preflight
+
+After confirming that both `receipts` and `account_transactions` have `id`, `payment_id`, and `tenant_id` columns, run [payment_artifact_idempotency_preflight.sql](payment_artifact_idempotency_preflight.sql) against a backup or disposable database. It is read-only and reports duplicate receipt and account-ledger rows for the same tenant/payment. Review and reconcile all duplicate groups and historical NULL `payment_id` rows before considering unique indexes on `(tenant_id, payment_id)`. No unique-index migration is included or approved by this preflight change.
