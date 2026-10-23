@@ -1,14 +1,17 @@
 <?php
 require_once '../includes/auth.php';
+requireActiveUser();
 require_once '../includes/functions.php';
 if (isTenantUser()) requireTenant();
 global $conn;
 $cols=[];$q=$conn->query("SHOW COLUMNS FROM pppoe_accounts");while($x=$q->fetch_assoc())$cols[]=$x['Field'];
-$has=fn($c)=>in_array($c,$cols,true);$tid=getCurrentTenantId();$where=[];$params=[];$types='';
-if($has('tenant_id')&&$tid){$where[]='pa.tenant_id=?';$params[]=$tid;$types.='i';}
+$has=fn($c)=>in_array($c,$cols,true);$tid=(int)getCurrentTenantId();
+if(isTenantUser() && (!$has('tenant_id') || $tid<=0)){http_response_code(503);exit('PPPoE account tenant isolation is unavailable. Please contact the administrator.');}
+$where=[];$params=[];$types='';
+if($has('tenant_id')&&$tid>0){$where[]='pa.tenant_id=?';$params[]=$tid;$types.='i';}
 $search=trim($_GET['search']??'');
 if($search!==''&&$has('username')){$where[]='pa.username LIKE ?';$params[]='%'.$search.'%';$types.='s';}
-$sql="SELECT pa.*,ia.account_number,c.first_name,c.last_name FROM pppoe_accounts pa LEFT JOIN internet_accounts ia ON ia.id=pa.internet_account_id LEFT JOIN customers c ON c.id=ia.customer_id".($where?' WHERE '.implode(' AND ',$where):'')." ORDER BY pa.id DESC LIMIT 200";
+$sql="SELECT pa.*,ia.account_number,c.first_name,c.last_name FROM pppoe_accounts pa LEFT JOIN internet_accounts ia ON ia.id=pa.internet_account_id AND ia.tenant_id=pa.tenant_id LEFT JOIN customers c ON c.id=ia.customer_id AND c.tenant_id=ia.tenant_id".($where?' WHERE '.implode(' AND ',$where):'')." ORDER BY pa.id DESC LIMIT 200";
 $s=$conn->prepare($sql);if($params)$s->bind_param($types,...$params);$s->execute();$rows=$s->get_result();
 ?>
 <?php require '../includes/header.php'; ?>
