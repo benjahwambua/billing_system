@@ -87,19 +87,55 @@ if (!function_exists('flexihubInvoiceTotal')) {
 }
 
 if (!function_exists('flexihubInvoicePaid')) {
+    /**
+     * Return the sum of payments belonging to this tenant and invoice.
+     * Query/schema failures must not be mistaken for a genuine zero balance.
+     */
     function flexihubInvoicePaid($invoiceId, $tenantId)
     {
         global $conn;
+
+        $invoiceId = (int) $invoiceId;
+        $tenantId = (int) $tenantId;
+        if ($invoiceId <= 0 || $tenantId <= 0) {
+            throw new InvalidArgumentException('A valid invoice and tenant are required to calculate payments.');
+        }
+
         $cols = flexihubTableColumns('payments');
-        if (!in_array('amount', $cols, true)) return 0.0;
-        $sql = "SELECT COALESCE(SUM(amount),0) AS paid FROM payments WHERE invoice_id=? AND tenant_id=?";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) return 0.0;
+        foreach (['amount', 'invoice_id', 'tenant_id'] as $requiredColumn) {
+            if (!in_array($requiredColumn, $cols, true)) {
+                throw new RuntimeException('Payment storage is missing required tenant-scoped invoice columns. Apply the required database migration before calculating invoice balances.');
+            }
+        }
+
+        $stmt = $conn->prepare(
+            "SELECT COALESCE(SUM(amount), 0) AS paid
+             FROM payments
+             WHERE invoice_id = ? AND tenant_id = ?"
+        );
+        if (!$stmt) {
+            throw new RuntimeException('Unable to prepare the tenant-scoped invoice payment total.');
+        }
+
         $stmt->bind_param('ii', $invoiceId, $tenantId);
-        $stmt->execute();
-        $paid = (float)($stmt->get_result()->fetch_assoc()['paid'] ?? 0);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            throw new RuntimeException('Unable to calculate the tenant-scoped invoice payment total.');
+        }
+
+        $result = $stmt->get_result();
+        if (!$result) {
+            $stmt->close();
+            throw new RuntimeException('Unable to read the tenant-scoped invoice payment total.');
+        }
+
+        $row = $result->fetch_assoc();
         $stmt->close();
-        return $paid;
+        if (!$row || !is_numeric($row['paid'] ?? null)) {
+            throw new RuntimeException('The invoice payment total returned an invalid result.');
+        }
+
+        return max(0.0, (float) $row['paid']);
     }
 }
 
