@@ -59,6 +59,14 @@ $callbackJson=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES
 $stmt=$conn->prepare("INSERT INTO payment_callbacks (tenant_id,provider,event_type,transaction_reference,external_transaction_id,phone_number,amount,callback_payload,processing_status) VALUES (?,'mpesa','stk_callback',?,?,?,?,?,'received') ON DUPLICATE KEY UPDATE callback_payload=VALUES(callback_payload),processing_status='received',error_message=NULL");if($stmt){$ref=$tx['account_reference'];$stmt->bind_param('isssds',$tenantId,$ref,$external,$paidPhone,$paidAmount,$callbackJson);$stmt->execute();$stmt->close();}
 $eventKey='mpesa:'.$gatewayId.':'.$checkout;$stmt=$conn->prepare("INSERT INTO payment_gateway_events (tenant_id,gateway_id,gateway_transaction_id,event_type,event_key,payload,processed) VALUES (?,?,?,'stk_callback',?,?,0) ON DUPLICATE KEY UPDATE id=id");if($stmt){$stmt->bind_param('iiiss',$tenantId,$gatewayId,$txId,$eventKey,$callbackJson);$stmt->execute();$stmt->close();}
 if($resultCode!=='0'){
+ // Once a successful callback has been validated, preserve its confirmed state.
+ // A delayed/replayed failure callback must not downgrade a transaction whose
+ // successful receipt is awaiting finalization or reconciliation.
+ if($txStatus==='confirmed'){
+  $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='failed',error_message=? WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");
+  if($stmt){$msg='Ignored failure callback because the transaction was already confirmed.';$stmt->bind_param('sis',$msg,$tenantId,$external);$stmt->execute();$stmt->close();}
+  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Previously confirmed transaction state preserved']);exit;
+ }
  $stmt=$conn->prepare("UPDATE payment_gateway_transactions SET status='failed',result_code=?,result_description=?,callback_payload=? WHERE id=? AND tenant_id=? AND status<>'completed'");if($stmt){$stmt->bind_param('sssii',$resultCode,$resultDesc,$callbackJson,$txId,$tenantId);$stmt->execute();$stmt->close();}
  $stmt=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW(),error_message=? WHERE tenant_id=? AND external_transaction_id=? LIMIT 1");if($stmt){$msg=$resultDesc!==''?$resultDesc:'M-Pesa payment failed.';$stmt->bind_param('sis',$msg,$tenantId,$external);$stmt->execute();$stmt->close();}
  echo json_encode(['ResultCode'=>0,'ResultDesc'=>'Callback received']);exit;
