@@ -13,6 +13,9 @@ $search=trim($_GET['search']??'');
 if($search!==''&&$has('username')){$where[]='pa.username LIKE ?';$params[]='%'.$search.'%';$types.='s';}
 $sql="SELECT pa.*,ia.account_number,c.first_name,c.last_name FROM pppoe_accounts pa LEFT JOIN internet_accounts ia ON ia.id=pa.internet_account_id AND ia.tenant_id=pa.tenant_id LEFT JOIN customers c ON c.id=ia.customer_id AND c.tenant_id=ia.tenant_id".($where?' WHERE '.implode(' AND ',$where):'')." ORDER BY pa.id DESC LIMIT 200";
 $s=$conn->prepare($sql);if($params)$s->bind_param($types,...$params);$s->execute();$rows=$s->get_result();
+$serverCount=0;
+if($tid>0){$serverStmt=$conn->prepare('SELECT COUNT(*) AS n FROM pppoe_servers WHERE tenant_id=?');if($serverStmt){$serverStmt->bind_param('i',$tid);$serverStmt->execute();$serverCount=(int)($serverStmt->get_result()->fetch_assoc()['n']??0);$serverStmt->close();}}
+else{$serverResult=$conn->query('SELECT COUNT(*) AS n FROM pppoe_servers');if($serverResult)$serverCount=(int)($serverResult->fetch_assoc()['n']??0);}
 ?>
 <?php require '../includes/header.php'; ?>
 <div class="page-content pppoe-command-center">
@@ -37,7 +40,7 @@ $s=$conn->prepare($sql);if($params)$s->bind_param($types,...$params);$s->execute
       <div style="overflow:auto"><table class="table"><thead><tr><th>Username</th><th>Customer</th><th>Account</th><th>Status</th><th>Action</th></tr></thead><tbody>
       <?php if(!$rows->num_rows): ?><tr><td colspan="5" class="empty">No PPPoE accounts found.</td></tr><?php else: while($r=$rows->fetch_assoc()): ?><tr><td><strong><?=e($r['username']??'')?></strong></td><td><?=e(trim(($r['first_name']??'').' '.($r['last_name']??'')))?></td><td><?=e($r['account_number']??'')?></td><td><span class="pppoe-status <?=e(strtolower($r['status']??'active'))?>"><?=e(ucfirst($r['status']??'active'))?></span></td><td><a class="btn btn-secondary" href="edit.php?id=<?=$r['id']?>">Manage</a></td></tr><?php endwhile; endif;?></tbody></table></div>
     </div>
-    <div class="card pppoe-panel pppoe-readiness"><h2>Provisioning Readiness</h2><p>Account records are currently managed here. Router provisioning should be verified against the configured PPPoE server before an account is treated as live.</p><div class="readiness-row"><span>PPPoE Servers</span><strong><?=count($servers)?></strong></div><div class="readiness-row"><span>Active Accounts</span><strong><?=$active?></strong></div><div class="readiness-row"><span>Next step</span><strong>Router provisioning</strong></div><a class="btn btn-primary" href="../pppoe_servers/index.php">Manage PPPoE Servers</a></div>
+    <div class="card pppoe-panel pppoe-readiness"><h2>Provisioning Readiness</h2><p>Account records are currently managed here. Router provisioning should be verified against the configured PPPoE server before an account is treated as live.</p><div class="readiness-row"><span>PPPoE Servers</span><strong><?=$serverCount?></strong></div><div class="readiness-row"><span>Active Accounts</span><strong><?=$active?></strong></div><div class="readiness-row"><span>Next step</span><strong>Router provisioning</strong></div><a class="btn btn-primary" href="../pppoe_servers/index.php">Manage PPPoE Servers</a></div>
   </div>
 </div>
 <style>
