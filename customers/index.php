@@ -44,7 +44,7 @@ function customerCount($table, $conditions = [], $params = [], $types = '') {
     return (int)($row['total'] ?? 0);
 }
 
-$tenantClause = ['tenant_id = ?', [$tenantId], 'i'];
+$tenantClause = [['tenant_id = ?'], [$tenantId], 'i'];
 
 $totalCustomers = customerCount('customers', $tenantClause[0], $tenantClause[1], $tenantClause[2]);
 $activeCustomers = customerCount('customers', array_merge($tenantClause[0], ['status = ?']), array_merge($tenantClause[1], ['active']), $tenantClause[2] . 's');
@@ -56,7 +56,7 @@ $accountActive = 0;
 $accountExpired = 0;
 $accountSuspended = 0;
 if (customerTableExists('internet_accounts')) {
-    $accountTenant = $tenantId ? ['tenant_id = ?', [$tenantId], 'i'] : [[], [], ''];
+    $accountTenant = $tenantId > 0 ? [['tenant_id = ?'], [$tenantId], 'i'] : [[], [], ''];
     $accountTotal = customerCount('internet_accounts', $accountTenant[0], $accountTenant[1], $accountTenant[2]);
     $accountActive = customerCount('internet_accounts', array_merge($accountTenant[0], ['status = ?']), array_merge($accountTenant[1], ['active']), $accountTenant[2] . 's');
     $accountExpired = customerCount('internet_accounts', array_merge($accountTenant[0], ['status = ?']), array_merge($accountTenant[1], ['expired']), $accountTenant[2] . 's');
