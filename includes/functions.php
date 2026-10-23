@@ -1267,10 +1267,20 @@ if (!function_exists('userHasPermission')) {
             $permissionCode
         );
 
-        $stmt->execute();
+        if (!$stmt->execute()) {
+            error_log('Flexihub authorization: legacy permission lookup failed.');
+            $stmt->close();
+            return false;
+        }
 
-        $allowed = $stmt->get_result()->num_rows > 0;
+        $result = $stmt->get_result();
+        if ($result === false) {
+            error_log('Flexihub authorization: legacy permission result unavailable.');
+            $stmt->close();
+            return false;
+        }
 
+        $allowed = $result->num_rows > 0;
         $stmt->close();
 
         return $allowed;
@@ -1316,16 +1326,35 @@ if (!function_exists('userCan')) {
                     INNER JOIN access_role_permissions arp ON arp.role_id=ar.id AND arp.tenant_id=? AND arp.module_key=?
                     WHERE aur.user_id=? AND aur.tenant_id=? LIMIT 1";
             $stmt=$conn->prepare($sql);
-            if($stmt){
-                $stmt->bind_param('iisii',$tenantId,$tenantId,$module,$userId,$tenantId);
-                $stmt->execute();
-                $row=$stmt->get_result()->fetch_assoc();
-                $stmt->close();
-                if($row!==null) return !empty($row['allowed']);
+            if(!$stmt){
+                error_log('Flexihub authorization: role permission query could not be prepared.');
+                return false;
             }
+
+            $stmt->bind_param('iisii',$tenantId,$tenantId,$module,$userId,$tenantId);
+            if(!$stmt->execute()){
+                error_log('Flexihub authorization: role permission query failed.');
+                $stmt->close();
+                return false;
+            }
+
+            $result=$stmt->get_result();
+            if($result===false){
+                error_log('Flexihub authorization: role permission result unavailable.');
+                $stmt->close();
+                return false;
+            }
+
+            $row=$result->fetch_assoc();
+            $stmt->close();
+
+            // An authoritative role-table lookup must not fall back to legacy
+            // permissions when it fails or returns no matching role permission.
+            return $row !== null && !empty($row['allowed']);
         }
 
-        /* Legacy permission-code compatibility. */
+        /* Legacy permission-code compatibility is only used when the newer
+         * role-permission schema is not installed. */
         return userHasPermission($module.'.'.$action);
     }
 }
