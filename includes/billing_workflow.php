@@ -514,12 +514,27 @@ if (!function_exists('flexihubProcessSubscriptionExpiry')) {
             // A newer active subscription protects the account from being expired.
             $active=false;
             $check=$conn->prepare("SELECT id FROM service_subscriptions WHERE tenant_id=? AND account_id=? AND status='active' AND (end_date IS NULL OR end_date >= CURDATE()) ORDER BY end_date DESC,id DESC LIMIT 1");
-            if($check){
-                $check->bind_param('ii',$tenantId,$accountId);
-                $check->execute();
-                $active=(bool)$check->get_result()->fetch_assoc();
-                $check->close();
+            if(!$check){
+                $stats['failed']++;
+                error_log('Flexihub subscription expiry: active-period lookup prepare failed for account '.$accountId.'.');
+                continue;
             }
+            $check->bind_param('ii',$tenantId,$accountId);
+            if(!$check->execute()){
+                $stats['failed']++;
+                error_log('Flexihub subscription expiry: active-period lookup failed for account '.$accountId.'.');
+                $check->close();
+                continue;
+            }
+            $activeResult=$check->get_result();
+            if(!$activeResult){
+                $stats['failed']++;
+                error_log('Flexihub subscription expiry: active-period lookup returned no result set for account '.$accountId.'.');
+                $check->close();
+                continue;
+            }
+            $active=(bool)$activeResult->fetch_assoc();
+            $check->close();
 
             if(!$active){
                 $accountCols=flexihubTableColumns('internet_accounts');
