@@ -142,49 +142,117 @@ if (!function_exists('flexihubRefreshInvoiceStatus')) {
 }
 
 if (!function_exists('flexihubCreatePaymentArtifacts')) {
+    /**
+     * Create a receipt and account-ledger entry for a recorded payment.
+     * If an artifact table exists, a failed or unsafe write must fail the
+     * surrounding payment transaction instead of silently losing the artifact.
+     */
     function flexihubCreatePaymentArtifacts($paymentId, array $payment, array $invoice, $tenantId)
     {
         global $conn;
-        $receiptCols = flexihubTableColumns('receipts');
+
+        $paymentId = (int) $paymentId;
+        $tenantId = (int) $tenantId;
+        if ($paymentId <= 0 || $tenantId <= 0) {
+            throw new RuntimeException('A valid payment and tenant are required to create payment artifacts.');
+        }
+
+        $receiptTable = $conn->query("SHOW TABLES LIKE 'receipts'");
+        if ($receiptTable === false) {
+            throw new RuntimeException('Unable to verify receipt storage.');
+        }
+
         $receiptId = false;
-
-        if (in_array('payment_id', $receiptCols, true)) {
-            $stmt=$conn->prepare("SELECT id FROM receipts WHERE payment_id=? AND tenant_id=? LIMIT 1");
-            if($stmt){$stmt->bind_param('ii',$paymentId,$tenantId);$stmt->execute();$exists=$stmt->get_result()->fetch_assoc();$stmt->close();if($exists)$receiptId=(int)$exists['id'];}
-        }
-
-        if (!$receiptId && $receiptCols) {
-            $receiptData=[
-                'tenant_id'=>$tenantId,
-                'payment_id'=>$paymentId,
-                'receipt_number'=>'RCT-'.date('YmdHis').'-'.random_int(100,999),
-                'invoice_id'=>$payment['invoice_id']??$invoice['id']??null,
-                'customer_id'=>$invoice['customer_id']??null,
-                'amount'=>$payment['amount']??0,
-                'payment_method'=>$payment['payment_method']??'',
-                'receipt_date'=>$payment['payment_date']??date('Y-m-d'),
-                'reference'=>$payment['reference']??''
-            ];
-            $receiptId=flexihubWorkflowInsert('receipts',$receiptData);
-        }
-
-        $txCols=flexihubTableColumns('account_transactions');
-        if ($txCols) {
-            $duplicate=false;
-            if(in_array('payment_id',$txCols,true)){
-                $stmt=$conn->prepare("SELECT id FROM account_transactions WHERE payment_id=? AND tenant_id=? LIMIT 1");
-                if($stmt){$stmt->bind_param('ii',$paymentId,$tenantId);$stmt->execute();$duplicate=(bool)$stmt->get_result()->fetch_assoc();$stmt->close();}
+        if ($receiptTable->num_rows > 0) {
+            $receiptCols = flexihubTableColumns('receipts');
+            if (!$receiptCols || !in_array('tenant_id', $receiptCols, true)) {
+                throw new RuntimeException('Receipt storage is missing tenant isolation. Apply the required database migration before recording payments.');
             }
-            if(!$duplicate){
-                flexihubWorkflowInsert('account_transactions',[
-                    'tenant_id'=>$tenantId,'payment_id'=>$paymentId,'invoice_id'=>$payment['invoice_id']??null,
-                    'customer_id'=>$invoice['customer_id']??null,'transaction_type'=>'payment','type'=>'payment',
-                    'amount'=>$payment['amount']??0,'description'=>'Customer payment',
-                    'reference'=>$payment['reference']??('PAY-'.$paymentId),
-                    'transaction_date'=>$payment['payment_date']??date('Y-m-d')
+
+            if (
+                in_array('id', $receiptCols, true) &&
+                in_array('payment_id', $receiptCols, true)
+            ) {
+                $stmt = $conn->prepare("SELECT id FROM receipts WHERE payment_id = ? AND tenant_id = ? LIMIT 1");
+                if (!$stmt) {
+                    throw new RuntimeException('Unable to check for an existing payment receipt.');
+                }
+                $stmt->bind_param('ii', $paymentId, $tenantId);
+                if (!$stmt->execute()) {
+                    $stmt->close();
+                    throw new RuntimeException('Unable to check for an existing payment receipt.');
+                }
+                $existing = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($existing) {
+                    $receiptId = (int) $existing['id'];
+                }
+            }
+
+            if (!$receiptId) {
+                $receiptData = [
+                    'tenant_id' => $tenantId,
+                    'payment_id' => $paymentId,
+                    'receipt_number' => 'RCT-' . date('YmdHis') . '-' . strtoupper(bin2hex(random_bytes(3))),
+                    'invoice_id' => $payment['invoice_id'] ?? $invoice['id'] ?? null,
+                    'customer_id' => $invoice['customer_id'] ?? null,
+                    'amount' => $payment['amount'] ?? 0,
+                    'payment_method' => $payment['payment_method'] ?? '',
+                    'receipt_date' => $payment['payment_date'] ?? date('Y-m-d'),
+                    'reference' => $payment['reference'] ?? ''
+                ];
+                $receiptId = flexihubWorkflowInsert('receipts', $receiptData);
+                if (!$receiptId) {
+                    throw new RuntimeException('Unable to generate the payment receipt. The payment has not been finalized.');
+                }
+            }
+        }
+
+        $transactionTable = $conn->query("SHOW TABLES LIKE 'account_transactions'");
+        if ($transactionTable === false) {
+            throw new RuntimeException('Unable to verify account transaction storage.');
+        }
+
+        if ($transactionTable->num_rows > 0) {
+            $transactionCols = flexihubTableColumns('account_transactions');
+            if (!$transactionCols || !in_array('tenant_id', $transactionCols, true)) {
+                throw new RuntimeException('Account transaction storage is missing tenant isolation. Apply the required database migration before recording payments.');
+            }
+
+            $duplicate = false;
+            if (in_array('payment_id', $transactionCols, true)) {
+                $stmt = $conn->prepare("SELECT id FROM account_transactions WHERE payment_id = ? AND tenant_id = ? LIMIT 1");
+                if (!$stmt) {
+                    throw new RuntimeException('Unable to check the account ledger for a duplicate payment entry.');
+                }
+                $stmt->bind_param('ii', $paymentId, $tenantId);
+                if (!$stmt->execute()) {
+                    $stmt->close();
+                    throw new RuntimeException('Unable to check the account ledger for a duplicate payment entry.');
+                }
+                $duplicate = (bool) $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+            }
+
+            if (!$duplicate) {
+                $transactionId = flexihubWorkflowInsert('account_transactions', [
+                    'tenant_id' => $tenantId,
+                    'payment_id' => $paymentId,
+                    'invoice_id' => $payment['invoice_id'] ?? null,
+                    'customer_id' => $invoice['customer_id'] ?? null,
+                    'transaction_type' => 'payment',
+                    'type' => 'payment',
+                    'amount' => $payment['amount'] ?? 0,
+                    'description' => 'Customer payment',
+                    'reference' => $payment['reference'] ?? ('PAY-' . $paymentId),
+                    'transaction_date' => $payment['payment_date'] ?? date('Y-m-d')
                 ]);
+                if (!$transactionId) {
+                    throw new RuntimeException('Unable to write the payment to the account ledger. The payment has not been finalized.');
+                }
             }
         }
+
         return $receiptId;
     }
 }
