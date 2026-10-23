@@ -25,7 +25,7 @@ The clean-install baseline and tested upgrade path are still release blockers. P
 
 ## M-Pesa receipt uniqueness migration
 
-Before applying `036_mpesa_receipt_claims.sql`, run `mpesa_receipt_integrity_preflight.sql` against the intended database. Resolve every duplicate receipt across `payment_gateway_transactions` and `platform_payments`, and review receipts longer than 191 characters. The migration backfills a single global receipt-claim table and deliberately fails if a duplicate remains. Do not use `INSERT IGNORE` or delete financial records to force it through. The callback code reserves receipts inside the same transaction as payment finalization; the database primary key is the concurrency guard.
+Before applying `036_mpesa_receipt_claims.sql`, run `mpesa_receipt_integrity_preflight.sql` against the intended database. Resolve every true duplicate receipt across `payment_gateway_transactions` and `platform_payments`, and review receipts longer than 191 characters. The preflight/backfill excludes the `platform_payments` row when it is a mirrored ledger entry for the same tenant-gateway `flow='platform'` transaction and invoice; the same receipt appearing in unrelated transactions still blocks the migration. The migration backfills a single global receipt-claim table and deliberately fails if a duplicate remains. Do not use `INSERT IGNORE` or delete financial records to force it through. The callback code reserves receipts inside the same transaction as payment finalization; the database primary key is the concurrency guard.
 
 This migration is a release-sensitive, one-time change and must be tested on a disposable database copy first. Do not apply it to the working XAMPP database as part of this code change.
 
