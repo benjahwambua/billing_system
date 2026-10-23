@@ -13,7 +13,7 @@ if($requestedStatus==='active'){
  if($linkedId<=0||$tid<=0){$errors[]='A valid tenant-owned internet account is required before PPPoE activation.';}
  else{$serviceCheck=$conn->prepare('SELECT * FROM internet_accounts WHERE id=? AND tenant_id=? LIMIT 1');if(!$serviceCheck){$errors[]='Unable to verify the linked internet service status.';}else{$serviceCheck->bind_param('ii',$linkedId,$tid);if(!$serviceCheck->execute()){$errors[]='Unable to verify the linked internet service status.';}else{$service=$serviceCheck->get_result()->fetch_assoc();if(!$service){$errors[]='The linked internet service was not found for this tenant.';}elseif(!isInternetAccountActive($service)){$errors[]='The linked internet service must be active and unexpired before PPPoE can be activated.';}}$serviceCheck->close();}}
 }
-$f=[];$v=[];$t='';$map=['username'=>trim($_POST['username']??''),'status'=>$_POST['status']??'active'];foreach($map as $c=>$x)if($has($c)){$f[]="$c=?";$v[]=$x;$t.='s';}if($has('password')&&($_POST['password']??'')!==''){$f[]='password=?';$v[]=$_POST['password'];$t.='s';}if($f && !$errors){$v[]=$id;$t.='i';$sql="UPDATE pppoe_accounts SET ".implode(',',$f)." WHERE id=?";if(isTenantUser()){if(!$has('tenant_id')||$tid<=0){$errors[]='Tenant-scoped PPPoE account updates are unavailable for this schema.';$sql='';}else{$sql.=' AND tenant_id=?';$v[]=$tid;$t.='i';}}elseif($has('tenant_id')&&$tid>0){$sql.=' AND tenant_id=?';$v[]=$tid;$t.='i';}$u=$sql!==''?$conn->prepare($sql):false;if($u){$u->bind_param($t,...$v);if($u->execute()){
+$f=[];$v=[];$t='';$map=['username'=>trim($_POST['username']??''),'status'=>($requestedStatus==='active'?'pending_activation':$requestedStatus)];foreach($map as $c=>$x)if($has($c)){$f[]="$c=?";$v[]=$x;$t.='s';}if($has('password')&&($_POST['password']??'')!==''){$f[]='password=?';$v[]=$_POST['password'];$t.='s';}if($f && !$errors){$v[]=$id;$t.='i';$sql="UPDATE pppoe_accounts SET ".implode(',',$f)." WHERE id=?";if(isTenantUser()){if(!$has('tenant_id')||$tid<=0){$errors[]='Tenant-scoped PPPoE account updates are unavailable for this schema.';$sql='';}else{$sql.=' AND tenant_id=?';$v[]=$tid;$t.='i';}}elseif($has('tenant_id')&&$tid>0){$sql.=' AND tenant_id=?';$v[]=$tid;$t.='i';}$u=$sql!==''?$conn->prepare($sql):false;if($u){$u->bind_param($t,...$v);if($u->execute()){
  $oldUsername=trim((string)($row['username']??''));$newUsername=trim((string)($_POST['username']??$oldUsername));
  $newPassword=(string)($_POST['password']??'');$syncPassword=$newPassword!==''?$newPassword:(string)($row['password']??'');
  $newStatus=strtolower(trim((string)($_POST['status']??($row['status']??'active'))));
@@ -44,6 +44,13 @@ $f=[];$v=[];$t='';$map=['username'=>trim($_POST['username']??''),'status'=>$_POS
    }
    $ros->updatePppSecret($oldUsername,$newUsername,$syncPassword,$newStatus!=='active','pppoe',$profileName);
    if($newStatus!=='active')$ros->disconnectPppActive($newUsername);
+  // Keep the database pending until RouterOS has accepted the requested state.
+  $statusSql='UPDATE pppoe_accounts SET status=? WHERE id=?'.($has('tenant_id')?' AND tenant_id=?':'');
+  $statusStmt=$conn->prepare($statusSql);
+  if(!$statusStmt)throw new Exception('RouterOS synchronized, but the final account status could not be saved.');
+  if($has('tenant_id'))$statusStmt->bind_param('sii',$newStatus,$id,$tid);else$statusStmt->bind_param('si',$newStatus,$id);
+  if(!$statusStmt->execute()){$statusStmt->close();throw new Exception('RouterOS synchronized, but the final account status could not be saved.');}
+  $statusStmt->close();
   }finally{$ros->close();}
   redirect('index.php');
  }catch(Throwable $e){
