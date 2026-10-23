@@ -21,7 +21,27 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     requireCsrf();
     foreach($v as $k=>$d)$v[$k]=trim((string)($_POST[$k]??$d));
     $cid=(int)$v['customer_id']; $amount=(float)$v['amount'];
-    if(!$cid||$amount<=0)$errors[]='Customer and a positive amount are required.';
+    if (!$cid || !is_finite($amount) || $amount <= 0) {
+        $errors[] = 'Customer and a positive amount are required.';
+    }
+
+    $isValidDate = static function ($value) {
+        if (!is_string($value) || $value === '') {
+            return false;
+        }
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+        return $date instanceof DateTimeImmutable && $date->format('Y-m-d') === $value;
+    };
+
+    if (!$isValidDate($v['invoice_date'])) {
+        $errors[] = 'Enter a valid invoice date.';
+    }
+    if (!$isValidDate($v['due_date'])) {
+        $errors[] = 'Enter a valid due date.';
+    }
+    if ($isValidDate($v['invoice_date']) && $isValidDate($v['due_date']) && $v['due_date'] < $v['invoice_date']) {
+        $errors[] = 'The due date cannot be earlier than the invoice date.';
+    }
 
     if(!$errors){
         $stmt=$conn->prepare("SELECT id FROM customers WHERE id=? AND tenant_id=? LIMIT 1");
