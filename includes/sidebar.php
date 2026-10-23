@@ -23,35 +23,34 @@ $isHost = ($userScope === 'host');
 $currentPath = strtok($_SERVER['REQUEST_URI'] ?? '', '?');
 
 /**
- * Check if a path is active.
+ * Sidebar helpers may be included more than once by legacy page layouts.
+ * Guard each declaration to avoid fatal "Cannot redeclare" errors.
  */
-function sidebarIsActive($path)
-{
-    global $currentPath;
-
-    return strpos($currentPath, $path) !== false;
-}
-
-/**
- * Return active class.
- */
-function sidebarActive($path)
-{
-    return sidebarIsActive($path) ? 'active' : '';
-}
-
-/**
- * Return active class if any supplied paths match.
- */
-function sidebarGroupActive($paths)
-{
-    foreach ($paths as $path) {
-        if (sidebarIsActive($path)) {
-            return 'open active-group';
-        }
+if (!function_exists('sidebarIsActive')) {
+    function sidebarIsActive($path)
+    {
+        global $currentPath;
+        return strpos((string)$currentPath, (string)$path) !== false;
     }
+}
 
-    return '';
+if (!function_exists('sidebarActive')) {
+    function sidebarActive($path)
+    {
+        return sidebarIsActive($path) ? 'active' : '';
+    }
+}
+
+if (!function_exists('sidebarGroupActive')) {
+    function sidebarGroupActive($paths)
+    {
+        foreach ($paths as $path) {
+            if (sidebarIsActive($path)) {
+                return 'open active-group';
+            }
+        }
+        return '';
+    }
 }
 
 
