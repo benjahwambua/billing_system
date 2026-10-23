@@ -84,7 +84,7 @@ try {
             $billing = flexihubGenerateRecurringInvoices($tenantId, 200);
             $overdue = flexihubProcessOverdueSuspensions($tenantId, 200);
 
-            $nq = $conn->prepare("SELECT i.id,i.account_id,i.customer_id,i.invoice_number,i.due_date,
+            $nq = $conn->prepare("SELECT i.id,i.account_id,i.customer_id,i.invoice_number,i.due_date,i.status,
                                         COALESCE(i.total_amount,i.total,i.amount,0) total,
                                         COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id=i.id AND p.tenant_id=i.tenant_id),0) paid,
                                         c.phone
