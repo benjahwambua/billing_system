@@ -7,7 +7,7 @@
 1. Identify a migration by its full filename (and, for release records, its content hash), never by numeric prefix alone.
 2. Keep historical SQL files unchanged until a replacement sequence has been proven against disposable databases.
 3. The order below is a **review order only**. Dependency, schema preconditions, rerun safety, supported MySQL/MariaDB versions, and data impact must be verified before a migration is marked executable.
-4. Read-only audit scripts are not migrations: `003_tenant_isolation_audit.sql` and `tenant_integrity_verification.sql`.
+4. Read-only audit scripts are not migrations: `003_tenant_isolation_audit.sql`, `tenant_integrity_verification.sql`, `mpesa_receipt_integrity_preflight.sql`, and `payment_artifact_idempotency_preflight.sql`.
 5. `010_repair_tenant_foreign_keys.sql` is a one-time legacy repair. It must not be rerun on the already repaired local database.
 6. No canonical clean-install baseline has been validated. A fresh install and automated upgrade remain blocked until a baseline is generated from a reviewed schema snapshot and tested.
 
@@ -73,6 +73,7 @@ A migration can only be marked **approved** after the record contains:
 - **Clean-install baseline:** NOT ESTABLISHED.
 - **Executable ordered migration runner:** NOT ESTABLISHED.
 - **M-Pesa receipt claim migration:** prepared as FEATURE-036; preflight and existing duplicate reconciliation are mandatory before applying.
+- **Payment artifact idempotency preflight:** read-only duplicate scan for `receipts` and `account_transactions`; no unique-index migration is approved until duplicates and NULL payment IDs are reconciled.
 - **Automated upgrade from historical schemas:** NOT VERIFIED.
 - **Existing local XAMPP database:** preserve it; compare schema before considering any migration.
 - **Release decision:** database installation/upgrade is a deployment blocker.
