@@ -129,7 +129,7 @@ if (!function_exists('sidebarCanHref')) {
             'users'=>'staff','roles'=>'staff','sessions'=>'staff','settings'=>'settings',
             'operations'=>'operations','wallet'=>'wallet','platform'=>'platform','tenants'=>'platform',
             'platform_plans'=>'platform','platform_subscriptions'=>'platform','platform_wallets'=>'platform','platform_transactions'=>'platform',
-            'platform_revenue'=>'platform','platform_users'=>'platform','support'=>'platform',
+            'platform_revenue'=>'platform','platform_users'=>'platform','support'=>'support',
             'system_events'=>'platform','audit_logs'=>'platform','platform_settings'=>'platform'
         ];
         $module = $map[$dir] ?? null;
@@ -740,6 +740,7 @@ ob_start();
             <div class="sidebar-menu-section">
                 <div class="sidebar-menu-heading"><?= sidebarModuleIcon('OPERATIONS') ?><span class="sidebar-heading-label">OPERATIONS</span></div>
                 <a href="../operations/agent_sales.php" class="sidebar-menu-link <?= sidebarActive('/operations/agent_sales.php') ?>"><span class="sidebar-menu-icon">♙</span><span class="sidebar-menu-text">Agent Sales</span></a>
+                <a href="../support/index.php" class="sidebar-menu-link <?= sidebarActive('/support/') ?>"><span class="sidebar-menu-icon">?</span><span class="sidebar-menu-text">Support Centre</span></a>
                 <a href="../operations/adverts.php" class="sidebar-menu-link <?= sidebarActive('/operations/adverts.php') ?>"><span class="sidebar-menu-icon">▤</span><span class="sidebar-menu-text">Adverts</span></a>
             </div>
 
