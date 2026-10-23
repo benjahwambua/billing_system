@@ -51,7 +51,7 @@ The logical IDs below resolve duplicate filename prefixes. They do **not** autho
 | FEATURE-034A | `034_network_monitoring.sql` | Duplicate prefix; verify dependencies before assigning execution order |
 | FEATURE-034B | `034_pppoe_server_ip_pool.sql` | Duplicate prefix; verify dependencies before assigning execution order |
 | FEATURE-035 | `035_support_ticket_workflow.sql` | Required before using support-ticket records; not confirmed applied to local DB |
-| FEATURE-036 | `036_mpesa_receipt_claims.sql` | One-time backfill; run read-only duplicate/length preflight first; migration must fail on historical duplicate receipts |
+| FEATURE-036 | `036_mpesa_receipt_claims.sql` | One-time backfill; run read-only duplicate/length preflight first; paired SaaS ledger mirrors are deduplicated; true duplicate receipts must be reconciled |
 
 ## Promotion gates for each migration
 
