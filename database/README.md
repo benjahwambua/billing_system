@@ -33,6 +33,16 @@ For the existing `billing_system` database:
 3. Apply only migrations explicitly identified as missing after comparing the database schema to the migration registry.
 4. Never re-run migration 010 tenant repair on the already repaired local database.
 
+## Read-only migration preflight
+
+From the repository root, run:
+
+```bash
+php database/migration_preflight.php
+```
+
+This command does **not** connect to MySQL or execute SQL. It inventories numbered migration files, reports duplicate numeric prefixes, flags common non-idempotent DDL patterns for review, and reports when no recognized clean-install baseline file is present. A non-zero exit status means repository-level blockers or warnings were found. It is a guardrail, not an approved migration order and not proof that a migration is safe for a specific database.
+
 ## Consolidation rule
 
 Keep migration files atomic and ordered; consolidate the *instructions and runner*, not all DDL into one enormous SQL file. A single flattened SQL dump should be generated from a known-good schema snapshot, not assembled by concatenating migrations that may add the same columns or constraints.
