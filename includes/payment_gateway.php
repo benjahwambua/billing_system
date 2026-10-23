@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/mpesa_amount_policy.php';
 
 if (!function_exists('flexihubGatewayEncrypt')) {
     function flexihubGatewayEncrypt($value) {
@@ -70,6 +71,7 @@ if (!function_exists('flexihubMpesaAccessToken')) {
 }
 if (!function_exists('flexihubMpesaStkPush')) {
     function flexihubMpesaStkPush(array $gateway,$amount,$phone,$reference,$description,$callbackUrl) {
+        $amount=flexihubMpesaChargeAmount($amount);
         $passkey=flexihubGatewayDecrypt($gateway['passkey_encrypted']??null);
         $shortcode=trim((string)($gateway['shortcode']??''));
         if(!$passkey||!$shortcode)throw new RuntimeException('M-Pesa shortcode and passkey are required for STK Push.');
@@ -80,7 +82,7 @@ if (!function_exists('flexihubMpesaStkPush')) {
             'Password'=>base64_encode($shortcode.$passkey.$timestamp),
             'Timestamp'=>$timestamp,
             'TransactionType'=>strtolower((string)($gateway['shortcode_type']??'paybill'))==='till'?'CustomerBuyGoodsOnline':'CustomerPayBillOnline',
-            'Amount'=>max(1,(int)round((float)$amount)),
+            'Amount'=>$amount,
             'PartyA'=>$phone,'PartyB'=>$shortcode,'PhoneNumber'=>$phone,
             'CallBackURL'=>$callbackUrl,
             'AccountReference'=>substr((string)$reference,0,100),
@@ -92,8 +94,9 @@ if (!function_exists('flexihubMpesaStkPush')) {
 if (!function_exists('flexihubCreateMpesaStkTransaction')) {
     function flexihubCreateMpesaStkTransaction($tenantId,$gatewayId,$amount,$phone,$flow,$reference,$description,$callbackUrl,$idempotencyKey,$hotspotSaleId=null,$platformInvoiceId=null) {
         global $conn;
-        $tenantId=(int)$tenantId;$gatewayId=(int)$gatewayId;$amount=round((float)$amount,2);
-        if($tenantId<=0||$gatewayId<=0||$amount<=0||trim((string)$flow)===''||trim((string)$idempotencyKey)==='')throw new InvalidArgumentException('Invalid M-Pesa transaction parameters.');
+        $tenantId=(int)$tenantId;$gatewayId=(int)$gatewayId;
+        $amount=flexihubMpesaChargeAmount($amount);
+        if($tenantId<=0||$gatewayId<=0||trim((string)$flow)===''||trim((string)$idempotencyKey)==='')throw new InvalidArgumentException('Invalid M-Pesa transaction parameters.');
         $stmt=$conn->prepare("SELECT * FROM payment_gateway_transactions WHERE tenant_id=? AND idempotency_key=? LIMIT 1");
         if(!$stmt)throw new RuntimeException('Unable to inspect existing M-Pesa transaction.');
         $stmt->bind_param('is',$tenantId,$idempotencyKey);$stmt->execute();$existing=$stmt->get_result()->fetch_assoc();$stmt->close();
