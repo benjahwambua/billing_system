@@ -1018,7 +1018,11 @@ if (!function_exists('flexihubRenewInternetAccount')) {
         $sql="SELECT ia.*, ip.billing_days, ip.billing_cycle FROM internet_accounts ia LEFT JOIN internet_plans ip ON ip.id=ia.plan_id AND ip.tenant_id=ia.tenant_id WHERE ia.id=? AND ia.tenant_id=? LIMIT 1";
         $stmt=$conn->prepare($sql);
         if(!$stmt)return false;
-        $stmt->bind_param('ii',$accountId,$tenantId);$stmt->execute();$account=$stmt->get_result()->fetch_assoc();$stmt->close();
+        $stmt->bind_param('ii',$accountId,$tenantId);
+        if(!$stmt->execute()){$stmt->close();return false;}
+        $accountResult=$stmt->get_result();
+        if(!$accountResult){$stmt->close();return false;}
+        $account=$accountResult->fetch_assoc();$stmt->close();
         if(!$account)return false;
 
         $days=(int)($account['billing_days']??0);
@@ -1059,18 +1063,27 @@ if (!function_exists('flexihubCreateServiceSubscription')) {
               LEFT JOIN internet_plans ip ON ip.id=ia.plan_id AND ip.tenant_id=ia.tenant_id
               WHERE ia.id=? AND ia.tenant_id=? LIMIT 1";
         $stmt=$conn->prepare($sql); if(!$stmt) return false;
-        $stmt->bind_param('ii',$accountId,$tenantId); $stmt->execute();
-        $account=$stmt->get_result()->fetch_assoc(); $stmt->close();
+        $stmt->bind_param('ii',$accountId,$tenantId);
+        if(!$stmt->execute()){$stmt->close();return false;}
+        $accountResult=$stmt->get_result();
+        if(!$accountResult){$stmt->close();return false;}
+        $account=$accountResult->fetch_assoc(); $stmt->close();
         if(!$account) return false;
-        if($paymentId && in_array('payment_id',$cols,true)){
-            $check=$conn->prepare("SELECT id FROM service_subscriptions WHERE tenant_id=? AND payment_id=? LIMIT 1");
-            if($check){$check->bind_param('ii',$tenantId,$paymentId);$check->execute();$existing=$check->get_result()->fetch_assoc();$check->close();if($existing)return (int)$existing['id'];}
-        }
 
-        // A payment can only create one subscription period.
-        if($paymentId && in_array('payment_id',$cols,true)){
+        // A payment-driven subscription must be deduplicated by its payment ID.
+        // Fail closed if the schema or lookup is unavailable; otherwise a retry
+        // could create a second service period for the same payment.
+        if($paymentId){
+            if(!in_array('payment_id',$cols,true)) return false;
             $check=$conn->prepare("SELECT id FROM service_subscriptions WHERE tenant_id=? AND payment_id=? LIMIT 1");
-            if($check){$check->bind_param('ii',$tenantId,$paymentId);$check->execute();$existing=$check->get_result()->fetch_assoc();$check->close();if($existing)return (int)$existing['id'];}
+            if(!$check) return false;
+            $check->bind_param('ii',$tenantId,$paymentId);
+            if(!$check->execute()){$check->close();return false;}
+            $existingResult=$check->get_result();
+            if(!$existingResult){$check->close();return false;}
+            $existing=$existingResult->fetch_assoc();
+            $check->close();
+            if($existing)return (int)$existing['id'];
         }
 
         $end=$account['expiry_date']??date('Y-m-d');
@@ -1092,7 +1105,10 @@ if (!function_exists('flexihubCreateServiceSubscription')) {
                     }
                     // Close the previous period before creating its renewal.
                     $close=$conn->prepare("UPDATE service_subscriptions SET status='renewed' WHERE id=? AND tenant_id=? AND status='active'");
-                    if($close){$close->bind_param('ii',$previousId,$tenantId);$close->execute();$close->close();}
+                    if(!$close) return false;
+                    $close->bind_param('ii',$previousId,$tenantId);
+                    if(!$close->execute()){$close->close();return false;}
+                    $close->close();
                 }
             }
         }else{
