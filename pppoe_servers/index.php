@@ -1,12 +1,13 @@
 <?php
-require_once '../includes/auth.php';require_once '../includes/functions.php';
+require_once '../includes/auth.php';requireActiveUser();require_once '../includes/functions.php';
 if(isTenantUser())requireTenant();
 requireModulePermission('pppoe','view');
 global $conn;
 $cols=[];$q=$conn->query("SHOW COLUMNS FROM pppoe_servers");if(!$q)die('Unable to read PPPoE server schema.');while($x=$q->fetch_assoc())$cols[]=$x['Field'];
 $has=fn($c)=>in_array($c,$cols,true);$tid=(int)getCurrentTenantId();
+if(isTenantUser() && (!$has('tenant_id') || $tid<=0)){http_response_code(503);exit('PPPoE server tenant isolation is unavailable. Please contact the administrator.');}
 $where=[];$params=[];$types='';
-if($has('tenant_id')){if($tid<=0)die('A valid tenant context is required.');$where[]='s.tenant_id=?';$params[]=$tid;$types.='i';}
+if($has('tenant_id') && $tid>0){$where[]='s.tenant_id=?';$params[]=$tid;$types.='i';}
 $sql="SELECT s.* FROM pppoe_servers s".($where?' WHERE '.implode(' AND ',$where):'')." ORDER BY s.id DESC LIMIT 200";
 $st=$conn->prepare($sql);if(!$st)die('Unable to load PPPoE servers.');if($params)$st->bind_param($types,...$params);$st->execute();$res=$st->get_result();$rows=[];while($r=$res->fetch_assoc())$rows[]=$r;$st->close();
 $poolNames=[];
@@ -14,8 +15,9 @@ if($has('ip_pool_id')){
  $poolCols=[];$pc=$conn->query("SHOW COLUMNS FROM ip_pools");if($pc)while($x=$pc->fetch_assoc())$poolCols[]=$x['Field'];
  $poolTenant=in_array('tenant_id',$poolCols,true);$labelCol=in_array('name',$poolCols,true)?'name':(in_array('pool_name',$poolCols,true)?'pool_name':null);
  $ids=array_values(array_unique(array_filter(array_map(fn($r)=>(int)($r['ip_pool_id']??0),$rows))));
- if($ids&&$labelCol&&(!$poolTenant||$tid>0)){
-  $sql='SELECT id,'.$labelCol.' AS pool_label FROM ip_pools WHERE id IN ('.implode(',',array_map('intval',$ids)).')'.($poolTenant?' AND tenant_id='.(int)$tid:'');
+ if($ids&&$labelCol&&$poolTenant&&$tid>0){
+  // Resolve labels only from this tenant's pools; never fall back to a global pool lookup.
+  $sql='SELECT id,'.$labelCol.' AS pool_label FROM ip_pools WHERE id IN ('.implode(',',array_map('intval',$ids)).') AND tenant_id='.(int)$tid;
   $pr=$conn->query($sql);if($pr)while($x=$pr->fetch_assoc())$poolNames[(int)$x['id']]=$x['pool_label'];
  }
 }
