@@ -5,7 +5,7 @@
 -- Apply once, after migrations 013 and 025/026 have established the source tables.
 
 CREATE TABLE IF NOT EXISTS mpesa_receipt_claims (
-    receipt VARCHAR(100) NOT NULL,
+    receipt VARCHAR(191) NOT NULL,
     tenant_id BIGINT UNSIGNED NOT NULL,
     source_type VARCHAR(40) NOT NULL,
     source_transaction_id BIGINT UNSIGNED NOT NULL,
@@ -35,4 +35,4 @@ FROM (
     WHERE provider = 'mpesa' AND external_transaction_id IS NOT NULL
       AND TRIM(external_transaction_id) <> ''
 ) AS existing_receipts
-WHERE CHAR_LENGTH(receipt) <= 100;
+WHERE CHAR_LENGTH(receipt) <= 191;
