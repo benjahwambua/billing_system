@@ -110,7 +110,7 @@ require_once '../includes/header.php';
                 $receiptDate = $x['receipt_date'] ?? $x['created_at'] ?? $x['joined_payment_date'] ?? '';
                 ?>
                 <tr>
-                    <td><?= e($x['receipt_number'] ?? $x['number'] ?? $x['id']) ?></td>
+                    <td><a href="view.php?id=<?= (int) $x['id'] ?>"><?= e($x['receipt_number'] ?? $x['number'] ?? $x['id']) ?></a></td>
                     <td><?= e($x['joined_payment_number'] ?? $x['reference'] ?? $x['payment_id'] ?? '—') ?></td>
                     <td><?= e($customerLabel) ?></td>
                     <td><?= e(formatMoney($receiptAmount)) ?></td>
