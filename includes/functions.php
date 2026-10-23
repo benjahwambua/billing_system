@@ -1471,50 +1471,39 @@ if (!function_exists('getCustomer')) {
         global $conn;
 
         $tenantId = getCurrentTenantId();
+        if (!$tenantId || !isTenantUser()) {
+            // This helper is for tenant-owned customer records. Never turn a
+            // missing tenant context into an unscoped customer lookup.
+            return null;
+        }
 
-        $sql = "
+        $stmt = $conn->prepare("
             SELECT *
             FROM customers
             WHERE id = ?
-        ";
-
-        if ($tenantId) {
-            $sql .= " AND tenant_id = ?";
-        }
-
-        $sql .= " LIMIT 1";
-
-        $stmt = $conn->prepare($sql);
+              AND tenant_id = ?
+            LIMIT 1
+        ");
 
         if (!$stmt) {
             return null;
         }
 
-        if ($tenantId) {
-            $stmt->bind_param(
-                'ii',
-                $id,
-                $tenantId
-            );
-        } else {
-            $stmt->bind_param(
-                'i',
-                $id
-            );
+        $id = (int)$id;
+        $tenantId = (int)$tenantId;
+        $stmt->bind_param('ii', $id, $tenantId);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return null;
         }
 
-        $stmt->execute();
-
-        $customer = $stmt
-            ->get_result()
-            ->fetch_assoc();
-
+        $result = $stmt->get_result();
+        $customer = $result ? $result->fetch_assoc() : null;
         $stmt->close();
 
         return $customer ?: null;
     }
 }
-
 
 if (!function_exists('customerExists')) {
     function customerExists($id)
@@ -1548,54 +1537,46 @@ if (!function_exists('getCustomerAccounts')) {
         global $conn;
 
         $tenantId = getCurrentTenantId();
+        if (!$tenantId || !isTenantUser()) {
+            // Account lists are tenant-owned; no tenant context means no rows.
+            return [];
+        }
 
-        $sql = "
+        $stmt = $conn->prepare("
             SELECT *
             FROM internet_accounts
             WHERE customer_id = ?
-        ";
-
-        if ($tenantId) {
-            $sql .= " AND tenant_id = ?";
-        }
-
-        $sql .= " ORDER BY id DESC";
-
-        $stmt = $conn->prepare($sql);
+              AND tenant_id = ?
+            ORDER BY id DESC
+        ");
 
         if (!$stmt) {
             return [];
         }
 
-        if ($tenantId) {
-            $stmt->bind_param(
-                'ii',
-                $customerId,
-                $tenantId
-            );
-        } else {
-            $stmt->bind_param(
-                'i',
-                $customerId
-            );
+        $customerId = (int)$customerId;
+        $tenantId = (int)$tenantId;
+        $stmt->bind_param('ii', $customerId, $tenantId);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return [];
         }
 
-        $stmt->execute();
-
         $result = $stmt->get_result();
+        if (!$result) {
+            $stmt->close();
+            return [];
+        }
 
         $accounts = [];
-
         while ($row = $result->fetch_assoc()) {
             $accounts[] = $row;
         }
 
         $stmt->close();
-
         return $accounts;
     }
 }
-
 
 /*
 |--------------------------------------------------------------------------
