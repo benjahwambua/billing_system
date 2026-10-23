@@ -34,7 +34,7 @@
 | Expenses and platform costs | `expenses/index.php`, `platform/revenue/*` | Present — verify | Expense categories, approvals, attachments, date/tenant filters, reconciliation and permissions |
 | Reporting and exports | `reports/*` | Present — verify | Report totals match ledgers, tenant scope, CSV/export safety, date boundaries, authorization |
 | Communication and notifications | `communication/*`, `settings/notifications.php`, `includes/sms_gateway.php`, `maintenance/cron_sms_worker.php` | Present — verify | Provider failures, retries, delivery states, templates, consent/preferences, secrets, tenant-level configuration |
-| Support and service operations | `support/index.php`, `operations/*`, `system_events/index.php` | Present — verify | Ticket lifecycle, assignment/escalation, outage linking, work orders, SLA tracking, operational event visibility |
+| Support and service operations | `support/index.php`, `operations/*`, `system_events/index.php` | Partial — core support workflow and operations dashboard implemented; full workflow audit remains | Support tickets/replies/status/assignment, outage linking, work orders, SLA tracking, operational event visibility; support migration 035 must be applied before using ticket records |
 | SaaS platform billing | `platform/billing.php`, `platform/plans/*`, `platform/subscriptions/*`, `platform/wallets/*`, `platform/payments/*` | Present — verify | Tenant subscription lifecycle, plan limits, platform ledger, arrears, grace period, suspend/restore and reconciliation |
 | Agent/reseller operations | `operations/agent_sales.php` | Partial / verify scope | Commission rules, agent hierarchy, settlement, reversal, fraud prevention, tenant ownership |
 | AI assistant and usage | `ai/*` | Present — verify | Tenant data isolation, prompt/data access control, usage limits, secrets, failure behavior, auditability |
@@ -101,5 +101,11 @@ Reference: [Database README](../database/README.md) and [Migration Dependency Au
 4. Convert verified defects into small fixes with regression tests; do not add duplicate modules where the capability already exists.
 5. Add CI checks and database-backed tests, then work through P1/P2.
 6. Update this register with links to evidence and commits as work is completed.
+
+## 6. Recent implementation log
+
+- **Support ticket workflow — PR #118 merged** (`c7b5e98`): replaced the support placeholder with tenant ticket creation, conversation replies, host-side status/resolution management, and tenant-scoped reads/writes. Added `database/035_support_ticket_workflow.sql` and a tenant Support Centre sidebar entry. PHP lint passed. The migration has not been applied to the local database and the workflow has not been runtime-tested.
+- **Operations command centre — PR #119 merged** (`d2b7443`): replaced the generic Operations landing page with tenant-scoped sales/commission and advert summaries plus links to key operational modules. PHP lint passed. Database/runtime behavior remains unverified.
+- These are implementation milestones, **not completion sign-offs**. Mark either module complete only after the module checklist, permissions, tenant-boundary checks, migration prerequisites, and later end-to-end tests have passed.
 
 **Important:** This register is an initial inventory based on repository files and existing database audit notes. It intentionally does not claim that any module is functionally complete merely because a PHP file exists.
