@@ -872,10 +872,11 @@ if (!function_exists('flexihubGenerateRecurringInvoices')) {
               ORDER BY ia.next_invoice_date ASC, ia.id ASC
               LIMIT {$limit}";
         $stmt=$conn->prepare($sql);
-        if(!$stmt) return $stats;
+        if(!$stmt){error_log('Flexihub recurring billing: account query prepare failed: '.$conn->error);$stats['failed']++;return $stats;}
         $stmt->bind_param('i',$tenantId);
-        $stmt->execute();
+        if(!$stmt->execute()){$stats['failed']++;error_log('Flexihub recurring billing: account query failed: '.$stmt->error);$stmt->close();return $stats;}
         $res=$stmt->get_result();
+        if(!$res){$stats['failed']++;error_log('Flexihub recurring billing: account query returned no result set.');$stmt->close();return $stats;}
         $accounts=[];
         while($row=$res->fetch_assoc()) $accounts[]=$row;
         $stmt->close();
@@ -912,18 +913,45 @@ if (!function_exists('flexihubGenerateRecurringInvoices')) {
                                  WHERE tenant_id=? AND account_id=?
                                    AND billing_period_start=? AND billing_period_end=?
                                  LIMIT 1");
-            if($dup){
-                $dup->bind_param('iiss',$tenantId,$accountId,$periodStart,$periodEnd);
-                $dup->execute();
-                $exists=$dup->get_result()->fetch_assoc();
+            if(!$dup){
+                $stats['failed']++;
+                error_log('Flexihub recurring billing: duplicate-period lookup prepare failed: '.$conn->error);
+                continue;
+            }
+            $dup->bind_param('iiss',$tenantId,$accountId,$periodStart,$periodEnd);
+            if(!$dup->execute()){
+                $stats['failed']++;
+                error_log('Flexihub recurring billing: duplicate-period lookup failed: '.$dup->error);
                 $dup->close();
-                if($exists){
-                    $stats['skipped']++;
-                    $next=date('Y-m-d',strtotime($periodEnd.' +1 day'));
-                    $up=$conn->prepare("UPDATE internet_accounts SET next_invoice_date=? WHERE id=? AND tenant_id=? AND next_invoice_date=?");
-                    if($up){$up->bind_param('siis',$next,$accountId,$tenantId,$periodStart);$up->execute();$up->close();}
+                continue;
+            }
+            $dupResult=$dup->get_result();
+            if(!$dupResult){
+                $stats['failed']++;
+                error_log('Flexihub recurring billing: duplicate-period lookup returned no result set.');
+                $dup->close();
+                continue;
+            }
+            $exists=$dupResult->fetch_assoc();
+            $dup->close();
+            if($exists){
+                $stats['skipped']++;
+                $next=date('Y-m-d',strtotime($periodEnd.' +1 day'));
+                $up=$conn->prepare("UPDATE internet_accounts SET next_invoice_date=? WHERE id=? AND tenant_id=? AND next_invoice_date=?");
+                if(!$up){
+                    $stats['failed']++;
+                    error_log('Flexihub recurring billing: could not advance next invoice date after finding an existing invoice.');
                     continue;
                 }
+                $up->bind_param('siis',$next,$accountId,$tenantId,$periodStart);
+                if(!$up->execute()){
+                    $stats['failed']++;
+                    error_log('Flexihub recurring billing: failed to advance next invoice date after finding an existing invoice.');
+                    $up->close();
+                    continue;
+                }
+                $up->close();
+                continue;
             }
 
             $invoiceDate=date('Y-m-d');
