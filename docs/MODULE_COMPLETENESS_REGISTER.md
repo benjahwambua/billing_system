@@ -129,3 +129,10 @@ Reference: [Database README](../database/README.md) and [Migration Dependency Au
 - **Current validation boundary:** the repository PHP syntax and focused regression workflows have passed for these changes. Local MySQL, real M-Pesa, and MikroTik lifecycle verification have not been performed.
 
 **Important:** This register is an initial inventory based on repository files and existing database audit notes. It intentionally does not claim that any module is functionally complete merely because a PHP file exists.
+
+## 4. Subsequent audit changes (2026-10-23)
+
+| Change | Status | Remaining verification |
+|---|---|---|
+| PR #152 — Network and Usage report field redaction | Merged; reports exclude credential/secret/token-like fields and retain tenant-scoped queries; load failures are shown explicitly | Confirm the actual production schema's sensitive field names and run tenant-scoped report checks against MySQL |
+| Route-level authorization and tenant isolation batches (#142, #143, #145, #148, #150) | Merged; shared permission/session helpers, IP pool routes, shared tenant lookups, and wallet transactions hardened | Database-backed role, tenant-boundary, and runtime checks remain pending |
