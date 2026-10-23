@@ -83,7 +83,6 @@ if($st){
      $profileName=$routerProfileName;
     }
     $ros->addOrUpdatePppSecret($user,$secret,true,'pppoe',$profileName);
-   }finally{$ros->close();}
    $doneStatus=$status==='active'?'active':($status?:'inactive');
    $done=$conn->prepare("UPDATE pppoe_accounts SET status=? WHERE id=? AND tenant_id=?");
    if(!$done)throw new Exception('RouterOS accepted the credentials, but the account status could not be prepared for saving.');
@@ -91,6 +90,7 @@ if($st){
    $statusSaved=$done->execute();$done->close();
    if(!$statusSaved)throw new Exception('RouterOS accepted the credentials, but the account status could not be saved.');
    if($status==='active')$ros->addOrUpdatePppSecret($user,$secret,false,'pppoe',$profileName);
+   }finally{$ros->close();}
    if(function_exists('flexihubWorkflowInsert')){
     flexihubWorkflowInsert('router_sync_logs',['tenant_id'=>$tid,'router_id'=>(int)$router['router_id'],'service_type'=>'pppoe','external_username'=>$user,'action'=>'provision','status'=>'success','message'=>'PPPoE secret provisioned on MikroTik using profile '.$profileName.'.']);
    }
