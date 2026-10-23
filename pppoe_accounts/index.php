@@ -95,11 +95,25 @@ else{$serverResult=$conn->query('SELECT COUNT(*) AS n FROM pppoe_servers');if($s
   <div class="page-header"><div><span class="pppoe-kicker">INTERNET SERVICES</span><h1>PPPoE Command Center</h1><p>Manage subscriber credentials, service status and account readiness.</p></div><a class="btn btn-primary" href="add.php">+ Add PPPoE Account</a></div>
   <div class="pppoe-metrics">
     <?php
-      $metricWhere=$has('tenant_id')&&$tid?' WHERE tenant_id='.(int)$tid:'';
-      $total=(int)($conn->query("SELECT COUNT(*) n FROM pppoe_accounts".$metricWhere)->fetch_assoc()['n']??0);
-      $active=(int)($conn->query("SELECT COUNT(*) n FROM pppoe_accounts".$metricWhere.($metricWhere?' AND ':' WHERE ')."LOWER(status)='active'")->fetch_assoc()['n']??0);
-      $suspended=(int)($conn->query("SELECT COUNT(*) n FROM pppoe_accounts".$metricWhere.($metricWhere?' AND ':' WHERE ')."LOWER(status)='suspended'")->fetch_assoc()['n']??0);
-      $inactive=$total-$active-$suspended;
+      // Keep dashboard metrics compatible with databases where optional columns differ.
+      $countAccounts = static function ($status = null) use ($conn, $has, $tid) {
+          $conditions = [];
+          if ($has('tenant_id') && $tid > 0) $conditions[] = 'tenant_id = ' . (int)$tid;
+          if ($status !== null && $has('status')) $conditions[] = "LOWER(status) = '" . $conn->real_escape_string($status) . "'";
+          $query = 'SELECT COUNT(*) AS n FROM pppoe_accounts' . ($conditions ? ' WHERE ' . implode(' AND ', $conditions) : '');
+          $result = $conn->query($query);
+          if (!$result) {
+              error_log('PPPoE dashboard metric query failed: ' . $conn->error);
+              return 0;
+          }
+          $count = (int)($result->fetch_assoc()['n'] ?? 0);
+          $result->free();
+          return $count;
+      };
+      $total = $countAccounts();
+      $active = $has('status') ? $countAccounts('active') : 0;
+      $suspended = $has('status') ? $countAccounts('suspended') : 0;
+      $inactive = max(0, $total - $active - $suspended);
     ?>
     <div class="pppoe-metric"><span>Total Accounts</span><strong><?=$total?></strong></div>
     <div class="pppoe-metric"><span>Active</span><strong><?=$active?></strong></div>
