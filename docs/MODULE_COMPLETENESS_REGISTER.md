@@ -50,6 +50,7 @@
 - **Invoice amount invariant:** `flexihubInvoiceIsFullyPaid()` must not classify zero or negative invoice totals as paid. The shared arithmetic regression suite now covers zero/negative totals and a normal fully paid invoice. This is a targeted policy fix; database-backed payment allocation and service-activation tests remain pending.
 - **Payment artifact storage:** the payment workflow must fail closed if either `receipts` or `account_transactions` is absent; a payment must not be reported as successful while silently omitting a required receipt or ledger row. Schema-backed verification remains pending.
 - **M-Pesa invoice settlement:** the customer-billing callback now uses the shared positive-total settlement policy, preventing zero/negative invoice totals from triggering service renewal through a separate legacy condition.
+- **Payment-to-ledger reconciliation:** read-only SQL preflight added to report missing receipt/ledger artifacts, duplicate artifact groups, amount/invoice mismatches, and legacy NULL payment IDs. Database execution and manual reconciliation are pending; no records were modified.
 
 ## 2. Initial priority queue
 
