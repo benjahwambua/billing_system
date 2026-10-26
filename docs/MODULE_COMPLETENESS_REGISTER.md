@@ -45,6 +45,10 @@
 | Automated quality checks | `.github/workflows/php-syntax.yml`, `test/tenant_context.php` | Partial / risk identified | Syntax lint is not business testing; add unit/integration tests, database-backed tenant tests and CI service setup |
 | Backup, restore and deployment | No verified end-to-end evidence from the inventory | Not evidenced | Documented backup schedule, restore drill, production secrets, HTTPS, logging/alerts, release and rollback procedures |
 
+## Latest targeted audit finding
+
+- **Invoice amount invariant:** `flexihubInvoiceIsFullyPaid()` must not classify zero or negative invoice totals as paid. The shared arithmetic regression suite now covers zero/negative totals and a normal fully paid invoice. This is a targeted policy fix; database-backed payment allocation and service-activation tests remain pending.
+
 ## 2. Initial priority queue
 
 ### P0 — Verify before trusting live customer or money workflows
