@@ -11,7 +11,9 @@ if (!function_exists('flexihubInvoiceIsFullyPaid')) {
     {
         $total = (float)$total;
         $paid = (float)$paid;
-        return $total <= 0 || $paid + max(0.0, (float)$tolerance) >= $total;
+        // A zero or negative invoice total is invalid/unsettled, not proof of payment.
+        // Do not let downstream service workflows treat it as a paid invoice.
+        return $total > 0 && $paid + max(0.0, (float)$tolerance) >= $total;
     }
 }
 if (!function_exists('flexihubInvoicePaymentStatus')) {
