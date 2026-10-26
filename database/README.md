@@ -29,6 +29,10 @@ Before applying `036_mpesa_receipt_claims.sql`, run `mpesa_receipt_integrity_pre
 
 This migration is a release-sensitive, one-time change and must be tested on a disposable database copy first. Do not apply it to the working XAMPP database as part of this code change.
 
+## Payment-to-ledger reconciliation preflight
+
+`payment_ledger_reconciliation_preflight.sql` is a read-only report for missing receipts/ledger rows, duplicate artifacts, amount/invoice mismatches, and historical artifacts with NULL `payment_id`. Check every required column with `SHOW COLUMNS` before running it against a backup or disposable copy. Review results manually; do not auto-delete or auto-link financial rows. This report is not a migration and does not add uniqueness constraints.
+
 ## Read-only migration preflight
 
 From the repository root, run:
