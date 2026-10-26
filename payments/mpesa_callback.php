@@ -212,7 +212,7 @@ if (($tx['flow']??'')==='customer' || ($tx['flow']??'')==='internet' || ($tx['fl
   }
 
   $paidAfter=flexihubInvoicePaid((int)$invoice['id'],$tenantId);
-  $fullyPaid=$total<=0 || $paidAfter+0.00001 >= $total;
+  $fullyPaid=flexihubInvoiceIsFullyPaid($total,$paidAfter);
   if($fullyPaid){
     $accountId=(int)($invoice['account_id']??0);
     if(!$accountId){
