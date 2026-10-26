@@ -37,6 +37,9 @@ jobs:
       - name: Run invoice amount regression tests
         run: php tests/billing_amount_regressions.php
 
+      - name: Run payment artifact consistency regression tests
+        run: php tests/payment_artifact_policy.php
+
       - name: Run M-Pesa callback policy regression tests
         run: php tests/mpesa_callback_policy.php
 

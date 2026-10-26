@@ -2,6 +2,7 @@
 require_once __DIR__ . '/mikrotik_api.php';
 require_once __DIR__ . '/invoice_amounts.php';
 require_once __DIR__ . '/service_activation_policy.php';
+require_once __DIR__ . '/payment_artifact_policy.php';
 /**
  * Flexihub billing workflow helpers.
  * These helpers adapt to the existing legacy billing schema while enforcing tenant scope.
@@ -213,7 +214,7 @@ if (!function_exists('flexihubCreatePaymentArtifacts')) {
                 throw new RuntimeException('Receipt storage must include id, payment_id, and tenant_id to safely prevent duplicate receipts. Apply the required database migration before recording payments.');
             }
 
-            $stmt = $conn->prepare("SELECT id FROM receipts WHERE payment_id = ? AND tenant_id = ? LIMIT 1");
+            $stmt = $conn->prepare("SELECT * FROM receipts WHERE payment_id = ? AND tenant_id = ? LIMIT 1");
             if (!$stmt) {
                 throw new RuntimeException('Unable to check for an existing payment receipt.');
             }
@@ -225,6 +226,11 @@ if (!function_exists('flexihubCreatePaymentArtifacts')) {
             $existing = $stmt->get_result()->fetch_assoc();
             $stmt->close();
             if ($existing) {
+                $expectedInvoiceId = (int) ($payment['invoice_id'] ?? $invoice['id'] ?? 0);
+                $expectedAmount = (float) ($payment['amount'] ?? 0);
+                if (!flexihubPaymentArtifactMatches($existing, $receiptCols, $expectedInvoiceId, $expectedAmount)) {
+                    throw new RuntimeException('An existing receipt does not match this payment invoice and amount; manual reconciliation is required.');
+                }
                 $receiptId = (int) $existing['id'];
             }
 
@@ -265,7 +271,7 @@ if (!function_exists('flexihubCreatePaymentArtifacts')) {
                 throw new RuntimeException('Account transaction storage must include payment_id and tenant_id to safely prevent duplicate ledger entries. Apply the required database migration before recording payments.');
             }
 
-            $stmt = $conn->prepare("SELECT id FROM account_transactions WHERE payment_id = ? AND tenant_id = ? LIMIT 1");
+            $stmt = $conn->prepare("SELECT * FROM account_transactions WHERE payment_id = ? AND tenant_id = ? LIMIT 1");
             if (!$stmt) {
                 throw new RuntimeException('Unable to check the account ledger for a duplicate payment entry.');
             }
@@ -274,10 +280,19 @@ if (!function_exists('flexihubCreatePaymentArtifacts')) {
                 $stmt->close();
                 throw new RuntimeException('Unable to check the account ledger for a duplicate payment entry.');
             }
-            $duplicate = (bool) $stmt->get_result()->fetch_assoc();
+            $existingTransaction = $stmt->get_result()->fetch_assoc();
             $stmt->close();
 
-            if (!$duplicate) {
+            if ($existingTransaction && !flexihubPaymentArtifactMatches(
+                $existingTransaction,
+                $transactionCols,
+                (int) ($payment['invoice_id'] ?? $invoice['id'] ?? 0),
+                (float) ($payment['amount'] ?? 0)
+            )) {
+                throw new RuntimeException('An existing account-ledger entry does not match this payment invoice and amount; manual reconciliation is required.');
+            }
+
+            if (!$existingTransaction) {
                 $transactionId = flexihubWorkflowInsert('account_transactions', [
                     'tenant_id' => $tenantId,
                     'payment_id' => $paymentId,
