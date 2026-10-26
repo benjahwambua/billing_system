@@ -33,6 +33,10 @@ This migration is a release-sensitive, one-time change and must be tested on a d
 
 `payment_ledger_reconciliation_preflight.sql` is a read-only report for missing receipts/ledger rows, duplicate artifacts, amount/invoice mismatches, and historical artifacts with NULL `payment_id`. Check every required column with `SHOW COLUMNS` before running it against a backup or disposable copy. Review results manually; do not auto-delete or auto-link financial rows. This report is not a migration and does not add uniqueness constraints.
 
+## Read-only migration manifest
+
+Run php database/migration_manifest.php to print the SHA-256 of each SQL file and identify numbering collisions. Add --json for machine-readable output. It does not connect to MySQL or execute SQL. See [Clean-install baseline capture and migration verification](CLEAN_INSTALL_BASELINE_PROCEDURE.md) for the safe path to creating and validating a baseline.
+
 ## Read-only migration preflight
 
 From the repository root, run:

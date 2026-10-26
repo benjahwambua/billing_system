@@ -68,6 +68,10 @@ A migration can only be marked **approved** after the record contains:
 - [ ] Post-migration integrity checks and application regression checks passed.
 - [ ] Applied migration identity and checksum recorded in a migration-history table.
 
+## Migration content identity
+
+Use php database/migration_manifest.php --json to capture filenames and SHA-256 content hashes for a release review. A changed hash means reviewed SQL content changed; it does not prove whether the migration was applied. The manifest is read-only and is not an execution plan. See [Clean-install baseline procedure](CLEAN_INSTALL_BASELINE_PROCEDURE.md).
+
 ## Clean install and upgrade status
 
 - **Clean-install baseline:** NOT ESTABLISHED.
