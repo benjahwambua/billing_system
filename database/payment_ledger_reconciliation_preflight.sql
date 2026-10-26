@@ -3,7 +3,7 @@
 -- Confirm the required columns exist with SHOW COLUMNS before running:
 -- payments: id, tenant_id, invoice_id, amount, reference, payment_date
 -- receipts: id, tenant_id, payment_id, invoice_id, amount, reference
--- account_transactions: id, tenant_id, payment_id, invoice_id, amount, transaction_type
+-- account_transactions: id, tenant_id, payment_id, invoice_id, amount
 -- If your actual schema differs, adapt this report after reviewing SHOW COLUMNS.
 --
 -- 1. Payments missing a receipt or account-ledger entry.
