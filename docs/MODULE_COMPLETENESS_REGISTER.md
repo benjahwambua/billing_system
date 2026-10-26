@@ -47,6 +47,9 @@
 
 ## Latest targeted audit finding
 
+- **Existing payment artifact consistency — in progress (branch `fix/validate-existing-payment-artifacts`):** retries now validate an existing receipt and account-ledger row against the payment invoice and amount when those columns exist, instead of treating any same-payment row as valid. Mismatches fail closed for manual reconciliation. Focused policy tests are being added; database-backed verification remains pending.
+
+
 - **Payment-driven service renewal idempotency — in progress (branch `fix/payment-renewal-idempotency`):** callback checks for an existing tenant/account/payment-linked service subscription before extending account expiry. Existing periods are reused; lookup/schema failures fail closed. This prevents a retry from extending expiry twice when the service-period row already exists. CI and database-backed replay checks are still required.
 
 
