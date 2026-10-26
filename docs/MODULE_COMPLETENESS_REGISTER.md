@@ -48,6 +48,7 @@
 ## Latest targeted audit finding
 
 - **Invoice amount invariant:** `flexihubInvoiceIsFullyPaid()` must not classify zero or negative invoice totals as paid. The shared arithmetic regression suite now covers zero/negative totals and a normal fully paid invoice. This is a targeted policy fix; database-backed payment allocation and service-activation tests remain pending.
+- **Payment artifact storage:** the payment workflow must fail closed if either `receipts` or `account_transactions` is absent; a payment must not be reported as successful while silently omitting a required receipt or ledger row. Schema-backed verification remains pending.
 
 ## 2. Initial priority queue
 
