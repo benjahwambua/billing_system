@@ -8,7 +8,9 @@ $cases = [
     ['overpaid amount never creates negative balance', 100.00, 125.00, 'paid', 0.00, true],
     ['one cent short remains partial', 100.00, 99.99, 'partial', 0.01, false],
     ['floating point tolerance accepts tiny remainder', 100.00, 99.999995, 'paid', 0.000005, true],
-    ['zero total is treated as fully paid', 0.00, 0.00, 'unpaid', 0.00, true],
+    ['zero total is not treated as paid', 0.00, 0.00, 'unpaid', 0.00, false],
+    ['negative total is not treated as paid', -10.00, 0.00, 'unpaid', 0.00, false],
+    ['positive invoice with full payment is paid', 10.00, 10.00, 'paid', 0.00, true],
 ];
 $failed = 0;
 foreach ($cases as [$name, $total, $paid, $status, $balance, $fullyPaid]) {
