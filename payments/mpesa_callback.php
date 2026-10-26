@@ -226,9 +226,15 @@ if (($tx['flow']??'')==='customer' || ($tx['flow']??'')==='internet' || ($tx['fl
     }
     if($accountId){
       if(flexihubAccountHasOverdueBalance($accountId,$tenantId)) throw new RuntimeException('Customer still has an overdue balance; service was not activated.');
-      if(!flexihubRenewInternetAccount($accountId,$tenantId)) throw new RuntimeException('Customer payment recorded but service renewal could not be prepared.');
-      $subscriptionId=flexihubCreateServiceSubscription($accountId,$tenantId,(int)$invoice['id'],$paymentId);
-      if(!$subscriptionId) throw new RuntimeException('Customer payment recorded but service subscription could not be created.');
+      // Do not extend account expiry a second time when recovering a payment
+      // whose service-subscription row was already created by an earlier attempt.
+      $subscriptionId=flexihubFindServiceSubscriptionForPayment($accountId,$tenantId,$paymentId);
+      if($subscriptionId===false) throw new RuntimeException('Unable to verify whether this payment already renewed the service.');
+      if($subscriptionId===null){
+        if(!flexihubRenewInternetAccount($accountId,$tenantId)) throw new RuntimeException('Customer payment recorded but service renewal could not be prepared.');
+        $subscriptionId=flexihubCreateServiceSubscription($accountId,$tenantId,(int)$invoice['id'],$paymentId);
+        if(!$subscriptionId) throw new RuntimeException('Customer payment recorded but service subscription could not be created.');
+      }
       if(!flexihubQueueServiceActivation($accountId,$tenantId,$paymentId,$subscriptionId,'activate')) throw new RuntimeException('Customer payment recorded but service activation could not be queued.');
     }
   }
