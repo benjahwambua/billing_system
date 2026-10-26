@@ -53,6 +53,10 @@ The logical IDs below resolve duplicate filename prefixes. They do **not** autho
 | FEATURE-035 | `035_support_ticket_workflow.sql` | Required before using support-ticket records; not confirmed applied to local DB |
 | FEATURE-036 | `036_mpesa_receipt_claims.sql` | One-time backfill; run read-only duplicate/length preflight first; paired SaaS ledger mirrors are deduplicated; true duplicate receipts must be reconciled |
 
+## Additional read-only type preflight
+
+`mpesa_tenant_key_preflight.sql` inventories the live schema objects relevant to migration 013's `INT UNSIGNED` tenant key declarations. Its output must be reviewed before drafting a type-alignment migration; it is not an executable migration and does not prove row-level integrity.
+
 ## Promotion gates for each migration
 
 A migration can only be marked **approved** after the record contains:
