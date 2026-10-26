@@ -1063,6 +1063,50 @@ if (!function_exists('flexihubGenerateRecurringInvoices')) {
     }
 }
 
+if (!function_exists('flexihubFindServiceSubscriptionForPayment')) {
+    /**
+     * Distinguish an existing payment-linked service period from a missing
+     * period and from a schema/query failure. Callers must not renew the
+     * internet account until this check confirms the payment has no period.
+     *
+     * @return int|null|false Existing subscription ID, no existing row, or failure.
+     */
+    function flexihubFindServiceSubscriptionForPayment($accountId, $tenantId, $paymentId)
+    {
+        global $conn;
+        $accountId = (int) $accountId;
+        $tenantId = (int) $tenantId;
+        $paymentId = (int) $paymentId;
+        if ($accountId <= 0 || $tenantId <= 0 || $paymentId <= 0) return false;
+
+        $cols = flexihubTableColumns('service_subscriptions');
+        if (!$cols || !in_array('tenant_id', $cols, true) ||
+            !in_array('account_id', $cols, true) || !in_array('payment_id', $cols, true)) {
+            return false;
+        }
+
+        $stmt = $conn->prepare(
+            "SELECT id FROM service_subscriptions
+             WHERE tenant_id = ? AND account_id = ? AND payment_id = ?
+             LIMIT 1"
+        );
+        if (!$stmt) return false;
+        $stmt->bind_param('iii', $tenantId, $accountId, $paymentId);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return false;
+        }
+        $result = $stmt->get_result();
+        if (!$result) {
+            $stmt->close();
+            return false;
+        }
+        $row = $result->fetch_assoc();
+        $stmt->close();
+        return $row ? (int) $row['id'] : null;
+    }
+}
+
 if (!function_exists('flexihubRenewInternetAccount')) {
     function flexihubRenewInternetAccount($accountId, $tenantId)
     {
