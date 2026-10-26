@@ -184,21 +184,24 @@ if (($tx['flow']??'')==='customer' || ($tx['flow']??'')==='internet' || ($tx['fl
   if(!$invoice) throw new RuntimeException('Customer invoice is not linked to this M-Pesa transaction.');
 
   $total=flexihubInvoiceTotal($invoice);
-  $alreadyPaid=flexihubInvoicePaid((int)$invoice['id'],$tenantId);
-  $balance=max(0,$total-$alreadyPaid);
-  if($balance<=0.0001) throw new RuntimeException('Customer invoice is already fully paid.');
-  if((float)$tx['amount']>$balance+0.01) throw new RuntimeException('M-Pesa payment exceeds the customer invoice balance.');
-
   $duplicatePayment=dbFetchOne("SELECT * FROM payments WHERE tenant_id=? AND reference=? LIMIT 1",'is',$tenantId,$receipt);
   if($duplicatePayment){
-    // Idempotency is safe only when the existing receipt belongs to this exact invoice and amount.
+    // A legacy payment may exist before receipt claims/artifacts were fully enforced.
+    // Only reuse it when both invoice and amount match this confirmed callback.
     $duplicateInvoiceId=(int)($duplicatePayment['invoice_id']??0);
     $duplicateAmount=(float)($duplicatePayment['amount']??0);
     if($duplicateInvoiceId!==(int)$invoice['id'] || abs($duplicateAmount-(float)$tx['amount'])>0.01){
       throw new RuntimeException('M-Pesa receipt is already linked to a different invoice or amount.');
     }
     $paymentId=(int)$duplicatePayment['id'];
+    $payment=$duplicatePayment;
   }else{
+    // Check the balance only when this callback would create a new payment.
+    $alreadyPaid=flexihubInvoicePaid((int)$invoice['id'],$tenantId);
+    $balance=max(0,$total-$alreadyPaid);
+    if($balance<=0.0001) throw new RuntimeException('Customer invoice is already fully paid.');
+    if((float)$tx['amount']>$balance+0.01) throw new RuntimeException('M-Pesa payment exceeds the customer invoice balance.');
+
     $paymentData=[
       'tenant_id'=>$tenantId,'invoice_id'=>(int)$invoice['id'],'amount'=>(float)$tx['amount'],
       'payment_method'=>'mpesa','payment_date'=>date('Y-m-d'),'reference'=>$receipt,
@@ -207,9 +210,11 @@ if (($tx['flow']??'')==='customer' || ($tx['flow']??'')==='internet' || ($tx['fl
     $paymentId=flexihubWorkflowInsert('payments',$paymentData);
     if(!$paymentId) throw new RuntimeException('Unable to create customer payment record.');
     $payment=$paymentData+['id'=>$paymentId];
-    if(!flexihubRefreshInvoiceStatus((int)$invoice['id'],$tenantId)) throw new RuntimeException('Unable to refresh customer invoice status.');
-    flexihubCreatePaymentArtifacts($paymentId,$payment,$invoice,$tenantId);
   }
+
+  // Reconcile invoice status and idempotent artifacts for both new and recovered payments.
+  if(!flexihubRefreshInvoiceStatus((int)$invoice['id'],$tenantId)) throw new RuntimeException('Unable to refresh customer invoice status.');
+  flexihubCreatePaymentArtifacts($paymentId,$payment,$invoice,$tenantId);
 
   $paidAfter=flexihubInvoicePaid((int)$invoice['id'],$tenantId);
   $fullyPaid=flexihubInvoiceIsFullyPaid($total,$paidAfter);
