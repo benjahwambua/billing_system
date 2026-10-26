@@ -51,6 +51,7 @@
 - **Payment artifact storage:** the payment workflow must fail closed if either `receipts` or `account_transactions` is absent; a payment must not be reported as successful while silently omitting a required receipt or ledger row. Schema-backed verification remains pending.
 - **M-Pesa invoice settlement:** the customer-billing callback now uses the shared positive-total settlement policy, preventing zero/negative invoice totals from triggering service renewal through a separate legacy condition.
 - **Payment-to-ledger reconciliation:** read-only SQL preflight added to report missing receipt/ledger artifacts, duplicate artifact groups, amount/invoice mismatches, and legacy NULL payment IDs. Database execution and manual reconciliation are pending; no records were modified.
+- **M-Pesa legacy payment recovery:** when a matching tenant-scoped payment already exists for a callback receipt, the callback validates invoice/amount, refreshes invoice status, and runs the idempotent receipt/ledger artifact helper instead of skipping artifact reconciliation. MySQL-backed replay verification remains pending.
 
 ## 2. Initial priority queue
 
