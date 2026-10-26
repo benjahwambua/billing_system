@@ -180,8 +180,8 @@ if (!function_exists('flexihubRefreshInvoiceStatus')) {
 if (!function_exists('flexihubCreatePaymentArtifacts')) {
     /**
      * Create a receipt and account-ledger entry for a recorded payment.
-     * If an artifact table exists, a failed or unsafe write must fail the
-     * surrounding payment transaction instead of silently losing the artifact.
+     * Both artifact tables are required: missing storage or an unsafe write
+     * must fail the surrounding payment transaction instead of silently losing records.
      */
     function flexihubCreatePaymentArtifacts($paymentId, array $payment, array $invoice, $tenantId)
     {
@@ -196,6 +196,9 @@ if (!function_exists('flexihubCreatePaymentArtifacts')) {
         $receiptTable = $conn->query("SHOW TABLES LIKE 'receipts'");
         if ($receiptTable === false) {
             throw new RuntimeException('Unable to verify receipt storage.');
+        }
+        if ($receiptTable->num_rows === 0) {
+            throw new RuntimeException('Receipt storage is missing. Apply the required database migration before recording payments.');
         }
 
         $receiptId = false;
@@ -247,6 +250,9 @@ if (!function_exists('flexihubCreatePaymentArtifacts')) {
         $transactionTable = $conn->query("SHOW TABLES LIKE 'account_transactions'");
         if ($transactionTable === false) {
             throw new RuntimeException('Unable to verify account transaction storage.');
+        }
+        if ($transactionTable->num_rows === 0) {
+            throw new RuntimeException('Account ledger storage is missing. Apply the required database migration before recording payments.');
         }
 
         if ($transactionTable->num_rows > 0) {
