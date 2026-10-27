@@ -64,11 +64,26 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         }
     }
 
+    $linkedAccountId=$aid ?: (int)($invoice['internet_account_id']??$invoice['account_id']??0);
+    if(!$errors && $linkedAccountId<=0){
+        $errors[]='This invoice is not linked to an internet account, but the current account ledger requires one. Link the invoice to an account before recording the payment.';
+    }
+
     if(!$errors){
-        $data=['tenant_id'=>$tid,'invoice_id'=>$iid,'amount'=>$amount,'payment_method'=>$v['payment_method'],
-               'payment_date'=>$v['payment_date'],'reference'=>$v['reference'],
-               'payment_number'=>'PAY-'.date('YmdHis').'-'.random_int(100,999)];
-        if($aid)$data['account_id']=$aid;
+        $methodMap=['cash'=>'Cash','mpesa'=>'M-Pesa','bank'=>'Bank','card'=>'Card'];
+        $schemaPaymentMethod=$methodMap[strtolower($v['payment_method'])]??'Other';
+        $data=[
+            'tenant_id'=>$tid,
+            'invoice_id'=>$iid,
+            'customer_id'=>(int)($invoice['customer_id']??0),
+            'internet_account_id'=>$linkedAccountId>0?$linkedAccountId:null,
+            'amount'=>$amount,
+            'payment_method'=>$schemaPaymentMethod,
+            'payment_date'=>$v['payment_date'],
+            'reference'=>$v['reference'],
+            'reference_number'=>$v['reference'],
+            'payment_number'=>'PAY-'.date('YmdHis').'-'.random_int(100,999)
+        ];
 
         // Keep the financial workflow atomic. RouterOS/network work is deliberately
         // deferred to the activation queue and therefore happens after commit.
