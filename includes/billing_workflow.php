@@ -163,11 +163,7 @@ if (!function_exists('flexihubWorkflowStatusColumnValue')) {
         $type = (string)($column['Type'] ?? '');
         if (!preg_match('/^enum\\((.*)\\)$/i', $type, $match)) return (string)$desired;
 
-        preg_match_all("/'((?:\\\\\\\\.|[^'])*)'/", $match[1], $enumMatches);
-        $values = array_map(
-            static function ($value) { return str_replace("\\\\'", "'", $value); },
-            $enumMatches[1] ?? []
-        );
+        $values = str_getcsv($match[1], ',', "'");
         $normalized = strtolower(trim((string)$desired));
         foreach ($values as $value) {
             if (strtolower($value) === $normalized) return $value;
