@@ -7,6 +7,7 @@ File: `database/037_snapshot_compatible_core_runtime.sql`.
 ## What this candidate does
 
 - Creates missing tenant M-Pesa gateway tables, gateway event storage, and hotspot portal settings.
+- Creates the missing `hotspot_packages` and `hotspot_access_codes` foundations from migration 007, including the router link from migration 012.
 - Creates the missing `hotspot_sales` table using fields explicitly present across historical migrations 008, 013, 015, and 016, with `BIGINT UNSIGNED` tenant and primary keys compatible with the current export.
 - Creates the missing service-subscription lineage table using the fields defined in migrations 008 and 018, correcting the historical signed `INT` tenant key mismatch.
 - Creates platform SaaS plan, subscription, invoice, payment, gateway, and key/value settings tables from the repository's existing migration contracts.
