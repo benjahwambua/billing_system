@@ -718,18 +718,7 @@ CREATE TABLE IF NOT EXISTS sms_gateways (
  KEY idx_sms_gateway_tenant_status(tenant_id,status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Remaining known gaps are deliberately surfaced rather than guessed.
-SELECT expected.table_name,
-       CASE WHEN t.TABLE_NAME IS NULL THEN 'MISSING - NEEDS VERIFIED MODULE MIGRATION'
-            ELSE 'PRESENT - COLUMN/CONSTRAINT CONTRACT STILL REQUIRES REVIEW' END AS status
-FROM (
-    SELECT 'router_service_authorizations' AS table_name
-    UNION ALL SELECT 'router_sync_logs'
-    UNION ALL SELECT 'mpesa_receipt_claims'
-) expected
-LEFT JOIN information_schema.TABLES t
-  ON t.TABLE_SCHEMA = @snapshot_schema AND t.TABLE_NAME = expected.table_name
-ORDER BY status, expected.table_name;
+
 
 
 -- Router authorization and sync audit tables from 011_pppoe_router_runtime.sql.
@@ -840,13 +829,21 @@ CREATE TABLE IF NOT EXISTS service_events (
  KEY idx_service_events_type (tenant_id, event_type, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- The remaining known data-integrity gap is deliberately excluded from auto-application:
--- mpesa_receipt_claims requires duplicate-receipt preflight and reconciliation first.
-SELECT expected.table_name,
-       CASE WHEN t.TABLE_NAME IS NULL THEN 'MISSING - NEEDS VERIFIED MODULE MIGRATION'
-            ELSE 'PRESENT - COLUMN/CONSTRAINT CONTRACT STILL REQUIRES REVIEW' END AS status
-FROM (
-    SELECT 'mpesa_receipt_claims' AS table_name
-) expected
-LEFT JOIN information_schema.TABLES t
-  ON t.TABLE_SCHEMA = @snapshot_schema AND t.TABLE_NAME = expected.table_name;
+
+
+
+-- Final inventory of the one intentionally deferred data-integrity operation.
+-- Receipt claims must not be backfilled until duplicate receipts have been reconciled.
+SELECT 'mpesa_receipt_claims' AS table_name,
+       CASE WHEN TABLE_NAME IS NULL THEN 'DEFERRED - run duplicate receipt preflight first'
+            ELSE 'EXISTS - verify rows and uniqueness before relying on it' END AS status
+FROM information_schema.TABLES
+WHERE TABLE_SCHEMA = @snapshot_schema
+  AND TABLE_NAME = 'mpesa_receipt_claims'
+UNION ALL
+SELECT 'mpesa_receipt_claims',
+       'DEFERRED - run duplicate receipt preflight first'
+WHERE NOT EXISTS (
+    SELECT 1 FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = @snapshot_schema AND TABLE_NAME = 'mpesa_receipt_claims'
+);
