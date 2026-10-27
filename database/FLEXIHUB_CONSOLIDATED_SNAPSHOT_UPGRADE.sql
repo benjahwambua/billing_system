@@ -2,14 +2,18 @@
 -- Target snapshot: user-confirmed 2026-10-27 export; MariaDB 10.4.x
 -- STATUS: REVIEW / DISPOSABLE-RESTORE ONLY. NOT APPROVED FOR WORKING DATABASE.
 --
--- This single file consolidates the core runtime schema candidate for the latest export.
--- Covered: tenant M-Pesa gateway/event storage; hotspot portal settings, packages,
--- access codes, sales and finalization queue; service subscription lineage; platform
--- plans, subscriptions, invoices, payments and gateway settings.
+-- This single file consolidates schema foundations for the latest supplied export.
+-- Covered: tenant M-Pesa gateways/events; hotspot portal/packages/access codes/sales;
+-- finalization and service activation/session/subscription runtime; platform SaaS billing;
+-- SMS gateways/messages; notifications; router authorization/sync logs; OLT/ONU and network
+-- map; vouchers, agent sales, adverts, customer chat, themes, wallets and support tickets.
 --
--- It does not yet repair arbitrary existing partial tables or cover every optional module.
--- Excluded pending exact contract review: SMS delivery/retry, OLT/ONU, network monitoring,
--- support tickets/chat, vouchers/agent sales/advertising, and M-Pesa receipt claims/backfill.
+-- Important limitations:
+-- * CREATE TABLE IF NOT EXISTS does not repair an existing partial or incompatible table.
+-- * Not every optional table has been checked against every PHP query or existing partial
+--   migration; a present table must be reviewed against the runtime contract.
+-- * M-Pesa receipt claims and all receipt backfill remain deferred until duplicate receipts
+--   have been reconciled. No financial rows are inserted, updated or deleted.
 -- No customer, invoice, payment, receipt or ledger rows are inserted, updated or deleted.
 -- No credentials, starter plans, portal tokens or subscriptions are seeded.
 --
