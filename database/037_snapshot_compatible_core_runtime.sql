@@ -118,6 +118,42 @@ CREATE TABLE IF NOT EXISTS hotspot_portal_settings (
     UNIQUE KEY uq_hotspot_portal_token (public_token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Hotspot package/access-code foundation from migration 007, with the router
+-- linkage from migration 012 included directly because these tables are absent
+-- from the supplied export.
+CREATE TABLE IF NOT EXISTS hotspot_packages (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    tenant_id BIGINT UNSIGNED NOT NULL,
+    router_id BIGINT UNSIGNED NULL,
+    name VARCHAR(150) NOT NULL,
+    duration_minutes INT UNSIGNED NOT NULL DEFAULT 60,
+    price DECIMAL(14,2) NOT NULL DEFAULT 0,
+    status VARCHAR(30) NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_hotspot_packages_tenant (tenant_id),
+    KEY idx_hotspot_packages_router (tenant_id, router_id),
+    CONSTRAINT fk_hotspot_packages_tenant
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+        ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS hotspot_access_codes (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    tenant_id BIGINT UNSIGNED NOT NULL,
+    code VARCHAR(100) NOT NULL,
+    package_id BIGINT UNSIGNED NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'unused',
+    expires_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_hotspot_code_tenant (tenant_id, code),
+    KEY idx_hotspot_codes_tenant (tenant_id),
+    CONSTRAINT fk_hotspot_codes_tenant
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+        ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- The original hotspot_sales table was absent from the supplied export.
 -- This combines only fields explicitly defined by migrations 008, 013, 015 and 016.
 CREATE TABLE IF NOT EXISTS hotspot_sales (
