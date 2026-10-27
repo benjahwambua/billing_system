@@ -16,16 +16,25 @@ SELECT expected.table_name,
        t.ENGINE AS storage_engine
 FROM (
     SELECT 'tenants' AS table_name
+    UNION ALL SELECT 'customers'
+    UNION ALL SELECT 'invoices'
+    UNION ALL SELECT 'internet_accounts'
     UNION ALL SELECT 'payments'
     UNION ALL SELECT 'receipts'
     UNION ALL SELECT 'account_transactions'
+    UNION ALL SELECT 'payment_callbacks'
     UNION ALL SELECT 'payment_gateways'
     UNION ALL SELECT 'payment_gateway_transactions'
     UNION ALL SELECT 'payment_gateway_events'
     UNION ALL SELECT 'hotspot_portal_settings'
     UNION ALL SELECT 'hotspot_sales'
+    UNION ALL SELECT 'hotspot_sessions'
     UNION ALL SELECT 'service_subscriptions'
+    UNION ALL SELECT 'platform_settings'
+    UNION ALL SELECT 'platform_payment_gateways'
     UNION ALL SELECT 'platform_invoices'
+    UNION ALL SELECT 'platform_plans'
+    UNION ALL SELECT 'tenant_platform_subscriptions'
     UNION ALL SELECT 'platform_payments'
     UNION ALL SELECT 'mpesa_receipt_claims'
 ) AS expected
@@ -56,6 +65,39 @@ FROM (
     UNION ALL SELECT 'payments', 'reference', 'OPTIONAL'
     UNION ALL SELECT 'payments', 'reference_number', 'OPTIONAL'
 
+    UNION ALL SELECT 'platform_payment_gateways', 'id', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_payment_gateways', 'callback_token', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_payment_gateways', 'provider', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_payment_gateways', 'status', 'REQUIRED FOR PLATFORM CALLBACK'
+
+    UNION ALL SELECT 'platform_payments', 'id', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_payments', 'gateway_id', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_payments', 'checkout_request_id', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_payments', 'tenant_id', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_payments', 'invoice_id', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_payments', 'amount', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_payments', 'status', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_payments', 'phone_number', 'REQUIRED FOR CALLBACK VALIDATION'
+    UNION ALL SELECT 'platform_payments', 'external_transaction_id', 'REQUIRED FOR RECEIPT CLAIMS'
+
+    UNION ALL SELECT 'platform_invoices', 'id', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_invoices', 'tenant_id', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_invoices', 'total_amount', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_invoices', 'paid_amount', 'REQUIRED FOR PLATFORM CALLBACK'
+    UNION ALL SELECT 'platform_invoices', 'subscription_id', 'REQUIRED FOR SUBSCRIPTION RENEWAL'
+    UNION ALL SELECT 'platform_invoices', 'period_end', 'REQUIRED FOR SUBSCRIPTION RENEWAL'
+
+    UNION ALL SELECT 'platform_plans', 'id', 'REQUIRED FOR SUBSCRIPTION RENEWAL'
+    UNION ALL SELECT 'platform_plans', 'billing_cycle', 'REQUIRED FOR SUBSCRIPTION RENEWAL'
+    UNION ALL SELECT 'tenant_platform_subscriptions', 'id', 'REQUIRED FOR SUBSCRIPTION RENEWAL'
+    UNION ALL SELECT 'tenant_platform_subscriptions', 'tenant_id', 'REQUIRED FOR SUBSCRIPTION RENEWAL'
+    UNION ALL SELECT 'tenant_platform_subscriptions', 'plan_id', 'REQUIRED FOR SUBSCRIPTION RENEWAL'
+    UNION ALL SELECT 'tenant_platform_subscriptions', 'status', 'REQUIRED FOR SUBSCRIPTION RENEWAL'
+
+    UNION ALL SELECT 'payment_callbacks', 'tenant_id', 'REQUIRED FOR CALLBACK AUDIT'
+    UNION ALL SELECT 'payment_callbacks', 'external_transaction_id', 'REQUIRED FOR CALLBACK AUDIT'
+    UNION ALL SELECT 'payment_callbacks', 'processing_status', 'REQUIRED FOR CALLBACK AUDIT'
+
     UNION ALL SELECT 'receipts', 'id', 'REQUIRED'
     UNION ALL SELECT 'receipts', 'tenant_id', 'REQUIRED'
     UNION ALL SELECT 'receipts', 'payment_id', 'REQUIRED'
@@ -76,6 +118,11 @@ FROM (
     UNION ALL SELECT 'payment_gateway_transactions', 'provider', 'REQUIRED FOR M-PESA CLAIM MIGRATION'
     UNION ALL SELECT 'payment_gateway_transactions', 'provider_receipt', 'REQUIRED FOR M-PESA CLAIM MIGRATION'
     UNION ALL SELECT 'payment_gateway_transactions', 'id', 'REQUIRED FOR M-PESA CLAIM MIGRATION'
+    UNION ALL SELECT 'payment_gateway_transactions', 'gateway_id', 'REQUIRED FOR CUSTOMER CALLBACK'
+    UNION ALL SELECT 'payment_gateway_transactions', 'checkout_request_id', 'REQUIRED FOR CUSTOMER CALLBACK'
+    UNION ALL SELECT 'payment_gateway_transactions', 'amount', 'REQUIRED FOR CUSTOMER CALLBACK'
+    UNION ALL SELECT 'payment_gateway_transactions', 'phone_number', 'REQUIRED FOR CALLBACK VALIDATION'
+    UNION ALL SELECT 'payment_gateway_transactions', 'status', 'REQUIRED FOR CUSTOMER CALLBACK'
     UNION ALL SELECT 'payment_gateway_transactions', 'flow', 'REQUIRED FOR MIRROR DETECTION'
     UNION ALL SELECT 'payment_gateway_transactions', 'platform_invoice_id', 'REQUIRED FOR MIRROR DETECTION'
     UNION ALL SELECT 'payment_gateway_transactions', 'account_reference', 'REQUIRED FOR MIRROR DETECTION'
@@ -97,6 +144,42 @@ LEFT JOIN information_schema.COLUMNS c
  AND c.TABLE_NAME = expected.table_name
  AND c.COLUMN_NAME = expected.column_name
 ORDER BY expected.table_name, expected.importance, expected.column_name;
+
+-- Result set 3: callback support columns that are commonly missing from older exports.
+SELECT expected.table_name,
+       expected.column_name,
+       CASE WHEN t.TABLE_NAME IS NULL THEN 'TABLE MISSING'
+            WHEN c.COLUMN_NAME IS NULL THEN 'COLUMN MISSING'
+            ELSE 'PRESENT' END AS column_status,
+       c.COLUMN_TYPE AS actual_column_type
+FROM (
+    SELECT 'payment_gateways' AS table_name, 'id' AS column_name
+    UNION ALL SELECT 'payment_gateways', 'tenant_id'
+    UNION ALL SELECT 'payment_gateways', 'callback_token'
+    UNION ALL SELECT 'payment_gateways', 'provider'
+    UNION ALL SELECT 'payment_gateway_transactions', 'gateway_id'
+    UNION ALL SELECT 'payment_gateway_transactions', 'checkout_request_id'
+    UNION ALL SELECT 'payment_gateway_transactions', 'amount'
+    UNION ALL SELECT 'payment_gateway_transactions', 'phone_number'
+    UNION ALL SELECT 'payment_gateway_transactions', 'status'
+    UNION ALL SELECT 'payment_gateway_events', 'tenant_id'
+    UNION ALL SELECT 'payment_gateway_events', 'gateway_transaction_id'
+    UNION ALL SELECT 'platform_payment_gateways', 'callback_token'
+    UNION ALL SELECT 'platform_payments', 'gateway_id'
+    UNION ALL SELECT 'platform_payments', 'checkout_request_id'
+    UNION ALL SELECT 'platform_invoices', 'total_amount'
+    UNION ALL SELECT 'platform_invoices', 'paid_amount'
+    UNION ALL SELECT 'tenant_platform_subscriptions', 'plan_id'
+    UNION ALL SELECT 'platform_plans', 'billing_cycle'
+    UNION ALL SELECT 'service_subscriptions', 'payment_id'
+    UNION ALL SELECT 'payment_callbacks', 'processing_status'
+) AS expected
+LEFT JOIN information_schema.TABLES t
+  ON t.TABLE_SCHEMA = @target_schema AND t.TABLE_NAME = expected.table_name
+LEFT JOIN information_schema.COLUMNS c
+  ON c.TABLE_SCHEMA = @target_schema AND c.TABLE_NAME = expected.table_name
+ AND c.COLUMN_NAME = expected.column_name
+ORDER BY expected.table_name, expected.column_name;
 
 -- Safety reminder:
 -- Do not apply database/036_mpesa_receipt_claims.sql unless its source tables and columns
