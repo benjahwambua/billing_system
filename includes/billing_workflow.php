@@ -140,6 +140,47 @@ if (!function_exists('flexihubInvoicePaid')) {
     }
 }
 
+if (!function_exists('flexihubWorkflowStatusColumnValue')) {
+    /**
+     * Map normalized workflow states to the actual enum spelling used by legacy schemas.
+     */
+    function flexihubWorkflowStatusColumnValue($table, $field, $desired)
+    {
+        global $conn;
+        $safeTable = preg_replace('/[^a-zA-Z0-9_]/', '', (string)$table);
+        $safeField = preg_replace('/[^a-zA-Z0-9_]/', '', (string)$field);
+        if (!$safeTable || !$safeField) return (string)$desired;
+
+        $stmt = $conn->prepare("SHOW COLUMNS FROM `{$safeTable}` LIKE ?");
+        if (!$stmt) return (string)$desired;
+        $stmt->bind_param('s', $safeField);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return (string)$desired;
+        }
+        $column = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $type = (string)($column['Type'] ?? '');
+        if (!preg_match('/^enum\\((.*)\\)$/i', $type, $match)) return (string)$desired;
+
+        preg_match_all("/'((?:\\\\\\\\.|[^'])*)'/", $match[1], $enumMatches);
+        $values = array_map(
+            static function ($value) { return str_replace("\\\\'", "'", $value); },
+            $enumMatches[1] ?? []
+        );
+        $normalized = strtolower(trim((string)$desired));
+        foreach ($values as $value) {
+            if (strtolower($value) === $normalized) return $value;
+        }
+        if ($normalized === 'partial') {
+            foreach ($values as $value) {
+                if (stripos($value, 'partial') !== false) return $value;
+            }
+        }
+        return (string)$desired;
+    }
+}
+
 if (!function_exists('flexihubRefreshInvoiceStatus')) {
     function flexihubRefreshInvoiceStatus($invoiceId, $tenantId)
     {
@@ -161,8 +202,13 @@ if (!function_exists('flexihubRefreshInvoiceStatus')) {
         $values = [];
         $types = '';
         if (in_array('paid_amount', $cols, true)) { $sets[]='paid_amount=?'; $values[]=$paid; $types.='d'; }
+        elseif (in_array('amount_paid', $cols, true)) { $sets[]='amount_paid=?'; $values[]=$paid; $types.='d'; }
         if (in_array('balance', $cols, true)) { $sets[]='balance=?'; $values[]=flexihubInvoiceOutstandingBalance($total,$paid); $types.='d'; }
-        if (in_array('status', $cols, true)) { $sets[]='status=?'; $values[]=$status; $types.='s'; }
+        if (in_array('status', $cols, true)) {
+            $sets[]='status=?';
+            $values[]=flexihubWorkflowStatusColumnValue('invoices', 'status', $status);
+            $types.='s';
+        }
         if (!$sets) return true;
 
         $sql = "UPDATE invoices SET ".implode(',', $sets)." WHERE id=? AND tenant_id=?";
