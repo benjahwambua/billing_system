@@ -23,9 +23,10 @@ Run each SQL file while `billing_system_snapshot_test_20261027` is selected:
 1. `database/snapshot_upgrade_preflight.sql`
 2. `database/payment_schema_compatibility_preflight.sql`
 3. `database/snapshot_runtime_contract_preflight.sql`
-4. `database/snapshot_financial_reconciliation_preflight.sql`
+4. `database/snapshot_candidate_collision_preflight.sql`
+5. `database/snapshot_financial_reconciliation_preflight.sql`
 
-Save/export the result sets. The first result set in each file identifies the selected schema/server. Stop immediately if the selected schema is not `billing_system_snapshot_test_20261027`. Record any existing target tables or columns before considering the candidate.
+Save/export the result sets. The first result set in each file identifies the selected schema/server. Stop immediately if the selected schema is not `billing_system_snapshot_test_20261027`. Record any existing target tables or columns before considering the candidate. The collision preflight lists all candidate target tables, checks `tenants.id` key type, and exposes existing key-column/FK definitions.
 
 ## 4. Review the candidate before running it
 
