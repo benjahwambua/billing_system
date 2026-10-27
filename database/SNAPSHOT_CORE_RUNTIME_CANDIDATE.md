@@ -32,4 +32,4 @@ File: `database/037_snapshot_compatible_core_runtime.sql`.
 
 ## Validation status
 
-The DDL was assembled by reviewing the supplied export and the source definitions in historical migrations. It has **not** been executed against MariaDB in this environment. The PHP-lint workflow does not validate SQL syntax or schema compatibility. Treat this as an implementation candidate until it passes the disposable-restore run and second-run checks.
+The DDL was assembled by reviewing the supplied export and the source definitions in historical migrations. A static column-contract check compared the candidate tables with 134 column expectations in `snapshot_runtime_contract_preflight.sql`; all 134 names are present in the candidate definitions. This is source-level checking only, not database execution. The DDL has **not** been executed against MariaDB in this environment. The PHP-lint workflow does not validate SQL syntax, foreign-key creation, MariaDB execution, or second-run behavior. Treat this as an implementation candidate until it passes the disposable-restore run and second-run checks.
