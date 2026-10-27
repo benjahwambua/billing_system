@@ -730,3 +730,123 @@ FROM (
 LEFT JOIN information_schema.TABLES t
   ON t.TABLE_SCHEMA = @snapshot_schema AND t.TABLE_NAME = expected.table_name
 ORDER BY status, expected.table_name;
+
+
+-- Router authorization and sync audit tables from 011_pppoe_router_runtime.sql.
+CREATE TABLE IF NOT EXISTS router_service_authorizations (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ tenant_id BIGINT UNSIGNED NOT NULL,
+ pppoe_account_id BIGINT UNSIGNED NULL,
+ hotspot_session_id BIGINT UNSIGNED NULL,
+ router_id BIGINT UNSIGNED NOT NULL,
+ service_type VARCHAR(30) NOT NULL,
+ external_username VARCHAR(150) NULL,
+ desired_status VARCHAR(30) NOT NULL DEFAULT 'active',
+ applied_status VARCHAR(30) NULL,
+ last_synced_at DATETIME NULL,
+ last_error TEXT NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ KEY idx_rsa_tenant(tenant_id), KEY idx_rsa_account(tenant_id,pppoe_account_id),
+ KEY idx_rsa_router(tenant_id,router_id), KEY idx_rsa_status(tenant_id,desired_status),
+ UNIQUE KEY uq_rsa_pppoe(tenant_id,pppoe_account_id),
+ CONSTRAINT fk_rsa_tenant FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS router_sync_logs (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ tenant_id BIGINT UNSIGNED NOT NULL,
+ router_id BIGINT UNSIGNED NOT NULL,
+ service_type VARCHAR(30) NOT NULL,
+ external_username VARCHAR(150) NULL,
+ action VARCHAR(30) NOT NULL,
+ status VARCHAR(30) NOT NULL,
+ message TEXT NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ KEY idx_rsl_tenant(tenant_id,created_at), KEY idx_rsl_router(tenant_id,router_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Service runtime tables from 010_service_activation_hotspot_runtime.sql.
+CREATE TABLE IF NOT EXISTS hotspot_sessions (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+ tenant_id BIGINT UNSIGNED NOT NULL,
+ access_code_id BIGINT UNSIGNED NULL,
+ package_id BIGINT UNSIGNED NULL,
+ internet_account_id BIGINT UNSIGNED NULL,
+ customer_id BIGINT UNSIGNED NULL,
+ router_id BIGINT UNSIGNED NULL,
+ session_identifier VARCHAR(150) NULL,
+ username VARCHAR(150) NULL,
+ mac_address VARCHAR(64) NULL,
+ ip_address VARCHAR(64) NULL,
+ started_at DATETIME NULL,
+ expires_at DATETIME NULL,
+ ended_at DATETIME NULL,
+ status VARCHAR(30) NOT NULL DEFAULT 'pending',
+ disconnect_reason VARCHAR(100) NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY (id),
+ UNIQUE KEY uq_hotspot_session_identifier (tenant_id, session_identifier),
+ KEY idx_hs_runtime_tenant_status (tenant_id, status),
+ KEY idx_hs_runtime_account (tenant_id, internet_account_id),
+ KEY idx_hs_runtime_customer (tenant_id, customer_id),
+ KEY idx_hs_runtime_code (tenant_id, access_code_id),
+ KEY idx_hs_runtime_router (tenant_id, router_id),
+ KEY idx_hs_runtime_expiry (tenant_id, expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS service_activation_queue (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+ tenant_id BIGINT UNSIGNED NOT NULL,
+ service_type VARCHAR(30) NOT NULL,
+ account_id BIGINT UNSIGNED NULL,
+ customer_id BIGINT UNSIGNED NULL,
+ subscription_id BIGINT UNSIGNED NULL,
+ payment_id BIGINT UNSIGNED NULL,
+ action VARCHAR(30) NOT NULL,
+ status VARCHAR(30) NOT NULL DEFAULT 'pending',
+ attempts INT UNSIGNED NOT NULL DEFAULT 0,
+ available_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ processed_at DATETIME NULL,
+ last_error TEXT NULL,
+ payload JSON NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY (id),
+ KEY idx_activation_tenant_status (tenant_id, status),
+ KEY idx_activation_account (tenant_id, account_id),
+ KEY idx_activation_subscription (tenant_id, subscription_id),
+ KEY idx_activation_available (status, available_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS service_events (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+ tenant_id BIGINT UNSIGNED NOT NULL,
+ account_id BIGINT UNSIGNED NULL,
+ customer_id BIGINT UNSIGNED NULL,
+ subscription_id BIGINT UNSIGNED NULL,
+ event_type VARCHAR(50) NOT NULL,
+ old_status VARCHAR(30) NULL,
+ new_status VARCHAR(30) NULL,
+ source VARCHAR(50) NOT NULL DEFAULT 'system',
+ reference VARCHAR(150) NULL,
+ details JSON NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY (id),
+ KEY idx_service_events_tenant (tenant_id, created_at),
+ KEY idx_service_events_account (tenant_id, account_id, created_at),
+ KEY idx_service_events_customer (tenant_id, customer_id, created_at),
+ KEY idx_service_events_type (tenant_id, event_type, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- The remaining known data-integrity gap is deliberately excluded from auto-application:
+-- mpesa_receipt_claims requires duplicate-receipt preflight and reconciliation first.
+SELECT expected.table_name,
+       CASE WHEN t.TABLE_NAME IS NULL THEN 'MISSING - NEEDS VERIFIED MODULE MIGRATION'
+            ELSE 'PRESENT - COLUMN/CONSTRAINT CONTRACT STILL REQUIRES REVIEW' END AS status
+FROM (
+    SELECT 'mpesa_receipt_claims' AS table_name
+) expected
+LEFT JOIN information_schema.TABLES t
+  ON t.TABLE_SCHEMA = @snapshot_schema AND t.TABLE_NAME = expected.table_name;
