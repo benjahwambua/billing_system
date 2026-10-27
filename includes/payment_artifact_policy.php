@@ -27,4 +27,25 @@ if (!function_exists('flexihubPaymentArtifactMatches')) {
 
         return true;
     }
+
+/**
+ * Select the strongest available tenant-scoped identity for payment ledger rows.
+ * Legacy schemas can use reference_type/reference_id when payment_id is absent.
+ */
+if (!function_exists('flexihubPaymentLedgerIdentityMode')) {
+    function flexihubPaymentLedgerIdentityMode(array $columns): ?string
+    {
+        if (in_array('payment_id', $columns, true)) {
+            return 'payment_id';
+        }
+        if (
+            in_array('reference_type', $columns, true) &&
+            in_array('reference_id', $columns, true)
+        ) {
+            return 'reference_pair';
+        }
+        return null;
+    }
+}
+
 }
