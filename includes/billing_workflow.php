@@ -264,14 +264,12 @@ if (!function_exists('flexihubCreatePaymentArtifacts')) {
 
         if ($transactionTable->num_rows > 0) {
             $transactionCols = flexihubTableColumns('account_transactions');
-            $hasPaymentId = in_array('payment_id', $transactionCols, true);
-            $hasReferenceIdentity = in_array('reference_type', $transactionCols, true)
-                && in_array('reference_id', $transactionCols, true);
+            $identityMode = flexihubPaymentLedgerIdentityMode($transactionCols);
 
             if (
                 !$transactionCols ||
                 !in_array('tenant_id', $transactionCols, true) ||
-                (!$hasPaymentId && !$hasReferenceIdentity)
+                $identityMode === null
             ) {
                 throw new RuntimeException('Account transaction storage must support a tenant-scoped payment identity through payment_id or reference_type/reference_id. Apply a reviewed database migration before recording payments.');
             }
@@ -279,7 +277,7 @@ if (!function_exists('flexihubCreatePaymentArtifacts')) {
             // Prefer the dedicated payment_id column where available. The current
             // legacy schema instead provides reference_type/reference_id; use that
             // pair to link newly created ledger entries without altering old records.
-            if ($hasPaymentId) {
+            if ($identityMode === 'payment_id') {
                 $stmt = $conn->prepare("SELECT * FROM account_transactions WHERE payment_id = ? AND tenant_id = ? LIMIT 1");
             } else {
                 $stmt = $conn->prepare("SELECT * FROM account_transactions WHERE reference_type = 'payment' AND reference_id = ? AND tenant_id = ? LIMIT 1");
