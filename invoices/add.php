@@ -51,7 +51,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 
     if(!$errors){
         $data=['tenant_id'=>$tid,'customer_id'=>$cid,'invoice_date'=>$v['invoice_date'],'due_date'=>$v['due_date'],'description'=>$v['description'],
-               'total_amount'=>$amount,'amount'=>$amount,'total'=>$amount,'status'=>'unpaid','paid_amount'=>0,'balance'=>$amount,
+               'total_amount'=>$amount,'amount'=>$amount,'subtotal'=>$amount,'total'=>$amount,'status'=>'Unpaid','paid_amount'=>0,'amount_paid'=>0,'balance'=>$amount,
                'invoice_number'=>'INV-'.date('YmdHis').'-'.random_int(100,999)];
         $id=flexihubWorkflowInsert('invoices',$data);
         if($id)redirect('index.php');
