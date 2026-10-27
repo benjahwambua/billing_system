@@ -407,3 +407,114 @@ DEALLOCATE PREPARE snapshot_stmt;
 
 -- No settings, starter plans, portal tokens, subscriptions, payments, or receipt claims
 -- are seeded here. Those require separate reviewed decisions after the test restore.
+
+
+-- Optional SMS delivery persistence.
+-- The supplied snapshot lacks sms_messages. SMS gateway-specific ALTERs are guarded
+-- below so this file does not fail merely because the optional gateway table is absent.
+CREATE TABLE IF NOT EXISTS sms_messages (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    tenant_id BIGINT UNSIGNED NOT NULL,
+    gateway_id BIGINT UNSIGNED NULL,
+    recipient VARCHAR(40) NOT NULL,
+    message TEXT NOT NULL,
+    sender_id VARCHAR(80) NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'queued',
+    provider_message_id VARCHAR(150) NULL,
+    response_body TEXT NULL,
+    failure_reason VARCHAR(500) NULL,
+    attempts INT UNSIGNED NOT NULL DEFAULT 0,
+    sent_at DATETIME NULL,
+    next_attempt_at DATETIME NULL,
+    last_attempt_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_sms_messages_tenant_status (tenant_id, status),
+    KEY idx_sms_messages_tenant_created (tenant_id, created_at),
+    KEY idx_sms_messages_provider (tenant_id, provider_message_id),
+    KEY idx_sms_retry_queue (status, next_attempt_at, attempts, tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Conditional additions for known optional runtime columns. These changes are
+-- deliberately skipped if the owning table is absent; missing parent tables need
+-- their own verified migration rather than guessed table definitions.
+SET @has_sms_gateways := (
+    SELECT COUNT(*) FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = @snapshot_schema AND TABLE_NAME = 'sms_gateways'
+);
+SET @ddl := IF(@has_sms_gateways = 1,
+    IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='sms_gateways' AND COLUMN_NAME='api_method')=0,
+       'ALTER TABLE sms_gateways ADD COLUMN api_method VARCHAR(10) NOT NULL DEFAULT ''POST''',
+       'SELECT 1'), 'SELECT 1');
+PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snapshot_stmt;
+SET @ddl := IF(@has_sms_gateways = 1,
+    IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='sms_gateways' AND COLUMN_NAME='auth_type')=0,
+       'ALTER TABLE sms_gateways ADD COLUMN auth_type VARCHAR(30) NOT NULL DEFAULT ''bearer''',
+       'SELECT 1'), 'SELECT 1');
+PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snapshot_stmt;
+SET @ddl := IF(@has_sms_gateways = 1,
+    IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='sms_gateways' AND COLUMN_NAME='request_template')=0,
+       'ALTER TABLE sms_gateways ADD COLUMN request_template TEXT NULL',
+       'SELECT 1'), 'SELECT 1');
+PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snapshot_stmt;
+SET @ddl := IF(@has_sms_gateways = 1,
+    IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='sms_gateways' AND COLUMN_NAME='balance_endpoint')=0,
+       'ALTER TABLE sms_gateways ADD COLUMN balance_endpoint VARCHAR(500) NULL',
+       'SELECT 1'), 'SELECT 1');
+PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snapshot_stmt;
+SET @ddl := IF(@has_sms_gateways = 1,
+    IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='sms_gateways' AND COLUMN_NAME='last_error')=0,
+       'ALTER TABLE sms_gateways ADD COLUMN last_error VARCHAR(500) NULL',
+       'SELECT 1'), 'SELECT 1');
+PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snapshot_stmt;
+
+-- Optional monitoring fields: only add columns when the owning tables already exist.
+SET @monitor_tables := 'mikrotik_routers,olt_devices,onu_devices';
+SET @ddl := IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='mikrotik_routers')=1,
+    IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='mikrotik_routers' AND COLUMN_NAME='last_poll_at')=0,
+       'ALTER TABLE mikrotik_routers ADD COLUMN last_poll_at DATETIME NULL', 'SELECT 1'), 'SELECT 1');
+PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snapshot_stmt;
+SET @ddl := IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='mikrotik_routers')=1,
+    IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='mikrotik_routers' AND COLUMN_NAME='last_seen_at')=0,
+       'ALTER TABLE mikrotik_routers ADD COLUMN last_seen_at DATETIME NULL', 'SELECT 1'), 'SELECT 1');
+PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snapshot_stmt;
+SET @ddl := IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='mikrotik_routers')=1,
+    IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='mikrotik_routers' AND COLUMN_NAME='last_poll_error')=0,
+       'ALTER TABLE mikrotik_routers ADD COLUMN last_poll_error VARCHAR(500) NULL', 'SELECT 1'), 'SELECT 1');
+PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snapshot_stmt;
+SET @ddl := IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='mikrotik_routers')=1,
+    IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='mikrotik_routers' AND COLUMN_NAME='latency_ms')=0,
+       'ALTER TABLE mikrotik_routers ADD COLUMN latency_ms DECIMAL(10,1) NULL', 'SELECT 1'), 'SELECT 1');
+PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snapshot_stmt;
+
+-- Final inventory: objects still absent after this candidate. This is a report, not
+-- proof that their application workflows are complete. Resolve these from their exact
+-- module migrations before calling the database fully upgraded.
+SELECT expected.table_name,
+       CASE WHEN t.TABLE_NAME IS NULL THEN 'MISSING - NEEDS VERIFIED MODULE MIGRATION'
+            ELSE 'PRESENT - COLUMN/CONSTRAINT CONTRACT STILL REQUIRES REVIEW' END AS status
+FROM (
+    SELECT 'router_service_authorizations' AS table_name
+    UNION ALL SELECT 'router_sync_logs'
+    UNION ALL SELECT 'notification_templates'
+    UNION ALL SELECT 'notification_queue'
+    UNION ALL SELECT 'olt_devices'
+    UNION ALL SELECT 'onu_devices'
+    UNION ALL SELECT 'network_map_nodes'
+    UNION ALL SELECT 'network_map_links'
+    UNION ALL SELECT 'hotspot_vouchers'
+    UNION ALL SELECT 'agent_sales'
+    UNION ALL SELECT 'adverts'
+    UNION ALL SELECT 'customer_chats'
+    UNION ALL SELECT 'customer_chat_messages'
+    UNION ALL SELECT 'sms_gateways'
+    UNION ALL SELECT 'failed_mpesa_transactions'
+    UNION ALL SELECT 'tenant_theme_settings'
+    UNION ALL SELECT 'support_tickets'
+    UNION ALL SELECT 'support_ticket_messages'
+    UNION ALL SELECT 'mpesa_receipt_claims'
+) expected
+LEFT JOIN information_schema.TABLES t
+  ON t.TABLE_SCHEMA = @snapshot_schema AND t.TABLE_NAME = expected.table_name
+ORDER BY status, expected.table_name;
