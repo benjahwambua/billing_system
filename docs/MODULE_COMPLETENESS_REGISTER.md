@@ -171,3 +171,40 @@ Reference: [Database README](../database/README.md) and [Migration Dependency Au
 - **Payment artifact idempotency — PR #164 merged:** receipt and account-ledger artifact creation now fails closed when required `payment_id`/`tenant_id` fields are missing, rather than skipping duplicate checks on retries. CI syntax and configured regression tests passed; runtime schema and concurrent-retry verification remain pending.
 
 - **Payment artifact idempotency preflight — pending PR:** a read-only SQL script reports duplicate receipt and account-ledger entries by tenant/payment so historical data can be reconciled before a unique-index migration is designed. No SQL has been executed against the working database.
+
+## 7. Schema-driven payment compatibility work (2026-10-27)
+
+The latest user-supplied `billing_system` SQL export is the current schema reference for this work. It includes data as well as table definitions. The export has **not** been imported, and no live XAMPP database was queried or modified.
+
+| PR | Result | What changed | Still unverified |
+|---|---|---|---|
+| #176 | Merged; CI passed | Documented differences between the supplied export and newer payment-integrity migration assumptions | Whether the exported snapshot exactly matches the running XAMPP schema |
+| #177 | Merged; CI passed | Added a read-only `information_schema` compatibility preflight for payment tables/columns | The preflight has not been run against XAMPP or a disposable copy |
+| #178 | Merged; CI passed | Payment-ledger workflow can use `payment_id` or the legacy `reference_type='payment'` + `reference_id` identity | Historical ledger rows without a reliable payment identity still need classification |
+| #179 | Merged; CI passed | Customer M-Pesa callback now resolves the available payment reference field, required customer, enum method value, and invoice amount/status fields | Real callback replay, DB transaction rollback, Safaricom sandbox |
+| #180 | Merged; CI passed | Manual payment insert now matches current `payments` columns and enum values; prevents inventing an account ID when the ledger requires one | Manual payment transaction against disposable MySQL |
+| #181 | Merged; CI passed | Receipt list and printable receipt support `reference_number` | Visual/browser and receipt-data verification |
+| #182 | Merged; CI passed | Transactions page avoids assuming `account_transactions.payment_id` and `invoice_id` exist | Database-backed query execution and correct display against current rows |
+| #183 | Merged; CI passed | Customer Statement and Financial Report resolve invoice totals from available columns | Reconcile report figures against actual financial rows |
+| #184 | Merged; CI passed | Billing dashboard, Aged Receivables and new invoice creation align with current invoice amount/status columns | Create invoice, balance calculations and aging against disposable MySQL |
+| #185 | Merged; CI passed | Customer M-Pesa callback validates/resolves a tenant- and customer-matched internet account before required ledger writes | Partial-payment callback and account-link tests against disposable MySQL and M-Pesa sandbox |
+
+### Confirmed schema/code mismatches addressed in source
+
+- `payments.reference_number` exists in the supplied export; `payments.reference` does not.
+- `payments.customer_id` is required; the customer M-Pesa callback and manual payment path now populate it.
+- `payments.payment_method` uses the export's enum labels (including `M-Pesa`, `Cash`, `Bank`, and `Card`).
+- `invoices.total`, `subtotal`, `amount_paid`, and `balance` are present; code no longer relies on SQL expressions referencing absent `total_amount` or `paid_amount` columns in the audited paths.
+- `receipts` has `payment_id` and `reference_number`, but no `invoice_id`.
+- `account_transactions` has `reference_type` and `reference_id`, but no `payment_id` or `invoice_id`; `internet_account_id` is required.
+- New ledger rows can use the legacy reference pair, but existing rows are not auto-linked or rewritten.
+
+### Remaining release gates
+
+1. Compare this export with the actual current XAMPP schema using the read-only preflight and schema metadata.
+2. Review historical receipts/ledger rows, especially entries without a stable payment identity, before considering any migration or backfill.
+3. Run payment artifact and M-Pesa receipt duplicate preflights only after verifying their required tables/columns exist.
+4. Test clean installation and upgrade on disposable databases; no migration runner or approved baseline is established yet.
+5. After module implementation is complete, run the consolidated functional/tenant-isolation suite and then live integration tests.
+
+The CI workflows mentioned above validate PHP syntax and configured regression tests. They do not prove that MySQL queries match the live schema, that historical financial rows reconcile, or that M-Pesa/MikroTik integration works.
