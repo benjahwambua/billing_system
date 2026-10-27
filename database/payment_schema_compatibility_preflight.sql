@@ -2,6 +2,7 @@
 -- Run with billing_system selected, preferably on a backup/disposable copy.
 -- This script only reads information_schema. It does not inspect or change financial rows.
 -- A MISSING result identifies a schema/code prerequisite, not an instruction to ALTER TABLE.
+-- account_transactions may link payments through payment_id OR reference_type='payment'/reference_id.
 -- Review the migration history and existing data before designing any schema change.
 
 SET @target_schema := DATABASE();
@@ -65,11 +66,11 @@ FROM (
 
     UNION ALL SELECT 'account_transactions', 'id', 'REQUIRED'
     UNION ALL SELECT 'account_transactions', 'tenant_id', 'REQUIRED'
-    UNION ALL SELECT 'account_transactions', 'payment_id', 'REQUIRED'
+    UNION ALL SELECT 'account_transactions', 'payment_id', 'PREFERRED IDENTITY (REFERENCE PAIR FALLBACK)'
     UNION ALL SELECT 'account_transactions', 'amount', 'REQUIRED'
     UNION ALL SELECT 'account_transactions', 'invoice_id', 'OPTIONAL'
-    UNION ALL SELECT 'account_transactions', 'reference_type', 'OPTIONAL'
-    UNION ALL SELECT 'account_transactions', 'reference_id', 'OPTIONAL'
+    UNION ALL SELECT 'account_transactions', 'reference_type', 'REQUIRED IF payment_id ABSENT'
+    UNION ALL SELECT 'account_transactions', 'reference_id', 'REQUIRED IF payment_id ABSENT'
 
     UNION ALL SELECT 'payment_gateway_transactions', 'tenant_id', 'REQUIRED FOR M-PESA CLAIM MIGRATION'
     UNION ALL SELECT 'payment_gateway_transactions', 'provider', 'REQUIRED FOR M-PESA CLAIM MIGRATION'
