@@ -64,13 +64,14 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         }
     }
 
+    $linkedAccountId=$aid ?: (int)($invoice['internet_account_id']??$invoice['account_id']??0);
+    if(!$errors && $linkedAccountId<=0){
+        $errors[]='This invoice is not linked to an internet account, but the current account ledger requires one. Link the invoice to an account before recording the payment.';
+    }
+
     if(!$errors){
         $methodMap=['cash'=>'Cash','mpesa'=>'M-Pesa','bank'=>'Bank','card'=>'Card'];
         $schemaPaymentMethod=$methodMap[strtolower($v['payment_method'])]??'Other';
-        $linkedAccountId=$aid ?: (int)($invoice['internet_account_id']??$invoice['account_id']??0);
-        if($linkedAccountId<=0){
-            $errors[]='This invoice is not linked to an internet account, but the current account ledger requires one. Link the invoice to an account before recording the payment.';
-        }
         $data=[
             'tenant_id'=>$tid,
             'invoice_id'=>$iid,
