@@ -8,9 +8,8 @@ require_once '../includes/billing_workflow.php';
 $tenantId=(int)getCurrentTenantId();
 $rows=[]; $loadError=''; $summary=['current'=>0,'1_30'=>0,'31_60'=>0,'61_90'=>0,'90_plus'=>0,'total'=>0];
 
-$sql="SELECT i.id,i.invoice_number,i.customer_id,i.invoice_date,i.due_date,i.status,
+$sql="SELECT i.*,
              c.customer_number,c.first_name,c.last_name,
-             COALESCE(i.total_amount,i.total,i.amount,0) invoice_total,
              COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id=i.id AND p.tenant_id=i.tenant_id),0) actual_paid
       FROM invoices i
       LEFT JOIN customers c ON c.id=i.customer_id AND c.tenant_id=i.tenant_id
@@ -32,7 +31,7 @@ if(!$stmt){
             $loadError='Aged receivables could not be loaded. Please contact the administrator if this continues.';
         }else{
             while($r=$res->fetch_assoc()){
-                $total=(float)$r['invoice_total']; $paid=(float)$r['actual_paid']; $balance=max(0,$total-$paid);
+                $total=flexihubInvoiceTotal($r); $paid=(float)$r['actual_paid']; $balance=max(0,$total-$paid);
                 if($balance<=0) continue;
                 $due=$r['due_date']??$r['invoice_date']??date('Y-m-d');
                 $days=max(0,(int)floor((strtotime(date('Y-m-d'))-strtotime($due))/86400));
