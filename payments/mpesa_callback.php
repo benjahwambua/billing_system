@@ -184,7 +184,10 @@ if (($tx['flow']??'')==='customer' || ($tx['flow']??'')==='internet' || ($tx['fl
   if(!$invoice) throw new RuntimeException('Customer invoice is not linked to this M-Pesa transaction.');
 
   $total=flexihubInvoiceTotal($invoice);
-  $duplicatePayment=dbFetchOne("SELECT * FROM payments WHERE tenant_id=? AND reference=? LIMIT 1",'is',$tenantId,$receipt);
+  $paymentColumns=flexihubTableColumns('payments');
+  $paymentReferenceColumn=in_array('reference',$paymentColumns,true)?'reference':(in_array('reference_number',$paymentColumns,true)?'reference_number':null);
+  if($paymentReferenceColumn===null) throw new RuntimeException('Payment storage has no supported receipt-reference column.');
+  $duplicatePayment=dbFetchOne("SELECT * FROM payments WHERE tenant_id=? AND `{$paymentReferenceColumn}`=? LIMIT 1 FOR UPDATE",'is',$tenantId,$receipt);
   if($duplicatePayment){
     // A legacy payment may exist before receipt claims/artifacts were fully enforced.
     // Only reuse it when both invoice and amount match this confirmed callback.
@@ -203,10 +206,18 @@ if (($tx['flow']??'')==='customer' || ($tx['flow']??'')==='internet' || ($tx['fl
     if((float)$tx['amount']>$balance+0.01) throw new RuntimeException('M-Pesa payment exceeds the customer invoice balance.');
 
     $paymentData=[
-      'tenant_id'=>$tenantId,'invoice_id'=>(int)$invoice['id'],'amount'=>(float)$tx['amount'],
-      'payment_method'=>'mpesa','payment_date'=>date('Y-m-d'),'reference'=>$receipt,
+      'tenant_id'=>$tenantId,
+      'invoice_id'=>(int)$invoice['id'],
+      'customer_id'=>(int)($invoice['customer_id']??0),
+      'internet_account_id'=>$invoice['internet_account_id']??$invoice['account_id']??null,
+      'amount'=>(float)$tx['amount'],
+      'payment_method'=>'M-Pesa',
+      'payment_date'=>date('Y-m-d H:i:s'),
+      'reference'=>$receipt,
+      'reference_number'=>$receipt,
       'payment_number'=>'PAY-'.date('YmdHis').'-'.random_int(100,999)
     ];
+    if((int)$paymentData['customer_id']<=0) throw new RuntimeException('Invoice has no valid customer; payment cannot be recorded safely.');
     $paymentId=flexihubWorkflowInsert('payments',$paymentData);
     if(!$paymentId) throw new RuntimeException('Unable to create customer payment record.');
     $payment=$paymentData+['id'=>$paymentId];
