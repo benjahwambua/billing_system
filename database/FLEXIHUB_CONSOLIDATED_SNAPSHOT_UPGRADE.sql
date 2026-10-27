@@ -488,36 +488,7 @@ SET @ddl := IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEM
        'ALTER TABLE mikrotik_routers ADD COLUMN latency_ms DECIMAL(10,1) NULL', 'SELECT 1'), 'SELECT 1');
 PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snapshot_stmt;
 
--- Final inventory: objects still absent after this candidate. This is a report, not
--- proof that their application workflows are complete. Resolve these from their exact
--- module migrations before calling the database fully upgraded.
-SELECT expected.table_name,
-       CASE WHEN t.TABLE_NAME IS NULL THEN 'MISSING - NEEDS VERIFIED MODULE MIGRATION'
-            ELSE 'PRESENT - COLUMN/CONSTRAINT CONTRACT STILL REQUIRES REVIEW' END AS status
-FROM (
-    SELECT 'router_service_authorizations' AS table_name
-    UNION ALL SELECT 'router_sync_logs'
-    UNION ALL SELECT 'notification_templates'
-    UNION ALL SELECT 'notification_queue'
-    UNION ALL SELECT 'olt_devices'
-    UNION ALL SELECT 'onu_devices'
-    UNION ALL SELECT 'network_map_nodes'
-    UNION ALL SELECT 'network_map_links'
-    UNION ALL SELECT 'hotspot_vouchers'
-    UNION ALL SELECT 'agent_sales'
-    UNION ALL SELECT 'adverts'
-    UNION ALL SELECT 'customer_chats'
-    UNION ALL SELECT 'customer_chat_messages'
-    UNION ALL SELECT 'sms_gateways'
-    UNION ALL SELECT 'failed_mpesa_transactions'
-    UNION ALL SELECT 'tenant_theme_settings'
-    UNION ALL SELECT 'support_tickets'
-    UNION ALL SELECT 'support_ticket_messages'
-    UNION ALL SELECT 'mpesa_receipt_claims'
-) expected
-LEFT JOIN information_schema.TABLES t
-  ON t.TABLE_SCHEMA = @snapshot_schema AND t.TABLE_NAME = expected.table_name
-ORDER BY status, expected.table_name;
+
 
 
 -- Additional module foundations consolidated from 007, 022, 027, 028, 029 and 035.
@@ -735,3 +706,27 @@ PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snaps
 SET @has_invoices := (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='invoices');
 SET @ddl := IF(@has_invoices=1, IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='invoices' AND INDEX_NAME='idx_invoices_customer_due')=0, 'CREATE INDEX idx_invoices_customer_due ON invoices(tenant_id,customer_id,due_date,status)', 'SELECT 1'), 'SELECT 1');
 PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snapshot_stmt;
+
+
+CREATE TABLE IF NOT EXISTS sms_gateways (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ name VARCHAR(150) NOT NULL, provider VARCHAR(80) NOT NULL, sender_id VARCHAR(80) NULL,
+ endpoint_url VARCHAR(500) NULL, credentials_encrypted TEXT NULL,
+ status VARCHAR(30) NOT NULL DEFAULT 'inactive', balance DECIMAL(14,2) NULL,
+ last_verified_at DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ KEY idx_sms_gateway_tenant_status(tenant_id,status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Remaining known gaps are deliberately surfaced rather than guessed.
+SELECT expected.table_name,
+       CASE WHEN t.TABLE_NAME IS NULL THEN 'MISSING - NEEDS VERIFIED MODULE MIGRATION'
+            ELSE 'PRESENT - COLUMN/CONSTRAINT CONTRACT STILL REQUIRES REVIEW' END AS status
+FROM (
+    SELECT 'router_service_authorizations' AS table_name
+    UNION ALL SELECT 'router_sync_logs'
+    UNION ALL SELECT 'mpesa_receipt_claims'
+) expected
+LEFT JOIN information_schema.TABLES t
+  ON t.TABLE_SCHEMA = @snapshot_schema AND t.TABLE_NAME = expected.table_name
+ORDER BY status, expected.table_name;
