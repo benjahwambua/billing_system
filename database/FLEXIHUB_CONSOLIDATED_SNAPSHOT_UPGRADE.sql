@@ -518,3 +518,220 @@ FROM (
 LEFT JOIN information_schema.TABLES t
   ON t.TABLE_SCHEMA = @snapshot_schema AND t.TABLE_NAME = expected.table_name
 ORDER BY status, expected.table_name;
+
+
+-- Additional module foundations consolidated from 007, 022, 027, 028, 029 and 035.
+-- All are CREATE IF NOT EXISTS; existing partial definitions are not repaired by this.
+CREATE TABLE IF NOT EXISTS network_sites (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ name VARCHAR(150) NOT NULL, location VARCHAR(255) NULL, status VARCHAR(30) NOT NULL DEFAULT 'active',
+ description TEXT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ KEY idx_network_sites_tenant(tenant_id),
+ CONSTRAINT fk_network_sites_tenant FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS communication_templates (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ name VARCHAR(150) NOT NULL, channel VARCHAR(30) NOT NULL DEFAULT 'sms', subject VARCHAR(255) NULL,
+ message TEXT NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'active', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ KEY idx_comm_templates_tenant(tenant_id),
+ CONSTRAINT fk_comm_templates_tenant FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS tenant_wallets (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ balance DECIMAL(14,2) NOT NULL DEFAULT 0, currency VARCHAR(10) NOT NULL DEFAULT 'KES',
+ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_tenant_wallet(tenant_id),
+ CONSTRAINT fk_tenant_wallet_tenant FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ transaction_type VARCHAR(30) NOT NULL, amount DECIMAL(14,2) NOT NULL, reference VARCHAR(100) NULL,
+ description VARCHAR(255) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ KEY idx_wallet_tx_tenant(tenant_id),
+ CONSTRAINT fk_wallet_tx_tenant FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS notification_templates (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+ tenant_id BIGINT UNSIGNED NOT NULL,
+ event_type VARCHAR(60) NOT NULL,
+ channel VARCHAR(20) NOT NULL DEFAULT 'sms',
+ subject VARCHAR(255) NULL,
+ body TEXT NOT NULL,
+ status ENUM('active','inactive') NOT NULL DEFAULT 'active',
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY (id),
+ UNIQUE KEY uq_notification_template (tenant_id,event_type,channel),
+ KEY idx_notification_templates_tenant (tenant_id,status),
+ CONSTRAINT fk_notification_templates_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS notification_queue (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+ tenant_id BIGINT UNSIGNED NOT NULL,
+ customer_id BIGINT UNSIGNED NULL,
+ account_id BIGINT UNSIGNED NULL,
+ invoice_id BIGINT UNSIGNED NULL,
+ event_type VARCHAR(60) NOT NULL,
+ channel VARCHAR(20) NOT NULL DEFAULT 'sms',
+ recipient VARCHAR(255) NOT NULL,
+ subject VARCHAR(255) NULL,
+ message TEXT NOT NULL,
+ status ENUM('pending','processing','sent','failed','cancelled') NOT NULL DEFAULT 'pending',
+ attempts INT UNSIGNED NOT NULL DEFAULT 0,
+ available_at DATETIME NULL,
+ sent_at DATETIME NULL,
+ last_error TEXT NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY (id),
+ KEY idx_notification_queue_worker (tenant_id,status,available_at),
+ KEY idx_notification_queue_customer (tenant_id,customer_id),
+ KEY idx_notification_queue_invoice (tenant_id,invoice_id),
+ CONSTRAINT fk_notification_queue_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS olt_devices (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ name VARCHAR(150) NOT NULL, vendor VARCHAR(80) NULL, model VARCHAR(120) NULL,
+ host VARCHAR(255) NULL, api_port INT UNSIGNED NOT NULL DEFAULT 161, username VARCHAR(120) NULL,
+ status VARCHAR(30) NOT NULL DEFAULT 'active', site_id BIGINT UNSIGNED NULL,
+ description TEXT NULL, last_seen_at DATETIME NULL, protocol VARCHAR(20) NOT NULL DEFAULT 'snmp',
+ snmp_version VARCHAR(10) NULL, polling_enabled TINYINT(1) NOT NULL DEFAULT 0,
+ last_poll_at DATETIME NULL, last_poll_error VARCHAR(500) NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ KEY idx_olt_tenant_status(tenant_id,status), KEY idx_olt_site(tenant_id,site_id),
+ KEY idx_olt_polling(tenant_id,polling_enabled,status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS onu_devices (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ olt_id BIGINT UNSIGNED NULL, serial_number VARCHAR(120) NULL, name VARCHAR(150) NULL,
+ pon_port VARCHAR(50) NULL, customer_id BIGINT UNSIGNED NULL, service_account_id BIGINT UNSIGNED NULL,
+ ip_address VARCHAR(64) NULL, status VARCHAR(30) NOT NULL DEFAULT 'unknown',
+ signal_rx VARCHAR(40) NULL, signal_tx VARCHAR(40) NULL, last_seen_at DATETIME NULL,
+ notes TEXT NULL, mac_address VARCHAR(64) NULL, vendor VARCHAR(80) NULL, model VARCHAR(120) NULL,
+ optical_rx_dbm DECIMAL(8,2) NULL, optical_tx_dbm DECIMAL(8,2) NULL,
+ last_poll_at DATETIME NULL, last_poll_error VARCHAR(500) NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_onu_serial_tenant(tenant_id,serial_number), KEY idx_onu_tenant_status(tenant_id,status),
+ KEY idx_onu_customer(tenant_id,customer_id), KEY idx_onu_olt(tenant_id,olt_id), KEY idx_onu_mac(tenant_id,mac_address)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS network_map_nodes (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ node_type VARCHAR(40) NOT NULL, node_id BIGINT UNSIGNED NULL, label VARCHAR(150) NOT NULL,
+ latitude DECIMAL(10,7) NULL, longitude DECIMAL(10,7) NULL, metadata JSON NULL,
+ status VARCHAR(30) NOT NULL DEFAULT 'active', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ KEY idx_map_nodes_tenant(tenant_id), KEY idx_map_nodes_type(tenant_id,node_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS network_map_links (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ source_node_id BIGINT UNSIGNED NOT NULL, target_node_id BIGINT UNSIGNED NOT NULL,
+ link_type VARCHAR(40) NOT NULL DEFAULT 'ethernet', status VARCHAR(30) NOT NULL DEFAULT 'active',
+ bandwidth_mbps DECIMAL(12,2) NULL, metadata JSON NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ KEY idx_map_links_tenant(tenant_id), KEY idx_map_links_source(tenant_id,source_node_id),
+ KEY idx_map_links_target(tenant_id,target_node_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS hotspot_vouchers (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ code VARCHAR(100) NOT NULL, package_id BIGINT UNSIGNED NULL, batch_reference VARCHAR(100) NULL,
+ price DECIMAL(14,2) NOT NULL DEFAULT 0, status VARCHAR(30) NOT NULL DEFAULT 'unused',
+ sold_at DATETIME NULL, activated_at DATETIME NULL, expires_at DATETIME NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_voucher_code_tenant(tenant_id,code), KEY idx_voucher_tenant_status(tenant_id,status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS agent_sales (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ agent_name VARCHAR(150) NOT NULL, agent_phone VARCHAR(40) NULL, product_type VARCHAR(50) NOT NULL,
+ reference VARCHAR(120) NULL, amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+ commission DECIMAL(14,2) NOT NULL DEFAULT 0, status VARCHAR(30) NOT NULL DEFAULT 'completed',
+ sold_at DATETIME DEFAULT CURRENT_TIMESTAMP, notes TEXT NULL,
+ KEY idx_agent_sales_tenant_date(tenant_id,sold_at), KEY idx_agent_sales_agent(tenant_id,agent_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS adverts (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ title VARCHAR(200) NOT NULL, message TEXT NOT NULL, image_url VARCHAR(500) NULL,
+ target VARCHAR(50) NOT NULL DEFAULT 'all', status VARCHAR(30) NOT NULL DEFAULT 'draft',
+ starts_at DATETIME NULL, ends_at DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ KEY idx_adverts_tenant_status(tenant_id,status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS customer_chats (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ customer_id BIGINT UNSIGNED NULL, channel VARCHAR(30) NOT NULL DEFAULT 'web',
+ subject VARCHAR(200) NULL, status VARCHAR(30) NOT NULL DEFAULT 'open',
+ assigned_user_id BIGINT UNSIGNED NULL, last_message_at DATETIME NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ KEY idx_customer_chat_tenant_status(tenant_id,status), KEY idx_customer_chat_customer(tenant_id,customer_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS customer_chat_messages (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ chat_id BIGINT UNSIGNED NOT NULL, sender_type VARCHAR(30) NOT NULL, sender_id BIGINT UNSIGNED NULL,
+ message TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ KEY idx_chat_messages(tenant_id,chat_id,created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS failed_mpesa_transactions (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ gateway_transaction_id BIGINT UNSIGNED NULL, phone_number VARCHAR(40) NULL,
+ amount DECIMAL(14,2) NOT NULL DEFAULT 0, account_reference VARCHAR(120) NULL,
+ failure_code VARCHAR(50) NULL, failure_reason VARCHAR(500) NULL,
+ retry_status VARCHAR(30) NOT NULL DEFAULT 'pending', retry_count INT UNSIGNED NOT NULL DEFAULT 0,
+ last_retry_at DATETIME NULL, resolved_at DATETIME NULL, resolution_note VARCHAR(500) NULL,
+ resolved_by BIGINT UNSIGNED NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ KEY idx_failed_mpesa_tenant_status(tenant_id,retry_status), KEY idx_failed_mpesa_tx(tenant_id,gateway_transaction_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS tenant_theme_settings (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL,
+ theme_name VARCHAR(80) NOT NULL DEFAULT 'Flexihub Blue', primary_color VARCHAR(20) NULL,
+ accent_color VARCHAR(20) NULL, logo_url VARCHAR(500) NULL, dark_mode TINYINT(1) NOT NULL DEFAULT 1,
+ custom_css TEXT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_theme_tenant(tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS support_tickets (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ tenant_id BIGINT UNSIGNED NOT NULL, created_by BIGINT UNSIGNED NOT NULL,
+ subject VARCHAR(200) NOT NULL, category VARCHAR(30) NOT NULL DEFAULT 'general',
+ priority VARCHAR(20) NOT NULL DEFAULT 'normal', status VARCHAR(30) NOT NULL DEFAULT 'open',
+ assigned_to BIGINT UNSIGNED NULL, resolution TEXT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ KEY idx_support_tickets_tenant_status (tenant_id, status),
+ KEY idx_support_tickets_tenant_updated (tenant_id, updated_at),
+ KEY idx_support_tickets_assignee_status (assigned_to, status),
+ KEY idx_support_tickets_created_by (tenant_id, created_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS support_ticket_messages (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ ticket_id BIGINT UNSIGNED NOT NULL, tenant_id BIGINT UNSIGNED NOT NULL,
+ sender_user_id BIGINT UNSIGNED NOT NULL, sender_type VARCHAR(20) NOT NULL, message TEXT NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ KEY idx_support_messages_ticket (tenant_id, ticket_id, id),
+ KEY idx_support_messages_sender (tenant_id, sender_user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Optional columns on tables that may already exist; never alter a missing parent table.
+SET @has_mikrotik_routers := (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='mikrotik_routers');
+SET @ddl := IF(@has_mikrotik_routers=1, IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='mikrotik_routers' AND COLUMN_NAME='hotspot_login_url')=0, 'ALTER TABLE mikrotik_routers ADD COLUMN hotspot_login_url VARCHAR(500) NULL', 'SELECT 1'), 'SELECT 1');
+PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snapshot_stmt;
+
+SET @has_invoices := (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='invoices');
+SET @ddl := IF(@has_invoices=1, IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@snapshot_schema AND TABLE_NAME='invoices' AND INDEX_NAME='idx_invoices_customer_due')=0, 'CREATE INDEX idx_invoices_customer_due ON invoices(tenant_id,customer_id,due_date,status)', 'SELECT 1'), 'SELECT 1');
+PREPARE snapshot_stmt FROM @ddl; EXECUTE snapshot_stmt; DEALLOCATE PREPARE snapshot_stmt;
