@@ -33,12 +33,17 @@ if (
         'payment_number' => 'payment_number',
         'payment_method' => 'payment_method',
         'payment_date' => 'payment_date',
-        'reference' => 'reference',
     ];
     foreach ($paymentFields as $field => $alias) {
         if (flexihubTableHasColumn('payments', $field)) {
             $select[] = 'p.' . $field . ' AS joined_' . $alias;
         }
+    }
+    $paymentReferenceField = flexihubTableHasColumn('payments', 'reference')
+        ? 'reference'
+        : (flexihubTableHasColumn('payments', 'reference_number') ? 'reference_number' : null);
+    if ($paymentReferenceField !== null) {
+        $select[] = 'p.' . $paymentReferenceField . ' AS joined_reference';
     }
     if (flexihubTableHasColumn('payments', 'amount')) {
         $select[] = 'p.amount AS joined_payment_amount';
@@ -111,7 +116,7 @@ require_once '../includes/header.php';
                 ?>
                 <tr>
                     <td><a href="view.php?id=<?= (int) $x['id'] ?>"><?= e($x['receipt_number'] ?? $x['number'] ?? $x['id']) ?></a></td>
-                    <td><?= e($x['joined_payment_number'] ?? $x['reference'] ?? $x['payment_id'] ?? '—') ?></td>
+                    <td><?= e($x['joined_payment_number'] ?? $x['joined_reference'] ?? $x['reference'] ?? $x['reference_number'] ?? $x['payment_id'] ?? '—') ?></td>
                     <td><?= e($customerLabel) ?></td>
                     <td><?= e(formatMoney($receiptAmount)) ?></td>
                     <td><?= e($x['joined_payment_method'] ?? $x['payment_method'] ?? '—') ?></td>

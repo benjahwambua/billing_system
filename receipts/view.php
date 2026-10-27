@@ -64,7 +64,7 @@ if ($customerId && flexihubTableHasColumn('customers', 'tenant_id')) {
 }
 
 $receiptNumber = $receipt['receipt_number'] ?? $receipt['number'] ?? ('RCT-' . $receipt['id']);
-$paymentReference = $payment['reference'] ?? $receipt['reference'] ?? '—';
+$paymentReference = $payment['reference'] ?? $payment['reference_number'] ?? $receipt['reference'] ?? $receipt['reference_number'] ?? '—';
 $paymentMethod = $payment['payment_method'] ?? $receipt['payment_method'] ?? '—';
 $paymentDate = $payment['payment_date'] ?? $receipt['receipt_date'] ?? $receipt['created_at'] ?? '—';
 $amount = $receipt['amount'] ?? $payment['amount'] ?? 0;
