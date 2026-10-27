@@ -1,49 +1,27 @@
 -- Flexihub Billing System: consolidated snapshot upgrade candidate
 -- Target snapshot: user-confirmed 2026-10-27 export; MariaDB 10.4.x
--- STATUS: REVIEW / DISPOSABLE-RESTORE ONLY. DO NOT RUN AGAINST THE WORKING DATABASE.
+-- STATUS: REVIEW / DISPOSABLE-RESTORE ONLY. NOT APPROVED FOR WORKING DATABASE.
 --
--- Single-file consolidation of the reviewed core runtime schema candidate.
--- Not a universal repair for arbitrary schema drift. Existing partial tables must be
--- reconciled rather than overwritten. Run collision and financial preflights first.
---
+-- This single file consolidates the core runtime schema candidate for the latest export.
 -- Covered: tenant M-Pesa gateway/event storage; hotspot portal settings, packages,
 -- access codes, sales and finalization queue; service subscription lineage; platform
 -- plans, subscriptions, invoices, payments and gateway settings.
 --
--- Not covered: optional SMS delivery/retry, OLT/ONU polling, network monitoring/map,
--- support tickets/chat, vouchers/agent sales/advertising, receipt claims/backfill,
--- or automatic repair of existing partial tables. These need separate module review.
+-- It does not yet repair arbitrary existing partial tables or cover every optional module.
+-- Excluded pending exact contract review: SMS delivery/retry, OLT/ONU, network monitoring,
+-- support tickets/chat, vouchers/agent sales/advertising, and M-Pesa receipt claims/backfill.
+-- No customer, invoice, payment, receipt or ledger rows are inserted, updated or deleted.
+-- No credentials, starter plans, portal tokens or subscriptions are seeded.
 --
--- SAFETY: back up the working database and restore the latest export to a NEW disposable
--- schema. Select that schema before running this file. If any target table already exists,
--- inspect SHOW CREATE TABLE and reconcile it first. Stop on any SQL error. Do not run on
--- the working database until the disposable restore, financial reconciliation and repeat
--- execution have been verified. This script does not rewrite financial records or seed
--- platform plans, tokens, subscriptions or credentials.
+-- SAFETY: back up the working database and restore the latest export into a NEW disposable
+-- schema. Run read-only preflights first. Inspect any existing target table with SHOW CREATE
+-- TABLE before proceeding. Stop on any SQL error and inspect partial DDL; do not rerun blindly.
+-- Validate post-apply schema, financial reconciliation and second-run behavior on the restore
+-- before considering the file for the working database. The SQL has not been executed here.
 
--- Flexihub Billing System
--- Candidate schema foundation for the user-confirmed 2026-10-27 database export.
---
--- STATUS: REVIEW / DISPOSABLE-RESTORE ONLY. NOT APPROVED FOR THE WORKING DATABASE.
--- Restore the supplied export to a NEW test schema, select that schema, and run the
--- read-only preflights before reviewing this script. Never run against production
--- or the working XAMPP billing_system database.
---
--- Target: MariaDB 10.4.x (the supplied export reports 10.4.32).
--- This file creates only runtime/platform schema objects; it does not insert,
--- update, delete, or backfill customer, invoice, payment, receipt, or ledger rows.
---
--- Important:
--- * It does not replay historical migrations in numeric order.
--- * Tenant IDs referencing tenants.id use BIGINT UNSIGNED.
--- * CREATE TABLE IF NOT EXISTS does not repair an already-existing partial table.
---   If any target table is PRESENT in the preflight, inspect SHOW CREATE TABLE first.
--- * The conditional hotspot_packages change below only adds a column/index if absent.
--- * Do not add receipt claims until duplicate receipt reconciliation has been reviewed.
-
-SELECT DATABASE() AS selected_test_schema,
+SELECT DATABASE() AS selected_schema,
        VERSION() AS database_server_version,
-       'Confirm this is a disposable restored copy before continuing' AS safety_check;
+       'DISPOSABLE RESTORE ONLY - stop if this is the working database' AS safety_check;
 
 SET @snapshot_schema := DATABASE();
 
