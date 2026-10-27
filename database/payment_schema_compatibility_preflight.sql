@@ -16,17 +16,25 @@ SELECT expected.table_name,
        t.ENGINE AS storage_engine
 FROM (
     SELECT 'tenants' AS table_name
+    UNION ALL SELECT 'customers'
+    UNION ALL SELECT 'invoices'
+    UNION ALL SELECT 'internet_accounts'
     UNION ALL SELECT 'payments'
     UNION ALL SELECT 'receipts'
     UNION ALL SELECT 'account_transactions'
-    UNION ALL SELECT 'payment_gateways'
     UNION ALL SELECT 'payment_callbacks'
+    UNION ALL SELECT 'payment_gateways'
     UNION ALL SELECT 'payment_gateway_transactions'
     UNION ALL SELECT 'payment_gateway_events'
     UNION ALL SELECT 'hotspot_portal_settings'
     UNION ALL SELECT 'hotspot_sales'
+    UNION ALL SELECT 'hotspot_sessions'
     UNION ALL SELECT 'service_subscriptions'
+    UNION ALL SELECT 'platform_settings'
+    UNION ALL SELECT 'platform_payment_gateways'
     UNION ALL SELECT 'platform_invoices'
+    UNION ALL SELECT 'platform_plans'
+    UNION ALL SELECT 'tenant_platform_subscriptions'
     UNION ALL SELECT 'platform_payments'
     UNION ALL SELECT 'mpesa_receipt_claims'
 ) AS expected
