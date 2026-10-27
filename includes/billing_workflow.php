@@ -244,7 +244,8 @@ if (!function_exists('flexihubCreatePaymentArtifacts')) {
                     'amount' => $payment['amount'] ?? 0,
                     'payment_method' => $payment['payment_method'] ?? '',
                     'receipt_date' => $payment['payment_date'] ?? date('Y-m-d'),
-                    'reference' => $payment['reference'] ?? ''
+                    'reference' => $payment['reference'] ?? $payment['reference_number'] ?? '',
+                    'reference_number' => $payment['reference_number'] ?? $payment['reference'] ?? ''
                 ];
                 $receiptId = flexihubWorkflowInsert('receipts', $receiptData);
                 if (!$receiptId) {
@@ -263,15 +264,24 @@ if (!function_exists('flexihubCreatePaymentArtifacts')) {
 
         if ($transactionTable->num_rows > 0) {
             $transactionCols = flexihubTableColumns('account_transactions');
+            $identityMode = flexihubPaymentLedgerIdentityMode($transactionCols);
+
             if (
                 !$transactionCols ||
                 !in_array('tenant_id', $transactionCols, true) ||
-                !in_array('payment_id', $transactionCols, true)
+                $identityMode === null
             ) {
-                throw new RuntimeException('Account transaction storage must include payment_id and tenant_id to safely prevent duplicate ledger entries. Apply the required database migration before recording payments.');
+                throw new RuntimeException('Account transaction storage must support a tenant-scoped payment identity through payment_id or reference_type/reference_id. Apply a reviewed database migration before recording payments.');
             }
 
-            $stmt = $conn->prepare("SELECT * FROM account_transactions WHERE payment_id = ? AND tenant_id = ? LIMIT 1");
+            // Prefer the dedicated payment_id column where available. The current
+            // legacy schema instead provides reference_type/reference_id; use that
+            // pair to link newly created ledger entries without altering old records.
+            if ($identityMode === 'payment_id') {
+                $stmt = $conn->prepare("SELECT * FROM account_transactions WHERE payment_id = ? AND tenant_id = ? LIMIT 1");
+            } else {
+                $stmt = $conn->prepare("SELECT * FROM account_transactions WHERE reference_type = 'payment' AND reference_id = ? AND tenant_id = ? LIMIT 1");
+            }
             if (!$stmt) {
                 throw new RuntimeException('Unable to check the account ledger for a duplicate payment entry.');
             }
@@ -298,11 +308,15 @@ if (!function_exists('flexihubCreatePaymentArtifacts')) {
                     'payment_id' => $paymentId,
                     'invoice_id' => $payment['invoice_id'] ?? null,
                     'customer_id' => $invoice['customer_id'] ?? null,
-                    'transaction_type' => 'payment',
+                    'internet_account_id' => $payment['internet_account_id'] ?? $invoice['internet_account_id'] ?? 0,
+                    'transaction_type' => 'Payment',
                     'type' => 'payment',
+                    'reference_type' => 'payment',
+                    'reference_id' => $paymentId,
                     'amount' => $payment['amount'] ?? 0,
                     'description' => 'Customer payment',
-                    'reference' => $payment['reference'] ?? ('PAY-' . $paymentId),
+                    'reference' => $payment['reference'] ?? $payment['reference_number'] ?? ('PAY-' . $paymentId),
+                    'reference_number' => $payment['reference_number'] ?? $payment['reference'] ?? ('PAY-' . $paymentId),
                     'transaction_date' => $payment['payment_date'] ?? date('Y-m-d')
                 ]);
                 if (!$transactionId) {
