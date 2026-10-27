@@ -24,11 +24,12 @@ File: `database/037_snapshot_compatible_core_runtime.sql`.
 ## Mandatory review before any test execution
 
 1. Back up the working database and restore the supplied export into a separate disposable database.
-2. Run `snapshot_upgrade_preflight.sql`, `payment_schema_compatibility_preflight.sql`, and `snapshot_runtime_contract_preflight.sql` first. Confirm target tables are missing as expected and compare the export with the disposable restore.
-3. Inspect `SHOW CREATE TABLE` for `tenants`, `hotspot_packages`, `hotspot_access_codes`, `mikrotik_routers`, `payments`, and `invoices` in the disposable restore.
-4. Review every foreign-key, tenant-isolation, and application column expectation. Do not run this file if any table it creates already exists with a different shape; reconcile that table first.
-5. Execute only on the disposable restore, capture errors and all resulting `SHOW CREATE TABLE` output, then run the preflights again.
-6. Run `snapshot_runtime_contract_preflight.sql` again and confirm every required object is present. Run the financial reconciliation preflight and compare key financial row counts and sums before/after. The expected outcome is no change to financial records.
+2. Run `snapshot_upgrade_preflight.sql`, `payment_schema_compatibility_preflight.sql`, `snapshot_runtime_contract_preflight.sql`, and `snapshot_candidate_collision_preflight.sql` first. Confirm target tables are missing as expected and compare the export with the disposable restore.
+3. Review the collision preflight output. Any target table marked PRESENT requires `SHOW CREATE TABLE` review; do not assume `CREATE TABLE IF NOT EXISTS` repairs it. Confirm `tenants.id` is `BIGINT UNSIGNED`.
+4. Inspect `SHOW CREATE TABLE` for `tenants`, `mikrotik_routers`, `payments`, and `invoices` in the disposable restore; inspect any candidate target table that already exists as well.
+5. Review every foreign-key, tenant-isolation, and application column expectation. Do not run this file if any table it creates already exists with a different shape; reconcile that table first.
+6. Execute only on the disposable restore, capture errors and all resulting `SHOW CREATE TABLE` output, then run the preflights again.
+7. Run `snapshot_runtime_contract_preflight.sql` again and confirm every required object is present. Run the financial reconciliation preflight and compare key financial row counts and sums before/after. The expected outcome is no change to financial records.
 
 ## Validation status
 
