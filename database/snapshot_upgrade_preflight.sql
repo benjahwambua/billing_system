@@ -23,6 +23,7 @@ FROM (
     UNION ALL SELECT 'payment_gateway_transactions'
     UNION ALL SELECT 'payment_gateway_events'
     UNION ALL SELECT 'hotspot_portal_settings'
+    UNION ALL SELECT 'hotspot_packages'
     UNION ALL SELECT 'hotspot_sales'
     UNION ALL SELECT 'hotspot_sessions'
     UNION ALL SELECT 'service_subscriptions'
@@ -85,6 +86,7 @@ WHERE c.TABLE_SCHEMA = @target_schema
     'hotspot_portal_settings','hotspot_sales','hotspot_sessions',
     'service_subscriptions','service_activation_queue','service_events',
     'platform_settings','platform_invoices','platform_payments',
+    'platform_payment_gateways','tenant_platform_subscriptions',
     'router_service_authorizations','router_sync_logs',
     'hotspot_finalization_queue','notification_templates','notification_queue',
     'olt_devices','onu_devices','network_map_nodes','network_map_links',
@@ -95,7 +97,8 @@ WHERE c.TABLE_SCHEMA = @target_schema
   )
 ORDER BY compatibility, c.TABLE_NAME;
 
--- Result set 3: critical existing payment/ledger columns.
+-- Result set 3: critical existing payment, platform, and hotspot runtime columns.
+-- This list includes concrete prerequisites referenced by migrations 012, 013, 023, 024, 026 and 036.
 -- Missing columns must be addressed through a reviewed compatibility design;
 -- do not add financial foreign keys or backfill values based on guesses.
 SELECT expected.table_name,
@@ -124,10 +127,39 @@ FROM (
     UNION ALL SELECT 'account_transactions', 'payment_id'
     UNION ALL SELECT 'account_transactions', 'reference_type'
     UNION ALL SELECT 'account_transactions', 'reference_id'
+    UNION ALL SELECT 'hotspot_packages', 'router_id'
+    UNION ALL SELECT 'hotspot_sales', 'phone_number'
+    UNION ALL SELECT 'hotspot_sales', 'device_mac'
+    UNION ALL SELECT 'hotspot_sales', 'gateway_transaction_id'
+    UNION ALL SELECT 'hotspot_sales', 'payment_id'
+    UNION ALL SELECT 'hotspot_sales', 'started_at'
+    UNION ALL SELECT 'hotspot_sales', 'expires_at'
+    UNION ALL SELECT 'hotspot_sales', 'updated_at'
+    UNION ALL SELECT 'payment_gateways', 'tenant_id'
+    UNION ALL SELECT 'payment_gateways', 'callback_token'
+    UNION ALL SELECT 'payment_gateway_transactions', 'tenant_id'
+    UNION ALL SELECT 'payment_gateway_transactions', 'provider'
+    UNION ALL SELECT 'payment_gateway_transactions', 'flow'
     UNION ALL SELECT 'payment_gateway_transactions', 'provider_receipt'
     UNION ALL SELECT 'payment_gateway_transactions', 'platform_invoice_id'
+    UNION ALL SELECT 'payment_gateway_transactions', 'account_reference'
+    UNION ALL SELECT 'platform_settings', 'setting_key'
+    UNION ALL SELECT 'platform_settings', 'setting_value'
+    UNION ALL SELECT 'platform_invoices', 'invoice_number'
+    UNION ALL SELECT 'platform_invoices', 'tenant_id'
     UNION ALL SELECT 'platform_payments', 'external_transaction_id'
+    UNION ALL SELECT 'platform_payments', 'gateway_id'
+    UNION ALL SELECT 'platform_payments', 'phone_number'
+    UNION ALL SELECT 'platform_payments', 'idempotency_key'
+    UNION ALL SELECT 'platform_payments', 'merchant_request_id'
     UNION ALL SELECT 'platform_payments', 'checkout_request_id'
+    UNION ALL SELECT 'platform_payments', 'result_code'
+    UNION ALL SELECT 'platform_payments', 'result_description'
+    UNION ALL SELECT 'platform_payments', 'request_payload'
+    UNION ALL SELECT 'platform_payments', 'callback_payload'
+    UNION ALL SELECT 'platform_payments', 'failure_reason'
+    UNION ALL SELECT 'platform_payments', 'expires_at'
+    UNION ALL SELECT 'platform_payments', 'confirmed_at'
 ) AS expected
 LEFT JOIN information_schema.TABLES t
   ON t.TABLE_SCHEMA = @target_schema
