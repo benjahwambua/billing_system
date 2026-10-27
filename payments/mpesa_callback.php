@@ -183,6 +183,37 @@ if (($tx['flow']??'')==='customer' || ($tx['flow']??'')==='internet' || ($tx['fl
   }
   if(!$invoice) throw new RuntimeException('Customer invoice is not linked to this M-Pesa transaction.');
 
+  // account_transactions.internet_account_id is required by the current schema.
+  // Resolve and validate the customer's account before creating payment artifacts,
+  // including for partial invoice payments that do not trigger service activation.
+  $invoiceCustomerId=(int)($invoice['customer_id']??0);
+  $linkedAccountId=(int)($invoice['internet_account_id']??$invoice['account_id']??0);
+  if($linkedAccountId>0){
+    $accountCheck=$conn->prepare("SELECT id FROM internet_accounts WHERE id=? AND tenant_id=? AND customer_id=? LIMIT 1");
+    if(!$accountCheck) throw new RuntimeException('Unable to validate the invoice internet account.');
+    $accountCheck->bind_param('iii',$linkedAccountId,$tenantId,$invoiceCustomerId);
+    if(!$accountCheck->execute()){
+      $accountCheck->close();
+      throw new RuntimeException('Unable to validate the invoice internet account.');
+    }
+    $validAccount=(bool)$accountCheck->get_result()->fetch_assoc();
+    $accountCheck->close();
+    if(!$validAccount) $linkedAccountId=0;
+  }
+  if($linkedAccountId<=0){
+    $accountLookup=$conn->prepare("SELECT id FROM internet_accounts WHERE tenant_id=? AND customer_id=? ORDER BY CASE WHEN status IN ('active','pending_activation','suspended') THEN 0 ELSE 1 END,id DESC LIMIT 1");
+    if(!$accountLookup) throw new RuntimeException('Unable to find the customer internet account required by the account ledger.');
+    $accountLookup->bind_param('ii',$tenantId,$invoiceCustomerId);
+    if(!$accountLookup->execute()){
+      $accountLookup->close();
+      throw new RuntimeException('Unable to find the customer internet account required by the account ledger.');
+    }
+    $linkedAccountId=(int)($accountLookup->get_result()->fetch_assoc()['id']??0);
+    $accountLookup->close();
+  }
+  if($linkedAccountId<=0) throw new RuntimeException('Customer has no internet account; the payment cannot be finalized safely against the current account-ledger schema.');
+  $invoice['internet_account_id']=$linkedAccountId;
+
   $total=flexihubInvoiceTotal($invoice);
   $paymentColumns=flexihubTableColumns('payments');
   $paymentReferenceColumn=in_array('reference',$paymentColumns,true)?'reference':(in_array('reference_number',$paymentColumns,true)?'reference_number':null);
