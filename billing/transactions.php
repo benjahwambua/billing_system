@@ -7,21 +7,48 @@ requireModulePermission('billing','view');
 $tenantId=(int)getCurrentTenantId();
 $rows=[];
 
+$transactionColumns = [];
+$columnResult = $conn->query("SHOW COLUMNS FROM account_transactions");
+if ($columnResult) {
+    while ($columnRow = $columnResult->fetch_assoc()) $transactionColumns[] = $columnRow['Field'];
+    $columnResult->free();
+}
+$hasPaymentId = in_array('payment_id', $transactionColumns, true);
+$hasReferenceIdentity = in_array('reference_type', $transactionColumns, true)
+    && in_array('reference_id', $transactionColumns, true);
+$hasInvoiceId = in_array('invoice_id', $transactionColumns, true);
+
+$paymentJoin = '';
+$paymentNumberExpr = 'NULL AS payment_number';
+$paymentInvoiceExpr = 'NULL';
+if ($hasPaymentId) {
+    $paymentJoin = ' LEFT JOIN payments p ON p.id=at.payment_id AND p.tenant_id=at.tenant_id';
+    $paymentNumberExpr = 'p.payment_number';
+    $paymentInvoiceExpr = 'p.invoice_id';
+} elseif ($hasReferenceIdentity) {
+    $paymentJoin = " LEFT JOIN payments p ON p.id=at.reference_id AND at.reference_type='payment' AND p.tenant_id=at.tenant_id";
+    $paymentNumberExpr = 'p.payment_number';
+    $paymentInvoiceExpr = 'p.invoice_id';
+}
+$invoiceIdExpr = $hasInvoiceId
+    ? "COALESCE(at.invoice_id, {$paymentInvoiceExpr})"
+    : $paymentInvoiceExpr;
+$invoiceJoin = $invoiceIdExpr !== 'NULL'
+    ? " LEFT JOIN invoices i ON i.id={$invoiceIdExpr} AND i.tenant_id=at.tenant_id"
+    : ' LEFT JOIN invoices i ON 1=0';
+
 $stmt=$conn->prepare(
     "SELECT at.*,
-            p.payment_number,
+            {$paymentNumberExpr},
             i.invoice_number,
             c.customer_number,
             c.first_name,
             c.last_name
      FROM account_transactions at
-     LEFT JOIN payments p
-       ON p.id=at.payment_id AND p.tenant_id=at.tenant_id
-     LEFT JOIN invoices i
-       ON i.id=COALESCE(at.invoice_id,p.invoice_id) AND i.tenant_id=at.tenant_id
+     {$paymentJoin}
+     {$invoiceJoin}
      LEFT JOIN customers c
-       ON c.id=COALESCE(at.customer_id,i.customer_id)
-      AND c.tenant_id=at.tenant_id
+       ON c.id=at.customer_id AND c.tenant_id=at.tenant_id
      WHERE at.tenant_id=?
      ORDER BY at.id DESC
      LIMIT 500"
