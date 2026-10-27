@@ -1,4 +1,4 @@
--- READ-ONLY post-apply verification for 037_snapshot_compatible_core_runtime.sql.
+-- READ-ONLY post-apply verification for FLEXIHUB_CONSOLIDATED_SNAPSHOT_UPGRADE.sql.
 -- Run only against the disposable restored schema after candidate execution.
 -- This script performs SELECTs only; it does not modify schema or data.
 
@@ -94,7 +94,14 @@ SELECT expected.table_name,
               'hotspot_packages','hotspot_access_codes','hotspot_sales',
               'hotspot_finalization_queue','service_subscriptions',
               'tenant_platform_subscriptions','platform_invoices',
-              'platform_payments'
+              'platform_payments','sms_messages','sms_gateways','network_sites',
+              'communication_templates','tenant_wallets','wallet_transactions',
+              'notification_templates','notification_queue','olt_devices','onu_devices',
+              'network_map_nodes','network_map_links','hotspot_vouchers','agent_sales',
+              'adverts','customer_chats','customer_chat_messages','failed_mpesa_transactions',
+              'tenant_theme_settings','support_tickets','support_ticket_messages',
+              'router_service_authorizations','router_sync_logs','hotspot_sessions',
+              'service_activation_queue','service_events'
          ) AND expected.column_name = 'tenant_id'
           AND LOWER(c.COLUMN_TYPE) = 'bigint unsigned'
            THEN 'MATCH'
@@ -116,6 +123,32 @@ FROM (
     UNION ALL SELECT 'tenant_platform_subscriptions', 'tenant_id'
     UNION ALL SELECT 'platform_invoices', 'tenant_id'
     UNION ALL SELECT 'platform_payments', 'tenant_id'
+    UNION ALL SELECT 'sms_messages', 'tenant_id'
+    UNION ALL SELECT 'sms_gateways', 'tenant_id'
+    UNION ALL SELECT 'network_sites', 'tenant_id'
+    UNION ALL SELECT 'communication_templates', 'tenant_id'
+    UNION ALL SELECT 'tenant_wallets', 'tenant_id'
+    UNION ALL SELECT 'wallet_transactions', 'tenant_id'
+    UNION ALL SELECT 'notification_templates', 'tenant_id'
+    UNION ALL SELECT 'notification_queue', 'tenant_id'
+    UNION ALL SELECT 'olt_devices', 'tenant_id'
+    UNION ALL SELECT 'onu_devices', 'tenant_id'
+    UNION ALL SELECT 'network_map_nodes', 'tenant_id'
+    UNION ALL SELECT 'network_map_links', 'tenant_id'
+    UNION ALL SELECT 'hotspot_vouchers', 'tenant_id'
+    UNION ALL SELECT 'agent_sales', 'tenant_id'
+    UNION ALL SELECT 'adverts', 'tenant_id'
+    UNION ALL SELECT 'customer_chats', 'tenant_id'
+    UNION ALL SELECT 'customer_chat_messages', 'tenant_id'
+    UNION ALL SELECT 'failed_mpesa_transactions', 'tenant_id'
+    UNION ALL SELECT 'tenant_theme_settings', 'tenant_id'
+    UNION ALL SELECT 'support_tickets', 'tenant_id'
+    UNION ALL SELECT 'support_ticket_messages', 'tenant_id'
+    UNION ALL SELECT 'router_service_authorizations', 'tenant_id'
+    UNION ALL SELECT 'router_sync_logs', 'tenant_id'
+    UNION ALL SELECT 'hotspot_sessions', 'tenant_id'
+    UNION ALL SELECT 'service_activation_queue', 'tenant_id'
+    UNION ALL SELECT 'service_events', 'tenant_id'
 ) expected
 LEFT JOIN information_schema.COLUMNS c
   ON c.TABLE_SCHEMA = @verify_schema
