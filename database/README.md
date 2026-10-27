@@ -71,3 +71,7 @@ Until the canonical baseline is derived from a reviewed schema snapshot and both
 ## Payment artifact idempotency preflight
 
 After confirming that both `receipts` and `account_transactions` have `id`, `payment_id`, and `tenant_id` columns, run [payment_artifact_idempotency_preflight.sql](payment_artifact_idempotency_preflight.sql) against a backup or disposable database. It is read-only and reports duplicate receipt and account-ledger rows for the same tenant/payment. Review and reconcile all duplicate groups and historical NULL `payment_id` rows before considering unique indexes on `(tenant_id, payment_id)`. No unique-index migration is included or approved by this preflight change.
+
+## Payment schema compatibility preflight
+
+Run [payment_schema_compatibility_preflight.sql](payment_schema_compatibility_preflight.sql) with the intended database selected (preferably a backup/disposable copy). It is read-only and reports payment workflow tables and critical/optional columns using `information_schema`, including prerequisites for the M-Pesa receipt-claim migration. It does not read financial rows or approve schema changes. A missing `payment_id` in `account_transactions` is a code/schema blocker for the current payment-artifact workflow; do not add it or backfill it until historical rows are classified and the upgrade is tested on a disposable copy.
