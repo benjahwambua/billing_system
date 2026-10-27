@@ -11,13 +11,12 @@ if($customerId>0){
     $q=$conn->prepare("SELECT * FROM customers WHERE id=? AND tenant_id=? LIMIT 1");
     if($q){$q->bind_param('ii',$customerId,$tenantId);$q->execute();$customer=$q->get_result()->fetch_assoc();$q->close();}
     if($customer){
-        $q=$conn->prepare("SELECT i.id,i.invoice_number,i.invoice_date,i.due_date,
-                                  COALESCE(i.total_amount,i.total,i.amount,0) total_amount,
+        $q=$conn->prepare("SELECT i.*,
                                   COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.invoice_id=i.id AND p.tenant_id=i.tenant_id),0) paid_amount
                            FROM invoices i WHERE i.customer_id=? AND i.tenant_id=? ORDER BY i.invoice_date ASC,i.id ASC");
         if($q){$q->bind_param('ii',$customerId,$tenantId);$q->execute();$res=$q->get_result();
             while($i=$res->fetch_assoc()){
-                $total=(float)$i['total_amount'];$paid=(float)$i['paid_amount'];$balance=max(0,$total-$paid);
+                $total=flexihubInvoiceTotal($i);$paid=(float)$i['paid_amount'];$balance=max(0,$total-$paid);
                 $entries[]=['date'=>$i['invoice_date']??date('Y-m-d'),'type'=>'Invoice','reference'=>$i['invoice_number']??$i['id'],'debit'=>$total,'credit'=>0,'balance_delta'=>$total];
                 if($paid>0)$entries[]=['date'=>$i['invoice_date']??date('Y-m-d'),'type'=>'Payment','reference'=>'Payments for '.$i['invoice_number'],'debit'=>0,'credit'=>$paid,'balance_delta'=>-$paid];
                 $totals['invoiced']+=$total;$totals['paid']+=$paid;
