@@ -308,7 +308,7 @@ if (!function_exists('flexihubCreatePaymentArtifacts')) {
                     'payment_id' => $paymentId,
                     'invoice_id' => $payment['invoice_id'] ?? null,
                     'customer_id' => $invoice['customer_id'] ?? null,
-                    'internet_account_id' => $payment['internet_account_id'] ?? $invoice['internet_account_id'] ?? 0,
+                    'internet_account_id' => $payment['internet_account_id'] ?? $invoice['internet_account_id'] ?? null,
                     'transaction_type' => 'Payment',
                     'type' => 'payment',
                     'reference_type' => 'payment',
