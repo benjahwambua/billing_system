@@ -25,7 +25,7 @@ $failed = 0;
 foreach ($identityCases as [$name, $columns, $expected]) {
     $actual = flexihubPaymentLedgerIdentityMode($columns);
     if ($actual !== $expected) {
-        fwrite(STDERR, "FAIL: {$name}; expected=" . var_export($expected, true) . "; actual=" . var_export($actual, true) . "\\n");
+        fwrite(STDERR, "FAIL: {$name}; expected=" . var_export($expected, true) . "; actual=" . var_export($actual, true) . "\n");
         $failed++;
     } else {
         echo "PASS: {$name}\\n";
@@ -44,4 +44,4 @@ if ($failed) {
     fwrite(STDERR, "{$failed} payment artifact policy test(s) failed.\n");
     exit(1);
 }
-echo count($cases) . " payment artifact policy tests passed.\n";
+echo (count($cases) + count($identityCases)) . " payment artifact policy tests passed.\n";
