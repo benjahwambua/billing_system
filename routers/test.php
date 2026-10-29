@@ -13,8 +13,7 @@ $stmt=$conn->prepare("SELECT * FROM mikrotik_routers WHERE id=? AND tenant_id=? 
 if(!$stmt) die('Unable to load router.');
 $stmt->bind_param('ii',$id,$tenantId);$stmt->execute();$router=$stmt->get_result()->fetch_assoc();$stmt->close();
 if(!$router) die('Router not found.');
-$cols=flexihubTableColumns('mikrotik_routers');
-$pick=function($names,$default='')use($router,$cols){foreach($names as $n)if(in_array($n,$cols,true)&&isset($router[$n])&&$router[$n]!=='' )return $router[$n];return $default;};
+$pick=function($names,$default='')use($router){foreach($names as $n)if(array_key_exists($n,$router)&&$router[$n]!==null&&$router[$n]!=='' )return $router[$n];return $default;};
 $host=$pick(['host','ip_address','ip']);$username=$pick(['username','user']);$password=$pick(['password','api_password']);$port=(int)$pick(['api_port','port'],8728);
 $message='';$ok=false;
 if($_SERVER['REQUEST_METHOD']==='POST'){
