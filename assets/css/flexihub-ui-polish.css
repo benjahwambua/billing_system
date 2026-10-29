@@ -422,3 +422,22 @@ form .form-row>label{margin:0}
 @media(max-width:680px){
   form .form-row{grid-template-columns:minmax(0,1fr)!important;gap:8px}
 }
+
+
+/* Final layout guard: distinguish a legacy label/control row from a row
+   that contains multiple field groups. Do not collapse multi-field rows
+   into a label/value layout. */
+form .form-row{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:start;
+}
+form .form-row:has(>label+input),
+form .form-row:has(>label+select),
+form .form-row:has(>label+textarea){
+  grid-template-columns:minmax(150px,.75fr) minmax(0,1.5fr);
+  align-items:center;
+}
+form .form-row>label{margin:0}
+@media(max-width:680px){
+  form .form-row{grid-template-columns:minmax(0,1fr)!important}
+}
