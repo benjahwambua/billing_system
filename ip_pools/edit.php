@@ -36,7 +36,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  if(!$errors){
   $map=['name'=>$data['name'],'pool_name'=>$data['name'],'network'=>$data['network'],'cidr'=>$data['cidr']!==''?$data['cidr']:$data['network'],'gateway'=>$data['gateway'],'start_ip'=>$data['start_ip'],'end_ip'=>$data['end_ip'],'status'=>$data['status'],'description'=>$data['description']];
   $sets=[];$vals=[];$bt='';
-  foreach($map as $c=>$value)if($has($c)&&!in_array($c,$sets,true)){$sets[]=$c.'=?';$vals[]=$value;$bt.='s';}
+  foreach($map as $c=>$value)if($has($c)&&!in_array($c,$sets,true)){$sets[]=$c.'=?';$vals[]=$value;$bt.=is_int($value)?'i':'s';}
   $vals[]=$id;$bt.='i';$where=' WHERE id=?';if($has('tenant_id')){$where.=' AND tenant_id=?';$vals[]=$tid;$bt.='i';}
   $u=$conn->prepare('UPDATE ip_pools SET '.implode(',',$sets).$where);
   if($u){$u->bind_param($bt,...$vals);if($u->execute()){$u->close();redirect('index.php');}$errors[]='Unable to update IP pool: '.$u->error;$u->close();}
