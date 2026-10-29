@@ -297,7 +297,7 @@ form input::placeholder,form textarea::placeholder{color:#718096!important}
 form input[required]+small::after,
 form select[required]+small::after{content:""}
 form :is(input,select,textarea)[aria-invalid="true"],
-form :is(input,select,textarea].is-invalid{
+form :is(input,select,textarea).is-invalid{
   border-color:#ef4444!important;
   box-shadow:0 0 0 3px rgba(239,68,68,.12)!important;
 }
