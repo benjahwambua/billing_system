@@ -2087,3 +2087,8 @@ require_once __DIR__ . '/../includes/header.php';
 }
 
 </style>
+
+<?php
+// Render the shared application footer and close the page layout.
+require_once __DIR__ . '/../includes/footer.php';
+?>
