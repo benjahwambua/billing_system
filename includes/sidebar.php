@@ -1422,4 +1422,59 @@ echo $sidebarHtml;
 .sidebar-menu-section.has-dropdown .sidebar-menu-heading:hover .sidebar-heading-icon,
 .sidebar-menu-section.active-group .sidebar-heading-icon{color:#60a5fa;}
 .sidebar-heading-label{flex:1;min-width:0;}
+
+/* Sidebar refinement: stronger navigation labels and clearer active state. */
+.sidebar-menu-link{
+    font-size:13.5px;
+    font-weight:600;
+    letter-spacing:.005em;
+    color:#dbe5f3;
+    min-height:41px;
+    border:1px solid transparent;
+    border-radius:8px;
+}
+.sidebar-menu-link:hover{
+    background:rgba(59,130,246,.12);
+    color:#fff;
+    border-color:rgba(96,165,250,.13);
+}
+.sidebar-menu-link.active{
+    background:linear-gradient(90deg,rgba(37,99,235,.27),rgba(37,99,235,.12));
+    color:#fff;
+    font-weight:750;
+    border-color:rgba(96,165,250,.25);
+    box-shadow:inset 3px 0 0 #3b82f6;
+}
+.sidebar-menu-icon{
+    color:#a8b7cc;
+    font-size:15px;
+    font-weight:700;
+}
+.sidebar-menu-link.active .sidebar-menu-icon{
+    color:#93c5fd;
+}
+.sidebar-menu-text{
+    font-weight:inherit;
+    line-height:1.35;
+}
+.sidebar-menu-heading{
+    color:#94a3b8;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.09em;
+}
+.sidebar-menu-section.has-dropdown .sidebar-menu-heading{
+    border:1px solid transparent;
+}
+.sidebar-menu-section.has-dropdown.active-group > .sidebar-menu-heading{
+    color:#bfdbfe;
+    font-weight:800;
+}
+.sidebar-menu-section.has-dropdown .sidebar-menu-heading:hover{
+    border-color:rgba(96,165,250,.12);
+}
+@media(max-width:700px){
+    .sidebar-menu-link{font-size:14px;min-height:43px}
+}
+
 </style>
