@@ -3,6 +3,7 @@ require_once '../includes/auth.php';
 requireActiveUser();
 require_once '../includes/functions.php';
 require_once '../includes/mikrotik_api.php';
+require_once '../config/routeros.php';
 if(isTenantUser()) requireTenant();
 requireModulePermission('pppoe', 'create');
 global $conn;
@@ -11,7 +12,12 @@ $has=fn($c)=>in_array($c,$cols,true);$tid=(int)getCurrentTenantId();$errors=[];
 if(isTenantUser() && (!$has('tenant_id') || $tid<=0)){http_response_code(503);exit('PPPoE account tenant isolation is unavailable. Please contact the administrator.');}
 $accounts=[];$servers=[];$srv=$conn->prepare("SELECT id,name,server_name FROM pppoe_servers WHERE tenant_id=? AND status='active' ORDER BY id DESC");if($srv){$srv->bind_param('i',$tid);$srv->execute();$zr=$srv->get_result();while($x=$zr->fetch_assoc())$servers[]=$x;$srv->close();}$sql="SELECT ia.id,ia.account_number,c.first_name,c.last_name FROM internet_accounts ia LEFT JOIN customers c ON c.id=ia.customer_id AND c.tenant_id=ia.tenant_id".($tid?" WHERE ia.tenant_id=".(int)$tid:"")." ORDER BY ia.id DESC";
 $r=$conn->query($sql);if($r)while($x=$r->fetch_assoc())$accounts[]=$x;
-if($_SERVER['REQUEST_METHOD']==='POST'){requireCsrf();$ia=(int)($_POST['internet_account_id']??0);$serverId=(int)($_POST['pppoe_server_id']??0);$user=trim($_POST['username']??'');$secret=$_POST['password']??'';$status=strtolower(trim((string)($_POST['status']??'pending_activation')));
+if($_SERVER['REQUEST_METHOD']==='POST'){requireCsrf();
+// Fail closed before validation or database insertion when RouterOS writes are locked.
+// This form always provisions a router secret after inserting the database record; without this guard,
+// a locked RouterOS connection leaves an orphaned pending account and a misleading partial result.
+if(!defined('FLEXIHUB_ROUTEROS_WRITE_ENABLED') || FLEXIHUB_ROUTEROS_WRITE_ENABLED !== true){$errors[]='PPPoE account creation is blocked while RouterOS writes are disabled. No account record was saved. Use an isolated test router/network and explicitly authorize RouterOS writes before provisioning.';}
+$ia=(int)($_POST['internet_account_id']??0);$serverId=(int)($_POST['pppoe_server_id']??0);$user=trim($_POST['username']??'');$secret=$_POST['password']??'';$status=strtolower(trim((string)($_POST['status']??'pending_activation')));
 if($has('internet_account_id')&&!$ia)$errors[]='Internet account is required.';
 if($has('status') && !in_array($status, ['pending_activation','pending','active','inactive','suspended'], true)){$errors[]='Invalid PPPoE account status.';}
 if($has('pppoe_server_id')&&!$serverId)$errors[]='PPPoE server is required.';if($has('username')&&!$user)$errors[]='Username is required.';
