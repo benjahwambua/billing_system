@@ -9,13 +9,22 @@ global $conn;
 $id=(int)($_GET['id']??0);
 $cols=[];$q=$conn->query("SHOW COLUMNS FROM ip_pools");if(!$q)die('Unable to read IP pool schema.');while($x=$q->fetch_assoc())$cols[]=$x['Field'];
 $has=fn($c)=>in_array($c,$cols,true);$tid=(int)getCurrentTenantId();
+$routerCols=[];$routerSchema=$conn->query("SHOW COLUMNS FROM mikrotik_routers");
+if(!$routerSchema){http_response_code(503);exit('Unable to read router schema.');}
+while($routerColumn=$routerSchema->fetch_assoc())$routerCols[]=$routerColumn['Field'];
+$routerHasTenant=in_array('tenant_id',$routerCols,true);$routerHasStatus=in_array('status',$routerCols,true);
+if(!$routerHasTenant||!$routerHasStatus){http_response_code(503);exit('Tenant-scoped router selection is unavailable. Please contact the administrator.');}
+$routers=[];$routerQuery=$conn->prepare("SELECT id,host FROM mikrotik_routers WHERE tenant_id=? AND status='active' ORDER BY id DESC LIMIT 500");
+if(!$routerQuery){http_response_code(503);exit('Unable to load tenant routers.');}
+$routerQuery->bind_param('i',$tid);$routerQuery->execute();$routerResult=$routerQuery->get_result();
+while($routerRow=$routerResult->fetch_assoc())$routers[]=$routerRow;$routerQuery->close();
 if(!$has('tenant_id')){http_response_code(503);exit('IP pool tenant isolation is unavailable. Please contact the administrator.');}
 if($tid<=0){http_response_code(403);exit('A valid tenant context is required.');}
 if($id<=0)die('Invalid IP pool ID.');
 $sql='SELECT * FROM ip_pools WHERE id=?';$params=[$id];$types='i';
 if($has('tenant_id')){if($tid<=0)die('A valid tenant context is required.');$sql.=' AND tenant_id=?';$params[]=$tid;$types.='i';}
 $st=$conn->prepare($sql);$st->bind_param($types,...$params);$st->execute();$row=$st->get_result()->fetch_assoc();$st->close();if(!$row)die('IP pool not found.');
-$data=['name'=>(string)($row['name']??$row['pool_name']??''),'network'=>(string)($row['network']??''),'cidr'=>(string)($row['cidr']??''),'gateway'=>(string)($row['gateway']??''),'start_ip'=>(string)($row['start_ip']??''),'end_ip'=>(string)($row['end_ip']??''),'status'=>(string)($row['status']??'active'),'description'=>(string)($row['description']??'')];$errors=[];
+$data=['name'=>(string)($row['name']??$row['pool_name']??''),'router_id'=>(string)($row['router_id']??''),'network'=>(string)($row['network']??''),'cidr'=>(string)($row['cidr']??''),'gateway'=>(string)($row['gateway']??''),'start_ip'=>(string)($row['start_ip']??''),'end_ip'=>(string)($row['end_ip']??''),'status'=>(string)($row['status']??'active'),'description'=>(string)($row['description']??'')];$errors=[];
 $assignedToActiveServer=false;
 if(function_exists('flexihubTableHasColumn') && flexihubTableHasColumn('pppoe_servers','ip_pool_id') && flexihubTableHasColumn('pppoe_servers','tenant_id')){
  $check=$conn->prepare("SELECT COUNT(*) AS n FROM pppoe_servers WHERE ip_pool_id=? AND tenant_id=? AND LOWER(status)='active'");
@@ -25,6 +34,12 @@ if(function_exists('flexihubTableHasColumn') && flexihubTableHasColumn('pppoe_se
 if($_SERVER['REQUEST_METHOD']==='POST'){
  requireCsrf();foreach($data as $k=>$v)$data[$k]=trim((string)($_POST[$k]??$v));$data['status']=strtolower($data['status']);
  if(!in_array($data['status'],['active','inactive'],true))$errors[]='Invalid pool status.';
+ $routerId=(int)$data['router_id'];
+ if($routerId<=0)$errors[]='Select an active MikroTik router for this IP pool.';
+ else{$routerCheck=$conn->prepare("SELECT id FROM mikrotik_routers WHERE id=? AND tenant_id=? AND status='active' LIMIT 1");
+  if(!$routerCheck)$errors[]='Unable to validate selected MikroTik router.';
+  else{$routerCheck->bind_param('ii',$routerId,$tid);if(!$routerCheck->execute())$errors[]='Unable to validate selected MikroTik router.';else if(!$routerCheck->get_result()->fetch_assoc())$errors[]='Choose an active MikroTik router belonging to this tenant.';$routerCheck->close();}
+ }
  if($assignedToActiveServer){
   $networkChanged=(string)($row['network']??'')!==$data['network'] || (string)($row['cidr']??'')!==$data['cidr'] || (string)($row['start_ip']??'')!==$data['start_ip'] || (string)($row['end_ip']??'')!==$data['end_ip'];
   $deactivated=strtolower((string)($row['status']??'active'))==='active' && $data['status']!=='active';
@@ -34,7 +49,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 
  $errors=array_merge($errors,flexihubValidateIpPool($conn,$tid,$data,$cols,$id));
  if(!$errors){
-  $map=['name'=>$data['name'],'pool_name'=>$data['name'],'network'=>$data['network'],'cidr'=>$data['cidr']!==''?$data['cidr']:$data['network'],'gateway'=>$data['gateway'],'start_ip'=>$data['start_ip'],'end_ip'=>$data['end_ip'],'status'=>$data['status'],'description'=>$data['description']];
+  $map=['name'=>$data['name'],'pool_name'=>$data['name'],'router_id'=>(int)$data['router_id'],'network'=>$data['network'],'cidr'=>$data['cidr']!==''?$data['cidr']:$data['network'],'gateway'=>$data['gateway'],'start_ip'=>$data['start_ip'],'end_ip'=>$data['end_ip'],'status'=>$data['status'],'description'=>$data['description']];
   $sets=[];$vals=[];$bt='';
   foreach($map as $c=>$value)if($has($c)&&!in_array($c,$sets,true)){$sets[]=$c.'=?';$vals[]=$value;$bt.=is_int($value)?'i':'s';}
   $vals[]=$id;$bt.='i';$where=' WHERE id=?';if($has('tenant_id')){$where.=' AND tenant_id=?';$vals[]=$tid;$bt.='i';}
@@ -49,6 +64,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 <?php if($errors):?><div class="alert alert-danger"><ul><?php foreach(array_unique($errors) as $error):?><li><?=e($error)?></li><?php endforeach;?></ul></div><?php endif;?>
 <div class="card" style="max-width:800px;padding:22px"><form method="post"><?=csrfField()?><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
 <label>Name<input name="name" required value="<?=e($data['name'])?>"></label>
+<label>Router<select name="router_id" required><option value="">Select active router</option><?php foreach($routers as $router):?><option value="<?=$router['id']?>" <?=((string)$router['id']===$data['router_id']?'selected':'')?>><?=e(($router['host']??'Router').' (ID '.$router['id'].')')?></option><?php endforeach;?></select><small>Only active routers belonging to your tenant are listed. This associates the pool in Flexihub; it does not change RouterOS.</small></label>
 <label>Network / CIDR<input name="network" value="<?=e($data['network']!==''?$data['network']:$data['cidr'])?>" placeholder="192.168.10.0/24"><small>Use the subnet network address with prefix length.</small></label>
 <label>Gateway<input name="gateway" value="<?=e($data['gateway'])?>"></label>
 <label>Start IP<input name="start_ip" value="<?=e($data['start_ip'])?>"></label>
