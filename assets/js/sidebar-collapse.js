@@ -7,8 +7,37 @@
         var sidebar = document.getElementById('flexihubSidebar');
         if (!sidebar) return;
 
-        var sections = Array.from(sidebar.querySelectorAll('.sidebar-menu-section'));
+        function saveScrollPosition() {
+            try {
+                sessionStorage.setItem(scrollStorageKey, String(sidebar.scrollTop));
+            } catch (error) {}
+        }
 
+        function restoreScrollPosition() {
+            try {
+                var saved = sessionStorage.getItem(scrollStorageKey);
+                if (saved === null) return;
+                var top = parseInt(saved, 10);
+                if (!Number.isFinite(top)) return;
+
+                // Restore after CSS, fonts and expanded menu sections have settled.
+                sidebar.scrollTop = top;
+                requestAnimationFrame(function () {
+                    sidebar.scrollTop = top;
+                    requestAnimationFrame(function () {
+                        sidebar.scrollTop = top;
+                    });
+                });
+                window.setTimeout(function () {
+                    sidebar.scrollTop = top;
+                }, 100);
+                window.setTimeout(function () {
+                    sidebar.scrollTop = top;
+                }, 350);
+            } catch (error) {}
+        }
+
+        var sections = Array.from(sidebar.querySelectorAll('.sidebar-menu-section'));
         sections.forEach(function (section, index) {
             var heading = section.querySelector('.sidebar-menu-heading');
             if (!heading) return;
@@ -21,7 +50,9 @@
             var active = links.some(function (link) {
                 return link.classList.contains('active');
             });
-            var saved = localStorage.getItem(key);
+
+            var saved = null;
+            try { saved = localStorage.getItem(key); } catch (error) {}
             var open = saved === null ? active : saved === 'open';
 
             section.classList.toggle('is-collapsed', !open);
@@ -29,11 +60,16 @@
 
             function toggle() {
                 var nowOpen = section.classList.contains('is-collapsed');
+                var currentTop = sidebar.scrollTop;
+
                 section.classList.toggle('is-collapsed', !nowOpen);
                 section.classList.toggle('is-active-open', active && nowOpen);
-                localStorage.setItem(key, nowOpen ? 'open' : 'closed');
 
-                // Keep the sidebar's current position when a section expands/collapses.
+                try { localStorage.setItem(key, nowOpen ? 'open' : 'closed'); } catch (error) {}
+
+                // Expanding a section changes layout; restore the exact prior scroll offset.
+                sidebar.scrollTop = currentTop;
+                requestAnimationFrame(function () { sidebar.scrollTop = currentTop; });
                 saveScrollPosition();
             }
 
@@ -46,38 +82,17 @@
             });
         });
 
-        function saveScrollPosition() {
-            try {
-                sessionStorage.setItem(scrollStorageKey, String(sidebar.scrollTop));
-            } catch (error) {
-                // Navigation remains usable if browser storage is unavailable.
-            }
-        }
-
-        // Restore after the saved section states have been applied.
-        try {
-            var savedScrollTop = sessionStorage.getItem(scrollStorageKey);
-            if (savedScrollTop !== null) {
-                requestAnimationFrame(function () {
-                    sidebar.scrollTop = parseInt(savedScrollTop, 10) || 0;
-                    requestAnimationFrame(function () {
-                        sidebar.scrollTop = parseInt(savedScrollTop, 10) || 0;
-                    });
-                });
-            }
-        } catch (error) {
-            // Ignore storage restrictions without interrupting navigation.
-        }
-
-        // Save before following a menu link, including normal full-page navigation.
+        // Capture the position before the browser starts navigating away.
         sidebar.addEventListener('click', function (event) {
-            var link = event.target.closest('a.sidebar-menu-link, a.sidebar-brand-link');
-            if (link) saveScrollPosition();
-        });
+            var link = event.target.closest('a');
+            if (link && sidebar.contains(link)) saveScrollPosition();
+        }, true);
 
+        sidebar.addEventListener('scroll', saveScrollPosition, { passive: true });
         window.addEventListener('pagehide', saveScrollPosition);
         window.addEventListener('beforeunload', saveScrollPosition);
-        sidebar.addEventListener('scroll', saveScrollPosition, { passive: true });
+        window.addEventListener('load', restoreScrollPosition);
+        restoreScrollPosition();
     }
 
     if (document.readyState === 'loading') {
