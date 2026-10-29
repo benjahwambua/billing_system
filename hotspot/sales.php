@@ -23,9 +23,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $codeId=(int)($_POST['access_code_id']??0);
     $method=trim((string)($_POST['payment_method']??'cash'));
     $reference=trim((string)($_POST['reference']??''));
-    $allowed=['cash','mpesa','bank','card'];
-    if(!in_array($method,$allowed,true))$method='cash';
-
+    $allowed=['cash','bank','card'];
+    if(!in_array($method,$allowed,true)){
+        $error='M-Pesa sales must be initiated through the customer captive portal and confirmed by the M-Pesa callback.';
+    } else {
     $q=$conn->prepare("SELECT c.id,c.code,c.package_id,c.status,c.expires_at,p.price
                        FROM hotspot_access_codes c
                        JOIN hotspot_packages p ON p.id=c.package_id AND p.tenant_id=c.tenant_id
@@ -66,6 +67,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $error=$e->getMessage();
         }
     }
+    }
 }
 
 $sales=[];
@@ -90,7 +92,7 @@ require_once '../includes/sidebar.php';
 <form method="post"><?=csrfField()?>
 <div class="form-grid">
 <label>Access Code *<select name="access_code_id" required><option value="">Select code</option><?php foreach($codes as $c):?><option value="<?=$c['id']?>"><?=e($c['code'].' — '.$c['package_name'].' — '.formatMoney($c['price']))?></option><?php endforeach;?></select></label>
-<label>Payment Method<select name="payment_method"><option value="cash">Cash</option><option value="mpesa">M-Pesa</option><option value="bank">Bank</option><option value="card">Card</option></select></label>
+<label>Payment Method<select name="payment_method"><option value="cash">Cash</option><option value="bank">Bank</option><option value="card">Card</option></select></label>
 <label>Reference<input name="reference" maxlength="100"></label>
 </div><button class="btn btn-primary">Record Sale</button>
 </form>
