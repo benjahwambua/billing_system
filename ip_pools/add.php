@@ -21,7 +21,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  if(!$errors){
   $map=['name'=>$data['name'],'pool_name'=>$data['name'],'network'=>$data['network'],'cidr'=>$data['cidr']!==''?$data['cidr']:$data['network'],'gateway'=>$data['gateway'],'start_ip'=>$data['start_ip'],'end_ip'=>$data['end_ip'],'status'=>$data['status'],'description'=>$data['description']];
   $f=[];$v=[];$types='';
-  foreach($map as $c=>$value)if($has($c)&&!in_array($c,$f,true)){$f[]=$c;$v[]=$value;$types.='s';}
+  foreach($map as $c=>$value)if($has($c)&&!in_array($c,$f,true)){$f[]=$c;$v[]=$value;$types.=is_int($value)?'i':'s';}
   if($has('tenant_id')){$f[]='tenant_id';$v[]=$tid;$types.='i';}
   if(!$f)$errors[]='No compatible IP pool fields were found.';
   else{$st=$conn->prepare('INSERT INTO ip_pools ('.implode(',',$f).') VALUES ('.implode(',',array_fill(0,count($f),'?')).')');
