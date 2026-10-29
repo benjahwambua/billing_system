@@ -40,9 +40,9 @@ $userRoleLabel = $_SESSION['user_role'] ?? ($_SESSION['role'] ?? 'User');
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="../assets/css/flexihub-dark.css">
     <link rel="stylesheet" href="../assets/css/flexihub-ui-polish.css?v=5">
-    <link rel="stylesheet" href="../assets/css/sidebar-collapse.css">
+    <link rel="stylesheet" href="../assets/css/sidebar-collapse.css?v=3">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <script src="../assets/js/sidebar-collapse.js" defer></script>
+    <script src="../assets/js/sidebar-collapse.js?v=7" defer></script>
     <style>
         :root{--fh-sidebar-width:260px;--fh-topbar-height:75px}
         .headbar{height:var(--fh-topbar-height);min-height:var(--fh-topbar-height);padding:0 28px;position:sticky;top:0;z-index:1001;display:flex;align-items:center;justify-content:space-between;background:rgba(7,11,18,.94);border-bottom:1px solid rgba(59,130,246,.14);box-shadow:0 6px 24px rgba(0,0,0,.2);backdrop-filter:blur(18px)}
