@@ -84,8 +84,21 @@ if (!class_exists('FlexihubRouterOS')) {
             foreach($reply as $r){ if(isset($r['=message'])) $message=$r['=message']; if(isset($r['!trap'])||isset($r['!fatal'])) $failed=true; }
             if($failed || !array_filter($reply,fn($r)=>($r['!type']??'')==='!done')) { $this->close(); throw new Exception($message); }
         }
+        private function assertCommandAllowed(array $words) {
+            $command=trim((string)($words[0]??''));
+            // Permit read-only RouterOS commands while the write safety switch is off.
+            if(preg_match('~/(print|monitor|export|find|get|count)$~i',$command)) return;
+            $config=dirname(__DIR__).'/config/routeros.php';
+            if(is_file($config)) require_once $config;
+            $enabled=defined('FLEXIHUB_ROUTEROS_WRITE_ENABLED') && FLEXIHUB_ROUTEROS_WRITE_ENABLED===true;
+            if(!$enabled) {
+                throw new Exception('RouterOS write blocked by Flexihub safety lock. Read-only commands remain available. Enable FLEXIHUB_ROUTEROS_WRITE_ENABLED in config/routeros.php only after isolating the test router/network.');
+            }
+        }
+
         public function command(array $words) {
             if(!$this->fp) throw new Exception('Router connection is not open.');
+            $this->assertCommandAllowed($words);
             flexihubRosWriteSentence($this->fp,$words); $rows=[];$error='';
             while(true) {
                 $s=flexihubRosReadSentence($this->fp); if(!$s) continue;
