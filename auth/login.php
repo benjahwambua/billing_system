@@ -598,6 +598,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
     </style>
+    <link rel="stylesheet" href="../assets/css/flexihub-ui-polish.css?v=2">
 
 </head>
 
