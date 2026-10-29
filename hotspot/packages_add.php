@@ -81,7 +81,7 @@ $pageTitle = 'Add Hotspot Plan';
 require_once '../includes/header.php';
 ?>
 
-<div class="page-content hotspot-package-form-page">
+<div class="hotspot-package-form-page">
     <div class="page-header">
         <div>
             <div class="page-kicker">Hotspot management</div>
