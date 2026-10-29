@@ -377,3 +377,48 @@ form .error,.form-error,.invalid-feedback{color:#fca5a5!important}
   form .form-actions .btn,form .form-footer .btn,form .actions .btn{flex:1 1 140px}
   .page-content>.card:has(>form),.page-content>.dashboard-card:has(>form){padding:16px!important}
 }
+
+
+/* =========================================================
+   CROSS-MODULE FORM CONSISTENCY
+   Normalises legacy forms that use inline styles or older
+   markup so the same visual system applies throughout.
+========================================================= */
+.page-content form,
+.main-content form,
+.dashboard-card form,
+.card form{min-width:0}
+.page-content form>button[type="submit"],
+.main-content form>button[type="submit"],
+.dashboard-card form>button[type="submit"],
+.card form>button[type="submit"]{margin-top:20px}
+.page-content form button:not([class]),
+.main-content form button:not([class]),
+.dashboard-card form button:not([class]),
+.card form button:not([class]){
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:42px;padding:10px 16px;border:1px solid rgba(96,165,250,.35);
+  border-radius:9px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  color:#fff;font:inherit;font-size:13px;font-weight:750;cursor:pointer;
+}
+.page-content form button:not([class]):hover,
+.main-content form button:not([class]):hover,
+.dashboard-card form button:not([class]):hover,
+.card form button:not([class]):hover{background:linear-gradient(135deg,#1e40af,#2563eb);transform:translateY(-1px)}
+/* Make legacy two-column inline-grid forms obey the same responsive rhythm. */
+form>div[style*="display:grid"]{min-width:0}
+form>div[style*="display:grid"]>label{min-width:0}
+form>div[style*="display:grid"]>label[style*="grid-column"]{grid-column:1/-1!important}
+/* Some legacy forms use a label followed by a separate control. */
+form .form-row>label:not(:has(input,select,textarea)),
+form .form-group>label:not(:has(input,select,textarea)){
+  display:block;margin-bottom:7px
+}
+form .toggle,.toggle{display:inline-flex;align-items:center;gap:10px}
+form .toggle input[type="checkbox"],form .toggle input[type="radio"]{flex:0 0 auto}
+form .notice{border-radius:10px!important;line-height:1.6}
+form .form-row{display:grid;grid-template-columns:minmax(150px,.75fr) minmax(0,1.5fr);align-items:center;gap:12px}
+form .form-row>label{margin:0}
+@media(max-width:680px){
+  form .form-row{grid-template-columns:minmax(0,1fr)!important;gap:8px}
+}
