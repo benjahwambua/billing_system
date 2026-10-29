@@ -39,7 +39,7 @@ $userRoleLabel = $_SESSION['user_role'] ?? ($_SESSION['role'] ?? 'User');
     <title><?= e($pageTitle) ?> | <?= e($companyName) ?></title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="../assets/css/flexihub-dark.css">
-    <link rel="stylesheet" href="../assets/css/flexihub-ui-polish.css?v=1">
+    <link rel="stylesheet" href="../assets/css/flexihub-ui-polish.css?v=2">
     <link rel="stylesheet" href="../assets/css/sidebar-collapse.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <script src="../assets/js/sidebar-collapse.js" defer></script>
