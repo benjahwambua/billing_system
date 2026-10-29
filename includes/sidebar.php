@@ -1425,11 +1425,11 @@ echo $sidebarHtml;
 
 /* Sidebar refinement: stronger navigation labels and clearer active state. */
 .sidebar-menu-link{
-    font-size:13.5px;
-    font-weight:600;
+    font-size:14.5px;
+    font-weight:700;
     letter-spacing:.005em;
     color:#dbe5f3;
-    min-height:41px;
+    min-height:42px;
     border:1px solid transparent;
     border-radius:8px;
 }
@@ -1459,7 +1459,7 @@ echo $sidebarHtml;
 }
 .sidebar-menu-heading{
     color:#94a3b8;
-    font-size:10px;
+    font-size:10.5px;
     font-weight:800;
     letter-spacing:.09em;
 }
@@ -1474,7 +1474,7 @@ echo $sidebarHtml;
     border-color:rgba(96,165,250,.12);
 }
 @media(max-width:700px){
-    .sidebar-menu-link{font-size:14px;min-height:43px}
+    .sidebar-menu-link{font-size:14.5px;min-height:44px}
 }
 
 </style>
