@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../config/app_config.php';
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/mpesa_amount_policy.php';
 

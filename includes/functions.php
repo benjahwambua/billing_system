@@ -1315,11 +1315,36 @@ if (!function_exists('userHasPermission')) {
 if (!function_exists('isSuperUser')) {
     function isSuperUser()
     {
-        if (isHostUser()) {
-            return hasRole('HOST_SUPER_ADMIN') || (($_SESSION['legacy_role'] ?? '') === 'Administrator');
-        }
+        global $conn;
+
+        /*
+         * Read the legacy role from the database as the source of truth.
+         * Older/local installations may not have the newer access-role
+         * tables, and an existing browser session may contain stale role data.
+         */
+        $userId = (int)getCurrentUserId();
         $legacyRole = strtolower(trim((string)($_SESSION['legacy_role'] ?? '')));
-        return in_array($legacyRole, ['administrator','super user','super_user','superuser'], true)
+
+        if ($userId > 0 && $conn instanceof mysqli) {
+            $stmt = $conn->prepare("SELECT role FROM users WHERE id = ? LIMIT 1");
+            if ($stmt) {
+                $stmt->bind_param('i', $userId);
+                if ($stmt->execute()) {
+                    $row = $stmt->get_result()->fetch_assoc();
+                    if ($row && array_key_exists('role', $row)) {
+                        $legacyRole = strtolower(trim((string)$row['role']));
+                        $_SESSION['legacy_role'] = $row['role'];
+                    }
+                }
+                $stmt->close();
+            }
+        }
+
+        if (isHostUser()) {
+            return $legacyRole === 'administrator' || hasRole('HOST_SUPER_ADMIN');
+        }
+
+        return in_array($legacyRole, ['administrator', 'super user', 'super_user', 'superuser'], true)
             || hasRole('SUPER_ADMIN')
             || hasRole('TENANT_SUPER_ADMIN');
     }
