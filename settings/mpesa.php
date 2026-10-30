@@ -40,7 +40,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
    $bind=[$types];foreach($vals as $k=>$v)$bind[]=&$vals[$k];call_user_func_array([$stmt,'bind_param'],$bind);$stmt->execute();$stmt->close();
   }else{
    $token=bin2hex(random_bytes(32));
-   $stmt=$conn->prepare("INSERT INTO payment_gateways (tenant_id,provider,name,environment,shortcode_type,shortcode,consumer_key_encrypted,consumer_secret_encrypted,passkey_encrypted,callback_token,status,is_default) VALUES (?,'mpesa','M-Pesa',?,?,?,?,?,?,?,1)");
+   $stmt=$conn->prepare("INSERT INTO payment_gateways (tenant_id,provider,name,environment,shortcode_type,shortcode,consumer_key_encrypted,consumer_secret_encrypted,passkey_encrypted,callback_token,status,is_default) VALUES (?,'mpesa','M-Pesa',?,?,?,?,?,?,?,?,1)");
    if(!$stmt)throw new RuntimeException('Unable to create M-Pesa gateway.');
    $a=flexihubGatewayEncrypt($consumerKey);$b=flexihubGatewayEncrypt($consumerSecret);$c=flexihubGatewayEncrypt($passkey);
    $stmt->bind_param('issssssss',$tenantId,$environment,$shortcodeType,$shortcode,$a,$b,$c,$token,$status);$stmt->execute();$id=(int)$conn->insert_id;$stmt->close();
