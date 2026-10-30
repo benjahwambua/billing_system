@@ -1,0 +1,8 @@
+<?php
+/**
+ * Copy this file to config/local.php and replace the placeholder.
+ * Never commit config/local.php or share its contents.
+ */
+return [
+    'FLEXIHUB_APP_KEY' => 'REPLACE_WITH_A_RANDOM_64_CHARACTER_HEX_KEY',
+];
