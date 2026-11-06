@@ -232,6 +232,22 @@ The intended data contract is:
 No scope migration or SQL execution has been performed. The exact MariaDB 10.4 DDL and backfill must be prepared only after the read-only live-schema and user-role mapping preflight is available.
 
 
+
+## One-run live-schema preflight
+
+A consolidated read-only report is now available at `database/rbac_read_only_preflight.sql`. It returns, in one execution:
+
+1. Presence of legacy and newer RBAC tables.
+2. Exact RBAC/user columns and types.
+3. Index definitions and column order.
+4. Foreign-key relationships.
+5. Current users and their legacy role strings (no password hashes).
+6. Current `access_*` assignments and permission rows, if those tables exist.
+7. Legacy `user_roles` mappings, if present.
+8. The legacy `users.role_id` mapping, if present.
+
+It uses SELECTs and session-local variables/prepared SELECT statements only. It does not create, alter, or write application data. This is the single live-database evidence needed before drafting the final scoped migration; it replaces a sequence of ad hoc table/column queries.
+
 ## Updated implementation gate
 
 Before changing the shared authorization helpers, complete the following in order:
