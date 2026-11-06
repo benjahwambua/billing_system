@@ -1,5 +1,6 @@
 <?php
 require_once '../includes/auth.php';
+require_once '../includes/permission_catalog.php';
 requireActiveUser();
 requireTenantContext();
 requireModulePermission('staff', 'view');
@@ -7,38 +8,7 @@ requireModulePermission('staff', 'view');
 global $conn;
 $tenantId = (int) getCurrentTenantId();
 
-$modules = [
-    'dashboard' => 'Dashboard',
-    'customers' => 'Customers',
-    'internet_plans' => 'Internet Plans',
-    'internet_accounts' => 'Internet Accounts',
-    'subscriptions' => 'Subscriptions',
-    'routers' => 'Routers',
-    'pppoe' => 'PPPoE',
-    'pppoe_accounts' => 'PPPoE Accounts',
-    'pppoe_servers' => 'PPPoE Servers',
-    'hotspot' => 'Hotspot',
-    'network' => 'Network Monitoring',
-    'network_sites' => 'Network Sites',
-    'ip_pools' => 'IP Pools',
-    'billing' => 'Billing',
-    'invoices' => 'Invoices',
-    'payments' => 'Payments',
-    'receipts' => 'Receipts',
-    'transactions' => 'Transactions',
-    'wallet' => 'Wallet',
-    'revenue' => 'Revenue',
-    'expenses' => 'Expenses',
-    'reports' => 'Reports',
-    'communication' => 'Communication',
-    'support' => 'Support',
-    'operations' => 'Operations',
-    'staff' => 'Staff & Access',
-    'ai' => 'AI Assistant',
-    'settings' => 'Settings',
-    'audit_logs' => 'Audit Logs',
-    'system_events' => 'System Events',
-];
+$modules = flexihubTenantPermissionModules();
 
 $roles = [];
 if (flexihubTableHasColumn('access_roles', 'tenant_id')) {
@@ -232,7 +202,7 @@ require_once '../includes/header.php';
                 <?php foreach ($modules as $key => $label): $p = $perms[$key] ?? []; ?>
                     <tr>
                         <td><?= e($label) ?></td>
-                        <?php foreach (['view', 'create', 'edit', 'delete', 'approve'] as $action): ?>
+                        <?php foreach (flexihubPermissionActions() as $action): ?>
                             <td><input type="checkbox" aria-label="<?= e($label . ' ' . $action) ?>" name="p[<?= e($key) ?>][<?= e($action) ?>]" <?= !empty($p['can_' . $action]) ? 'checked' : '' ?>></td>
                         <?php endforeach; ?>
                     </tr>
