@@ -14,6 +14,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/permission_catalog.php';
+
 $userScope = $_SESSION['user_scope'] ?? 'tenant';
 $isHost = ($userScope === 'host');
 
@@ -118,20 +120,7 @@ if (!function_exists('sidebarCanHref')) {
         $dir = strtolower($parts[count($parts)-2] ?? '');
         $file = strtolower($parts[count($parts)-1] ?? '');
 
-        $map = [
-            'dashboard'=>'dashboard','customers'=>'customers','internet_plans'=>'internet_plans',
-            'internet_accounts'=>'internet_accounts','subscriptions'=>'subscriptions',
-            'pppoe'=>'pppoe','pppoe_accounts'=>'pppoe','pppoe_servers'=>'pppoe','ip_pools'=>'pppoe',
-            'routers'=>'network','network'=>'network','network_sites'=>'network',
-            'hotspot'=>'hotspot','billing'=>'billing','invoices'=>'invoices','payments'=>'payments',
-            'receipts'=>'billing','transactions'=>'billing','expenses'=>'billing','revenue'=>'billing',
-            'reports'=>'reports','communication'=>'communication','ai'=>'ai','staffs'=>'staff',
-            'users'=>'staff','roles'=>'staff','sessions'=>'staff','settings'=>'settings',
-            'operations'=>'operations','wallet'=>'wallet','platform'=>'platform','tenants'=>'platform',
-            'platform_plans'=>'platform','platform_subscriptions'=>'platform','platform_wallets'=>'platform','platform_transactions'=>'platform',
-            'platform_revenue'=>'platform','platform_users'=>'platform','support'=>'support',
-            'system_events'=>'platform','audit_logs'=>'platform','platform_settings'=>'platform'
-        ];
+        $map = flexihubPermissionRouteMap();
         $module = $map[$dir] ?? null;
         if (!$module || !is_callable('userCan')) return true;
 
