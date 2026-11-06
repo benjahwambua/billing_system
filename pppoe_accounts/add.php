@@ -4,7 +4,7 @@ requireActiveUser();
 require_once '../includes/functions.php';
 require_once '../includes/mikrotik_api.php';
 require_once '../config/routeros.php';
-if(isTenantUser()) requireTenant();
+requireTenantContext();
 requireModulePermission('pppoe', 'create');
 global $conn;
 $cols=[];$q=$conn->query("SHOW COLUMNS FROM pppoe_accounts");while($x=$q->fetch_assoc())$cols[]=$x['Field'];
