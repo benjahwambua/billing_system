@@ -1,5 +1,5 @@
 <?php
-require_once '../includes/auth.php';requireActiveUser();require_once '../includes/functions.php';if(isTenantUser())requireTenant();requireModulePermission('pppoe','edit');global $conn;
+require_once '../includes/auth.php';requireActiveUser();require_once '../includes/functions.php';requireTenantContext();requireModulePermission('pppoe','edit');global $conn;
 $id=(int)($_GET['id']??0);if(!$id)die('Invalid PPPoE account.');
 $cols=[];$q=$conn->query("SHOW COLUMNS FROM pppoe_accounts");while($x=$q->fetch_assoc())$cols[]=$x['Field'];$has=fn($c)=>in_array($c,$cols,true);$tid=(int)getCurrentTenantId();
 if(isTenantUser() && (!$has('tenant_id') || $tid<=0)){http_response_code(503);exit('PPPoE account tenant isolation is unavailable. Please contact the administrator.');}
