@@ -153,6 +153,50 @@ This rule is intentionally explicit: adding a second role can add permissions, b
 - Do not grant every user administrator access to avoid migration problems.
 - Do not claim production readiness based only on the presence of tables or pages.
 
+
+## Expanded caller and login review
+
+The source review also inspected the login flow, host guards, navigation, and representative tenant modules.
+
+### Confirmed authorization entry points
+
+- Tenant pages already using `requireModulePermission()` include customer list/create/view, internet plan list/create, internet account list/create, billing, invoices, payments, hotspot dashboard/sales, router list/create, network status/monitoring, support, operations, staff list/create, roles, users, settings, M-Pesa settings, and reports.
+- Some list/detail pages use `userCan()` to conditionally show create/edit controls; these controls are presentation only and must continue to be backed by server-side checks.
+- The sidebar has its own path-to-module mapping and calls `userCan()`. This is a second module map that should be generated from the central catalogue, not independently maintained.
+- The dashboard, `pppoe/accounts.php`, and `audit_logs/index.php` did not show a direct module guard in the inspected source. Their intended access model and any guards in included code must be verified before declaring them unprotected.
+- `requirePermission()` and `userHasPermission()` are legacy permission-code entry points. Their remaining callers must be inventoried before those compatibility functions are removed.
+
+### Login flow defect
+
+`auth/login.php` still tries to load role codes from `user_roles` joined to `roles.role_code`, filtered by `roles.status`. That is incompatible with the supplied migration 005, which creates `roles.name` and `roles.is_system`, does not create `user_roles`, and does not create `roles.role_code` or `roles.status`.
+
+The login flow then assigns a synthetic `HOST_SUPER_ADMIN` session role when a host-scoped user has an empty role list and the legacy `users.role` value is `Administrator`. The authorization helpers also elevate based on the session's legacy role string. This is a separate source of authority from the newer tenant `access_*` assignments and must be removed only as part of a controlled migration that gives existing host administrators explicit canonical assignments.
+
+### Host/platform model decision
+
+The current `access_roles` schema requires `tenant_id NOT NULL` and references `tenants`. It therefore cannot represent a host/platform role without bending tenant semantics or creating another role catalogue.
+
+The chosen direction is **one shared role catalogue and assignment model with an explicit scope discriminator**, not a separate platform role system. The migration design must evolve the current `access_*` tables to represent:
+
+- `scope = 'platform'` with no tenant owner; or
+- `scope = 'tenant'` with a required tenant owner.
+
+A stable `scope_key` (for example, `platform` or `tenant:<id>`) should provide an unambiguous uniqueness boundary for role keys/names despite SQL NULL uniqueness behavior. Role assignments and permission rows must carry the same scope/owner identity, and every authorization query must join the persisted `users.user_scope` and `users.tenant_id` to the assignment. The exact DDL and compatibility approach must be tested against MariaDB 10.4 before it is approved.
+
+Host access must not mean “every host user is a super administrator”. Host-scoped roles need explicit platform permissions. Platform routes should use a platform module/action permission check in addition to the persisted host-scope check. Tenant administrators must never create, assign, edit, or deactivate platform roles.
+
+## Updated implementation gate
+
+Before changing the shared authorization helpers, complete the following in order:
+
+1. Finish the repository-wide caller inventory for the legacy APIs and direct role-string checks.
+2. Verify the exact live migration state against the already supplied SQL baseline; the source snapshot is not proof that migrations 005/006 were run.
+3. Define the shared platform/tenant schema and role keys, including the first platform owner/bootstrap path.
+4. Prepare a read-only mapping report for the existing host administrator and every tenant user's current legacy role and any existing `access_*` assignments.
+5. Only then change login, shared helpers, role editor, user assignment UI, and page guards as one coordinated access-control change.
+
+No code path should start relying exclusively on the new model until the existing administrator has a verified canonical assignment. This avoids locking the user out during cutover.
+
 ## Current status
 
 - [x] Duplicate role/permission structures identified in migrations and helpers.
