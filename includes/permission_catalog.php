@@ -86,9 +86,18 @@ if (!function_exists('flexihubPermissionRouteMap')) {
             'settings' => 'settings',
             'operations' => 'operations',
             'wallet' => 'wallet',
+            'platform' => 'platform',
+            'tenants' => 'platform',
+            'platform_plans' => 'platform',
+            'platform_subscriptions' => 'platform',
+            'platform_wallets' => 'platform',
+            'platform_transactions' => 'platform',
+            'platform_revenue' => 'platform',
+            'platform_users' => 'platform',
             'support' => 'support',
-            'audit_logs' => 'audit_logs',
-            'system_events' => 'system_events',
+            'system_events' => 'platform',
+            'audit_logs' => 'platform',
+            'platform_settings' => 'platform',
         ];
     }
 }
