@@ -185,6 +185,20 @@ A stable `scope_key` (for example, `platform` or `tenant:<id>`) should provide a
 
 Host access must not mean “every host user is a super administrator”. Host-scoped roles need explicit platform permissions. Platform routes should use a platform module/action permission check in addition to the persisted host-scope check. Tenant administrators must never create, assign, edit, or deactivate platform roles.
 
+
+### Additional route-guard findings from the caller scan
+
+The scan is still in progress, but these concrete cases are now recorded:
+
+- `pppoe_accounts/index.php` requires an active login but does not directly call `requireModulePermission()`; it only requires tenant context conditionally. Its tenant-only data list should require tenant context and the PPPoE View permission unconditionally.
+- `pppoe_accounts/add.php` and `pppoe_accounts/edit.php` also conditionally require tenant context while handling tenant-owned PPPoE records. Their access scope should be made explicit and consistent with the tenant module guard.
+- `dashboard/index.php` requires an active user but does not directly enforce a module/action permission. It serves both scope-specific dashboard content, so its tenant and platform authorization needs to be handled separately after the shared scoped RBAC contract exists.
+- `audit_logs/index.php` is currently host-only through a scope check, but the page is a placeholder and does not yet provide record-level audit-log access. It must ultimately use the platform audit permission in addition to host scope.
+- `customers/active.php`, `customers/expired.php`, and `customers/suspended.php` delegate to `customers/index.php`, where the customer permission guard is applied. They are not independent unguarded pages.
+- `pppoe/accounts.php`, `pppoe/servers.php`, `pppoe/ip_pools.php`, and `transactions/index.php` are redirects to the newer canonical routes; guard review should be performed on the destination rather than duplicated in the redirect.
+
+These findings are tracked for the coordinated route-adoption phase. Do not infer that every other page is protected merely because the representative pages above use the shared helper.
+
 ## Updated implementation gate
 
 Before changing the shared authorization helpers, complete the following in order:
