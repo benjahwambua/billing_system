@@ -199,6 +199,39 @@ The scan is still in progress, but these concrete cases are now recorded:
 
 These findings are tracked for the coordinated route-adoption phase. Do not infer that every other page is protected merely because the representative pages above use the shared helper.
 
+
+## Implementation progress — shared catalogue and first guard fixes
+
+The tenant module/action catalogue now lives in `includes/permission_catalog.php`. The role editor reads its module names and action names from that file, while the sidebar reads its route-to-module aliases from the same file. This is a shared source of truth for tenant navigation and the tenant role editor.
+
+The tenant permission resolver now aggregates the permission bit across all active assigned roles using `MAX(...)`, so an allow on any active role is retained rather than depending on whichever row MariaDB returns first. The query also joins the persisted user row and requires the user to be active, tenant-scoped, and assigned to the same tenant as the roles and permission rows.
+
+The PPPoE account list now explicitly requires tenant context and the PPPoE View permission. The PPPoE account create and edit routes now require tenant context unconditionally; their existing Create/Edit permission checks remain in place.
+
+### Important items deliberately not cut over yet
+
+- The current `isSuperUser()` still grants access using legacy session role strings and legacy role lookups. This bypass must be replaced only after explicit canonical platform and tenant administrator assignments exist.
+- `userCan()` still has a legacy permission-code fallback when the newer `access_*` tables are absent. This remains a temporary compatibility path because the uploaded SQL baseline does not contain the access-control tables and the live XAMPP migration state has not been verified here.
+- `auth/login.php` still reads `user_roles`, `roles.role_code`, and `roles.status`, while migration 005 defines `roles.name` and `roles.is_system` and does not define those legacy lookup columns/tables. It also synthesizes `HOST_SUPER_ADMIN` from the legacy `users.role` value. Login and authorization must be migrated together.
+- The supplied SQL baseline is not proof that migrations 005 or 006 have been applied to the current local database. The migration registry explicitly says not to run the historical migrations blindly.
+
+### Scoped catalogue migration design
+
+The canonical model remains one shared role catalogue with explicit scope, not separate tenant and platform RBAC implementations. Before producing executable DDL, the migration must support both possible starting states: no `access_*` tables, or the tenant-only tables created by migration 006.
+
+The intended data contract is:
+
+- A role has a persisted `scope` of `platform` or `tenant`.
+- Tenant roles have a non-null tenant owner; platform roles have no tenant owner.
+- A deterministic scope key separates global platform role keys from tenant role keys and avoids relying on SQL uniqueness semantics for nullable tenant IDs.
+- Permission rows and user-role assignments inherit the exact same scope and tenant owner as their role.
+- A role assignment is valid only when the persisted user's `user_scope` and `tenant_id` match the role scope and owner.
+- Tenant administrators cannot create, edit, disable, or assign platform roles.
+- Platform privileges are explicit permission rows. No empty role list or legacy `Administrator` string can synthesize platform superuser access.
+
+No scope migration or SQL execution has been performed. The exact MariaDB 10.4 DDL and backfill must be prepared only after the read-only live-schema and user-role mapping preflight is available.
+
+
 ## Updated implementation gate
 
 Before changing the shared authorization helpers, complete the following in order:
@@ -216,8 +249,10 @@ No code path should start relying exclusively on the new model until the existin
 - [x] Duplicate role/permission structures identified in migrations and helpers.
 - [x] Mixed legacy/new authorization paths identified.
 - [x] Users & Access assignment/display limitations identified.
-- [ ] Full caller inventory completed (representative tenant pages and the login/sidebar paths reviewed; remaining files still to scan).
+- [ ] Full caller inventory completed (login/sidebar and representative tenant routes reviewed; remaining route families and legacy API callers still to scan).
 - [ ] Canonical platform/tenant schema finalized.
+- [x] Tenant role permission aggregation changed to OR semantics across active assigned roles.
+- [x] Initial PPPoE account list/create/edit tenant guards aligned.
 - [x] Tenant module/action catalogue centralized and shared by role editor and sidebar route filtering.
 - [ ] Reconciliation preflight prepared and reviewed.
 - [ ] Shared authorization helper consolidated.
