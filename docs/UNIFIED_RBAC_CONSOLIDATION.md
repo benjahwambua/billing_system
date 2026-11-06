@@ -202,8 +202,9 @@ No code path should start relying exclusively on the new model until the existin
 - [x] Duplicate role/permission structures identified in migrations and helpers.
 - [x] Mixed legacy/new authorization paths identified.
 - [x] Users & Access assignment/display limitations identified.
-- [ ] Full caller inventory completed.
+- [ ] Full caller inventory completed (representative tenant pages and the login/sidebar paths reviewed; remaining files still to scan).
 - [ ] Canonical platform/tenant schema finalized.
+- [x] Tenant module/action catalogue centralized and shared by role editor and sidebar route filtering.
 - [ ] Reconciliation preflight prepared and reviewed.
 - [ ] Shared authorization helper consolidated.
 - [ ] Role and user assignment workflows completed.
