@@ -1344,18 +1344,30 @@ if (!function_exists('userCan')) {
         if (flexihubTableHasColumn('access_roles','tenant_id')
             && flexihubTableHasColumn('access_role_permissions',$column)
             && flexihubTableHasColumn('access_user_roles','role_id')) {
-            $sql = "SELECT arp.$column AS allowed
+            $sql = "SELECT COALESCE(MAX(arp.$column), 0) AS allowed
                     FROM access_user_roles aur
-                    INNER JOIN access_roles ar ON ar.id=aur.role_id AND ar.tenant_id=? AND ar.status='active'
-                    INNER JOIN access_role_permissions arp ON arp.role_id=ar.id AND arp.tenant_id=? AND arp.module_key=?
-                    WHERE aur.user_id=? AND aur.tenant_id=? LIMIT 1";
+                    INNER JOIN users u
+                        ON u.id=aur.user_id
+                       AND u.user_scope='tenant'
+                       AND u.tenant_id=?
+                       AND u.status='active'
+                    INNER JOIN access_roles ar
+                        ON ar.id=aur.role_id
+                       AND ar.tenant_id=?
+                       AND ar.status='active'
+                    INNER JOIN access_role_permissions arp
+                        ON arp.role_id=ar.id
+                       AND arp.tenant_id=?
+                       AND arp.module_key=?
+                    WHERE aur.user_id=?
+                      AND aur.tenant_id=?";
             $stmt=$conn->prepare($sql);
             if(!$stmt){
                 error_log('Flexihub authorization: role permission query could not be prepared.');
                 return false;
             }
 
-            $stmt->bind_param('iisii',$tenantId,$tenantId,$module,$userId,$tenantId);
+            $stmt->bind_param('iiisii',$tenantId,$tenantId,$tenantId,$module,$userId,$tenantId);
             if(!$stmt->execute()){
                 error_log('Flexihub authorization: role permission query failed.');
                 $stmt->close();
