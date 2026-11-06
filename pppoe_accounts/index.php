@@ -2,7 +2,8 @@
 require_once '../includes/auth.php';
 requireActiveUser();
 require_once '../includes/functions.php';
-if (isTenantUser()) requireTenant();
+requireTenantContext();
+requireModulePermission('pppoe', 'view');
 global $conn;
 $tableCols = static function ($table) use ($conn) {
     $out = [];
