@@ -276,3 +276,30 @@ No code path should start relying exclusively on the new model until the existin
 - [ ] All modules adopted the canonical helpers.
 - [ ] Disposable migration and authorization tests passed.
 - [ ] Working database migration approved and applied.
+
+## Caller-scan checkpoint — 8 November 2026
+
+The source tree contains 180 PHP files. A targeted second pass was performed against the shared authorization helpers, login, role/user administration, dashboard, host administration entry points, and representative tenant modules. This is a checkpoint, not a claim that every PHP file has been individually audited.
+
+### Confirmed from the current feature branch
+
+- `includes/functions.php` still exposes both canonical-style module checks and legacy compatibility helpers: `hasRole()`, `userHasPermission()`, `isSuperUser()`, `userCan()`, `requireModulePermission()`, and `requirePermission()`.
+- The broad legacy elevation paths remain in `isSuperUser()`: host synthetic role / legacy session role and tenant legacy role names. This remains a cutover blocker.
+- `users/index.php` and `roles/index.php` use the tenant `staff` module permission for access to user/role administration. This coupling should be reviewed when the permission catalogue is finalized; role administration must not be accidentally exposed by ordinary staff-view permission alone.
+- `dashboard/index.php`, `audit_logs/index.php`, `tenants/index.php`, `platform/index.php`, `platform_users/index.php`, and `system_events/index.php` did not show direct calls to the shared module guard in the inspected file text. Their included guards and route scope checks must be checked separately; absence of a direct call is not proof of public access.
+- Representative tenant routes inspected include expenses, routers, payments, hotspot, and PPPoE accounts. They call the shared module guard, while some routes also use `userCan()` to control action links or POST handlers.
+- The current `auth/login.php` inspection did not expose direct permission-helper calls in the matched lines; the previously documented legacy role-loading and synthetic host-role behavior remains a separate login/session concern.
+
+### Corrections to earlier route notes
+
+- The earlier note that `pppoe_accounts/index.php` lacked an unconditional module guard is stale. The feature branch now calls `requireTenantContext()` and `requireModulePermission('pppoe', 'view')` unconditionally.
+- The earlier note that the PPPoE account add/edit routes only conditionally established tenant context is stale. Both now require tenant context unconditionally; their create/edit checks remain.
+- These fixes are source changes only. No local PHP lint, browser test, or live-database authorization test has been run from this review.
+
+### Remaining scan work before cutover
+
+1. Complete the route-by-route review of all PHP entry points, including POST endpoints, AJAX handlers, cron/worker endpoints, and redirect aliases.
+2. Search for direct comparisons against `users.role`, `$_SESSION['role']`, `legacy_role`, and direct SQL reads of legacy role tables.
+3. Assign each route an explicit platform or tenant scope and a module/action permission.
+4. Add a focused authorization test matrix for cross-tenant assignments, inactive users/roles, multiple-role aggregation, platform/tenant mismatch, and missing-table fail-closed behavior.
+5. Do not remove legacy compatibility or change login role loading until the scoped migration and explicit administrator backfill are ready.
