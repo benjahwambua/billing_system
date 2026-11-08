@@ -303,3 +303,17 @@ The source tree contains 180 PHP files. A targeted second pass was performed aga
 3. Assign each route an explicit platform or tenant scope and a module/action permission.
 4. Add a focused authorization test matrix for cross-tenant assignments, inactive users/roles, multiple-role aggregation, platform/tenant mismatch, and missing-table fail-closed behavior.
 5. Do not remove legacy compatibility or change login role loading until the scoped migration and explicit administrator backfill are ready.
+
+## Host-route guard review — 8 November 2026
+
+A further targeted review covered the platform billing, plans, subscriptions, transactions, wallets, revenue, manual payment, M-Pesa payment, platform settings, tenant directory, platform users, audit logs, and system events entry points.
+
+- Most inspected platform administration pages already require an active account and persisted host scope through `requireActiveUser()` plus `requireHostContext()`.
+- `tenants/index.php` previously called `requireHost()` only. It now explicitly calls `requireActiveUser()` and `requireHostContext()`, so an inactive host account is rejected before tenant records are loaded.
+- `system_events/index.php` previously used `requireLogin()` and a host-scope check. It now requires an active account and `requireHostContext()`.
+- Platform subscription and manual payment POST handlers include CSRF checks. Platform settings also has CSRF protection, but it still lacks a distinct platform-settings permission check because the shared API does not yet resolve platform-scoped role permissions.
+- `platform_payments/mpesa.php` is a tenant-facing payment flow and correctly establishes active tenant context rather than host context.
+- Platform pages are still protected primarily by scope, not by granular platform module/action permissions. This is a known authorization gap to close with the shared scoped RBAC resolver; do not interpret host scope alone as a permanent authorization model.
+- The tenant `users/index.php` and `roles/index.php` currently use the `staff` permission. The final catalogue should separate user administration and role/permission administration from ordinary staff records, and the UI and POST actions must enforce those distinct permissions.
+
+These source changes have been committed to the feature branch. They have not yet been run through local PHP lint or browser tests. No live database statements were executed.
