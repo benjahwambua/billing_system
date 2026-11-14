@@ -1,8 +1,8 @@
 <?php
-require_once '../includes/auth.php';requireActiveUser();requireTenantContext();requireModulePermission('staff','view');
+require_once '../includes/auth.php';requireActiveUser();requireTenantContext();requireModulePermission('users','view');
 global $conn;$tenantId=(int)getCurrentTenantId();
 $assignmentMessage='';
-if($_SERVER['REQUEST_METHOD']==='POST' && userCan('staff','edit')){
+if($_SERVER['REQUEST_METHOD']==='POST' && userCan('users','edit')){
     requireCsrf();
     $uid=(int)($_POST['user_id']??0);
     $rid=(int)($_POST['role_id']??0);
