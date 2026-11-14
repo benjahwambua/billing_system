@@ -3,7 +3,7 @@ require_once '../includes/auth.php';
 require_once '../includes/permission_catalog.php';
 requireActiveUser();
 requireTenantContext();
-requireModulePermission('staff', 'view');
+requireModulePermission('roles', 'view');
 
 global $conn;
 $tenantId = (int) getCurrentTenantId();
@@ -41,7 +41,7 @@ if ($selected > 0 && !$selectedRole) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrf();
-    requireModulePermission('staff', 'edit');
+    requireModulePermission('roles', 'edit');
 
     $roleId = (int) ($_POST['role_id'] ?? 0);
     $name = trim((string) ($_POST['name'] ?? ''));
@@ -210,7 +210,7 @@ require_once '../includes/header.php';
                 </tbody>
             </table>
         </div>
-        <?php if (userCan('staff', 'edit')): ?>
+        <?php if (userCan('roles', 'edit')): ?>
             <button type="submit">Save Role & Permissions</button>
         <?php endif; ?>
     </form>
