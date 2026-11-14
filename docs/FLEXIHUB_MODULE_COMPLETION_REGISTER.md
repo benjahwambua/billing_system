@@ -16,6 +16,9 @@
 ## Workstream 1 — Network operations
 
 - [ ] IP address pool lifecycle: create/edit/disable, allocation, release, overlap/conflict detection, exhaustion warnings.
+  - Existing verified foundation: tenant-scoped pool CRUD, IPv4/CIDR and range validation, overlap checks, active PPPoE-server assignment protection, and pool-to-server association.
+  - Latest improvement: pool list now shows tenant-scoped assigned/active PPPoE server counts when the association schema is present, and hides create/edit actions without the corresponding permission.
+  - Still missing: live address allocation/release, in-use address accounting, pool exhaustion thresholds/alerts, and end-to-end RouterOS synchronization tests.
 - [ ] Router provisioning synchronisation: desired vs actual state, sync status, safe retry and error history.
 - [ ] Session and usage tracking: active sessions, accounting records, usage limits, disconnect/reconciliation.
 - [ ] Network topology and site map: routers, links, sites, status and outage history.
