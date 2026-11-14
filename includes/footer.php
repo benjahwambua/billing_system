@@ -4,7 +4,7 @@
 </main>
 
 <style>
-.site-footer{position:fixed;left:250px;right:0;bottom:0;z-index:900;min-height:64px;width:auto;box-sizing:border-box;padding:15px 28px;background:rgba(7,11,18,.97);border-top:1px solid rgba(59,130,246,.18);color:rgba(255,255,255,.75);font-size:12px;box-shadow:0 -8px 24px rgba(0,0,0,.12)}
+.site-footer{position:fixed;left:var(--fh-sidebar-width,260px);right:0;bottom:0;z-index:900;min-height:64px;width:auto;box-sizing:border-box;padding:15px 28px;background:rgba(7,11,18,.97);border-top:1px solid rgba(59,130,246,.18);color:rgba(255,255,255,.75);font-size:12px;box-shadow:0 -8px 24px rgba(0,0,0,.12)}
 /* Keep page content clear of the fixed shared footer. */
 .main-wrapper{padding-bottom:64px}
 .page-content{padding-bottom:90px}
