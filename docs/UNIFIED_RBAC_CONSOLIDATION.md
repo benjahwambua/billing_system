@@ -317,3 +317,26 @@ A further targeted review covered the platform billing, plans, subscriptions, tr
 - The tenant `users/index.php` and `roles/index.php` currently use the `staff` permission. The final catalogue should separate user administration and role/permission administration from ordinary staff records, and the UI and POST actions must enforce those distinct permissions.
 
 These source changes have been committed to the feature branch. They have not yet been run through local PHP lint or browser tests. No live database statements were executed.
+
+
+## Follow-up implementation checkpoint — 14 November 2026
+
+### Separated tenant administration permissions
+
+The tenant permission catalogue now distinguishes four previously conflated capabilities:
+
+- `staff` — staff records and staff-directory operations.
+- `users` — tenant login-account access and role assignment.
+- `roles` — tenant role definitions and permission matrices.
+- `sessions` — tenant user-session administration.
+
+The route map now resolves `staffs`, `users`, `roles`, and `sessions` to their respective permission modules. The tenant Users & Access page requires `users.view` and `users.edit` for assignment changes. The Roles & Permissions page requires `roles.view` and `roles.edit` for role and permission changes. Staff directory routes continue to use `staff`.
+
+This removes the direct permission coupling between staff-record management and security administration at the source/UI layer. It does not yet prove the active database has these module keys or that existing roles grant them. Existing roles will need an explicit permission backfill in the eventual migration, otherwise affected users will correctly be denied by the new checks.
+
+### Validation status
+
+- Source changes committed on `feature/unified-rbac-consolidation`.
+- No database migration or live data change performed.
+- No local PHP lint or browser/authorization test performed in this environment.
+- GitHub Actions is configured to run on feature branch pushes; the workflow result must be checked before treating syntax/regression checks as passed.
