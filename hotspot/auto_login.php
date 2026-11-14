@@ -54,12 +54,12 @@ if($url===''||!filter_var($url,FILTER_VALIDATE_URL)||!preg_match('/^https?:$/i',
 $password=flexihubGatewayDecrypt($sale['hotspot_password_encrypted']??null);
 if(!$password)die('Hotspot credentials are unavailable.');
 ?>
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connecting…</title></head>
-<body><p>Connecting you to the internet…</p>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connecting… | Flexihub</title><link rel="stylesheet" href="../assets/css/flexihub-ui-polish.css?v=6"></head>
+<body><main class="wrap"><section class="card"><h1>Connecting…</h1><p>We are securely connecting your device to the internet.</p>
 <form id="hotspot-login" method="post" action="<?=e($url)?>">
 <input type="hidden" name="username" value="<?=e($sale['hotspot_username'])?>">
 <input type="hidden" name="password" value="<?=e($password)?>">
-</form>
-<noscript>Please enable JavaScript to connect automatically, or use the hotspot login page.</noscript>
+<noscript><p>Please enable JavaScript to connect automatically.</p><button class="btn btn-primary" type="submit">Continue to internet</button></noscript>
+</form></section></main>
 <script>document.getElementById('hotspot-login').submit();</script>
 </body></html>
