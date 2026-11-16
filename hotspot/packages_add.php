@@ -14,6 +14,7 @@ $routerColumns = flexihubTableColumns('mikrotik_routers');
 $routerNameColumn = in_array('name', $routerColumns, true) ? 'name' : (in_array('router_name', $routerColumns, true) ? 'router_name' : null);
 $packageColumns = flexihubTableColumns('hotspot_packages');
 $routerLinkAvailable = in_array('router_id', $packageColumns, true);
+if (!$routerLinkAvailable) $error = 'Apply the reviewed hotspot router association migration before creating or activating hotspot plans.';
 
 $q = $routerNameColumn
     ? $conn->prepare("SELECT id, `{$routerNameColumn}` AS name FROM mikrotik_routers WHERE tenant_id=? AND status='active' ORDER BY `{$routerNameColumn}`")
