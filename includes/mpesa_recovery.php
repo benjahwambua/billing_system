@@ -7,12 +7,15 @@ require_once __DIR__ . '/mpesa_callback_policy.php';
  * Platform SaaS and hotspot flows are deliberately excluded because their
  * finalization has separate lifecycle side effects.
  */
-function flexihubRecoverConfirmedCustomerMpesa($tenantId, $gatewayTransactionId)
+function flexihubRecoverConfirmedCustomerMpesa($tenantId, $gatewayTransactionId, $targetInvoiceId = 0, $allocationReason = '')
 {
     global $conn;
     $tenantId=(int)$tenantId;
     $gatewayTransactionId=(int)$gatewayTransactionId;
+    $targetInvoiceId=(int)$targetInvoiceId;
+    $allocationReason=trim((string)$allocationReason);
     if($tenantId<=0 || $gatewayTransactionId<=0) throw new InvalidArgumentException('A valid tenant and gateway transaction are required.');
+    if($targetInvoiceId>0 && (strlen($allocationReason)<10 || strlen($allocationReason)>500)) throw new InvalidArgumentException('A clear allocation reason of 10 to 500 characters is required.');
 
     $conn->begin_transaction();
     try {
@@ -73,9 +76,18 @@ function flexihubRecoverConfirmedCustomerMpesa($tenantId, $gatewayTransactionId)
 
         $reference=trim((string)($tx['account_reference']??''));
         if($reference==='') throw new RuntimeException('The transaction has no invoice reference.');
-        $invoice=dbFetchOne("SELECT * FROM invoices WHERE tenant_id=? AND invoice_number=? LIMIT 1 FOR UPDATE",'is',$tenantId,$reference);
-        if(!$invoice && ctype_digit($reference)) $invoice=dbFetchOne("SELECT * FROM invoices WHERE tenant_id=? AND id=? LIMIT 1 FOR UPDATE",'ii',$tenantId,(int)$reference);
-        if(!$invoice) throw new RuntimeException('The referenced customer invoice was not found in this tenant.');
+        $matchedReferenceInvoice=dbFetchOne("SELECT id FROM invoices WHERE tenant_id=? AND invoice_number=? LIMIT 1",'is',$tenantId,$reference);
+        if(!$matchedReferenceInvoice && ctype_digit($reference)) $matchedReferenceInvoice=dbFetchOne("SELECT id FROM invoices WHERE tenant_id=? AND id=? LIMIT 1",'ii',$tenantId,(int)$reference);
+        if($targetInvoiceId>0) {
+            if($matchedReferenceInvoice) throw new RuntimeException('The original invoice reference resolves correctly. Use normal recovery instead of manual allocation.');
+            $invoice=dbFetchOne("SELECT * FROM invoices WHERE id=? AND tenant_id=? LIMIT 1 FOR UPDATE",'ii',$targetInvoiceId,$tenantId);
+            if(!$invoice) throw new RuntimeException('The selected invoice does not belong to this tenant.');
+            $customerPhone=dbFetchOne("SELECT phone FROM customers WHERE id=? AND tenant_id=? LIMIT 1",'ii',(int)($invoice['customer_id']??0),$tenantId);
+            if(!$customerPhone || trim((string)($customerPhone['phone']??''))==='' || !hash_equals(trim((string)($tx['phone_number']??'')),trim((string)$customerPhone['phone']))) throw new RuntimeException('Manual allocation requires the invoice customer phone to match the verified M-Pesa payer phone.');
+        } else {
+            $invoice=$matchedReferenceInvoice?dbFetchOne("SELECT * FROM invoices WHERE id=? AND tenant_id=? LIMIT 1 FOR UPDATE",'ii',(int)$matchedReferenceInvoice['id'],$tenantId):null;
+            if(!$invoice) throw new RuntimeException('The referenced customer invoice was not found in this tenant. Use the controlled allocation screen only after verifying the payer/customer match.');
+        }
 
         $customerId=(int)($invoice['customer_id']??0);
         $accountId=(int)($invoice['internet_account_id']??$invoice['account_id']??0);
@@ -149,7 +161,7 @@ function flexihubRecoverConfirmedCustomerMpesa($tenantId, $gatewayTransactionId)
         $conn->commit();
 
         if(function_exists('logAudit')) {
-            try { logAudit('MPESA_RECOVERY','PAYMENTS','Recovered confirmed customer M-Pesa transaction #'.$gatewayTransactionId.' using receipt '.$receipt,'payment_gateway_transaction',$gatewayTransactionId,null,['payment_id'=>$paymentId,'invoice_id'=>(int)$invoice['id'],'amount'=>$paymentAmount]); } catch(Throwable $ignored) {}
+            try { logAudit($targetInvoiceId>0?'MPESA_MANUAL_ALLOCATION':'MPESA_RECOVERY','PAYMENTS',($targetInvoiceId>0?'Manually allocated':'Recovered').' confirmed customer M-Pesa transaction #'.$gatewayTransactionId.' using receipt '.$receipt,'payment_gateway_transaction',$gatewayTransactionId,null,['payment_id'=>$paymentId,'invoice_id'=>(int)$invoice['id'],'amount'=>$paymentAmount,'allocation_reason'=>$targetInvoiceId>0?$allocationReason:null]); } catch(Throwable $ignored) {}
         }
         return ['payment_id'=>$paymentId,'invoice_id'=>(int)$invoice['id'],'receipt'=>$receipt,'amount'=>$paymentAmount,'invoice_fully_paid'=>$fullyPaid,'existing_payment'=>(bool)$duplicate];
     } catch(Throwable $e) {
