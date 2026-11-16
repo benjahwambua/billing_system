@@ -58,7 +58,7 @@ BEGIN
     WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='customers' AND COLUMN_NAME='reseller_id';
 
     IF v_column=0 THEN
-        ALTER TABLE customers ADD COLUMN reseller_id BIGINT UNSIGNED NULL AFTER customer_group_id;
+        ALTER TABLE customers ADD COLUMN reseller_id BIGINT UNSIGNED NULL;
     END IF;
 
     SELECT COUNT(*) INTO v_index
