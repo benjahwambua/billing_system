@@ -25,6 +25,6 @@ CREATE TABLE IF NOT EXISTS invoice_tax_lines (
  PRIMARY KEY (id),
  UNIQUE KEY uq_invoice_tax_lines_invoice (tenant_id, invoice_id),
  KEY idx_invoice_tax_lines_tenant (tenant_id, created_at),
- CONSTRAINT fk_invoice_tax_lines_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT,
- CONSTRAINT fk_invoice_tax_lines_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON UPDATE CASCADE ON DELETE RESTRICT
+ KEY idx_invoice_tax_lines_invoice (invoice_id),
+ CONSTRAINT fk_invoice_tax_lines_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
