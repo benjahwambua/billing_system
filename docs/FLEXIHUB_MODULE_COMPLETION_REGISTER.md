@@ -31,7 +31,8 @@
 - [x] User access screen supports tenant-scoped role assignment and revocation, while preventing removal of a system role or a user's final assigned role.
 - [x] Added idempotent consolidation migration to create canonical access tables and copy compatible legacy tenant roles, module permissions and user assignments without deleting legacy data.
 - [ ] Apply migration 038 against the existing database after schema preflight; verify role/permission and assignment counts before/after.
-- [ ] Complete role revocation, verify platform-host role administration and remove remaining legacy tenant authorization fallback after the canonical migration is confirmed.
+- [x] Added tenant-safe role revocation, with safeguards against removing protected system roles or a user's final assigned role.
+- [ ] Verify platform-host role administration and remove remaining legacy tenant authorization fallback after the canonical migration is confirmed.
 
 ## Support & Customer Care — implementation in progress
 
@@ -54,7 +55,8 @@
 - [x] Added tenant-scoped reseller directory and invoice-linked commission ledger.
 - [x] Commission calculation uses recorded invoice collections and snapshots the reseller's commission rate.
 - [x] Added approval, payment and reversal status transitions with tenant scoping and duplicate invoice/reseller protection.
-- [ ] Add reseller customer attribution/portal access and automated commission reconciliation.
+- [x] Added tenant customer attribution and reseller profile editing/pausing.
+- [ ] Add reseller portal access and automated commission reconciliation.
 - [ ] Apply migration 041 and verify commissions against actual payment ledger records during final testing.
 
 ## Inventory — implementation in progress
@@ -96,7 +98,7 @@
 - [x] Added customer self-service portal with one-time, hashed 48-hour invitations, password activation, tenant-scoped login and customer-only session state.
 - [x] Portal dashboard displays only the signed-in customer's services, invoices, payments and subscription history.
 - [ ] Configure secure external HTTPS/tenant URL delivery and verify portal invitation/password reset flows during final testing.
-- [ ] Add duplicate contact handling and customer self-service portal.
+- [ ] Add duplicate contact handling and extend the customer portal with secure invoice payment initiation and profile self-service.
 
 ## Billing — implementation in progress
 
@@ -140,9 +142,9 @@
 
 ## Workstream 2 — Billing and financial control
 
-- [ ] Recurring invoice generation with duplicate prevention and tenant billing cycles.
+- [x] Recurring invoice generation with duplicate prevention and tenant billing cycles.
 - [ ] Tax configuration and invoice line calculations.
-- [ ] Partial payments and deterministic allocation to invoices.
+- [x] Partial payments and invoice-linked balance calculation; verify edge cases against the final database ledger.
 - [ ] Duplicate, unmatched, excess and unapplied payment handling.
 - [ ] Reconciliation against gateway callbacks and statements.
 - [ ] Refunds, reversals and credit notes with approval/audit controls.
@@ -151,20 +153,23 @@
 ## Workstream 3 — Customer lifecycle and service orders
 
 - [ ] Service request/order capture and status history.
-- [ ] Installation scheduling and assignment.
+- [x] Installation/repair scheduling and technician assignment through the field operations board.
 - [ ] Activation workflow with eligibility/payment checks.
 - [ ] Plan changes, renewal, suspension, resumption and cancellation.
 - [ ] Proration and effective-date rules.
-- [ ] Customer self-service for profile, services, invoices, payments and support.
+- [x] Customer self-service for service, invoice and payment history plus support requests/replies.
+- [ ] Add secure payment initiation and profile updates to the portal.
 - [ ] Every transition emits an auditable service event and handles retry safely.
 
 ## Workstream 4 — Support and field operations
 
-- [ ] Ticket categories, priorities, assignment, SLA timers and escalation.
+- [x] Ticket categories, priorities, tenant assignment, customer/staff replies and status tracking.
+- [ ] Add SLA timers, escalation and notification delivery.
 - [ ] Incident/outage linkage and customer communication.
 - [ ] Technician profiles, skills, availability and workload.
-- [ ] Installation and repair work orders with dispatch/scheduling.
-- [ ] Job status, notes, timestamps, photos, materials used and customer sign-off.
+- [x] Installation and repair work orders with dispatch/scheduling.
+- [x] Job status, notes, timestamps and customer sign-off.
+- [ ] Add secure job photo uploads and materials-used tracking.
 - [ ] Technician job history and performance reporting.
 - [ ] CPE/ONT inventory issue, return and customer/site assignment.
 
@@ -175,7 +180,8 @@
 - [ ] SaaS invoices, payments and subscription ledger independent of ISP customer finances.
 - [ ] Usage metering and plan-limit enforcement.
 - [ ] Tenant branding, logo, colours and custom domains with safe validation.
-- [ ] Reseller onboarding, tenant assignment, commission rules and payout reconciliation.
+- [x] Tenant reseller onboarding, customer attribution, commission rules and approval/payout reference capture.
+- [ ] Add platform-level reseller tenant assignment and automated payout reconciliation.
 - [ ] Platform-host permissions separated from tenant permissions.
 
 ## Workstream 6 — Production reliability
