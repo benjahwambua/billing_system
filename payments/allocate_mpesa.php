@@ -33,6 +33,8 @@ $invoiceResult=$invoiceStmt->get_result();
 $txPhone=trim((string)($transaction['phone_number']??''));
 $txAmount=(float)($transaction['amount']??0);
 while($invoice=$invoiceResult->fetch_assoc()){
+ $invoiceStatus=strtolower(trim((string)($invoice['status']??'')));
+ if(in_array($invoiceStatus,['paid','cancelled','canceled','void','draft'],true))continue;
  $customerId=(int)($invoice['customer_id']??0);
  if($customerId<=0)continue;
  $customer=dbFetchOne("SELECT first_name,last_name,phone FROM customers WHERE id=? AND tenant_id=? LIMIT 1",'ii',$customerId,$tenantId);
