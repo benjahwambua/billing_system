@@ -25,7 +25,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 }
 if(isset($_GET['replied']))$notice='Reply sent.';
 $tickets=[];$ticket=null;$messages=[];$staff=[];
-$q=$conn->prepare("SELECT id,username,full_name FROM users WHERE tenant_id=? AND user_scope='tenant' AND LOWER(status)='active' ORDER BY username");
+$q=$conn->prepare("SELECT id,username FROM users WHERE tenant_id=? AND user_scope='tenant' AND LOWER(status)='active' ORDER BY username");
 if($q){$q->bind_param('i',$tenantId);$q->execute();$r=$q->get_result();while($x=$r->fetch_assoc())$staff[]=$x;$q->close();}
 $q=$conn->prepare("SELECT t.*,c.customer_number,TRIM(CONCAT_WS(' ',c.first_name,c.last_name)) customer_name FROM customer_support_tickets t INNER JOIN customers c ON c.id=t.customer_id AND c.tenant_id=t.tenant_id WHERE t.tenant_id=? ORDER BY FIELD(t.status,'open','in_progress','waiting_customer','resolved','closed'),t.priority DESC,t.updated_at DESC LIMIT 300");
 if($q){$q->bind_param('i',$tenantId);$q->execute();$r=$q->get_result();while($x=$r->fetch_assoc())$tickets[]=$x;$q->close();}
