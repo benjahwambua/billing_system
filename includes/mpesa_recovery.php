@@ -158,11 +158,16 @@ function flexihubRecoverConfirmedCustomerMpesa($tenantId, $gatewayTransactionId,
 
         $callback=$conn->prepare("UPDATE payment_callbacks SET processing_status='processed',processed_at=NOW(),error_message=NULL WHERE tenant_id=? AND external_transaction_id=?");
         if($callback) { $callback->bind_param('is',$tenantId,$receipt); $callback->execute(); $callback->close(); }
-        $conn->commit();
-
+        $auditOk=false;
         if(function_exists('logAudit')) {
-            try { logAudit($targetInvoiceId>0?'MPESA_MANUAL_ALLOCATION':'MPESA_RECOVERY','PAYMENTS',($targetInvoiceId>0?'Manually allocated':'Recovered').' confirmed customer M-Pesa transaction #'.$gatewayTransactionId.' using receipt '.$receipt,'payment_gateway_transaction',$gatewayTransactionId,null,['payment_id'=>$paymentId,'invoice_id'=>(int)$invoice['id'],'amount'=>$paymentAmount,'allocation_reason'=>$targetInvoiceId>0?$allocationReason:null]); } catch(Throwable $ignored) {}
+            try {
+                $auditOk=logAudit($targetInvoiceId>0?'MPESA_MANUAL_ALLOCATION':'MPESA_RECOVERY','PAYMENTS',($targetInvoiceId>0?'Manually allocated':'Recovered').' confirmed customer M-Pesa transaction #'.$gatewayTransactionId.' using receipt '.$receipt,'payment_gateway_transaction',$gatewayTransactionId,null,['payment_id'=>$paymentId,'invoice_id'=>(int)$invoice['id'],'amount'=>$paymentAmount,'allocation_reason'=>$targetInvoiceId>0?$allocationReason:null]);
+            } catch(Throwable $auditError) {
+                if($targetInvoiceId>0) throw new RuntimeException('The allocation audit record could not be written; no allocation was committed.');
+            }
         }
+        if($targetInvoiceId>0 && !$auditOk) throw new RuntimeException('The allocation audit record could not be written; no allocation was committed.');
+        $conn->commit();
         return ['payment_id'=>$paymentId,'invoice_id'=>(int)$invoice['id'],'receipt'=>$receipt,'amount'=>$paymentAmount,'invoice_fully_paid'=>$fullyPaid,'existing_payment'=>(bool)$duplicate];
     } catch(Throwable $e) {
         $conn->rollback();
