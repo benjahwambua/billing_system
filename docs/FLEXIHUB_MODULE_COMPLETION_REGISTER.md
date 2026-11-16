@@ -36,6 +36,13 @@
 - [ ] Add secure photo/document upload and technician performance/SLA reporting.
 - [ ] Apply migration 039 and verify job creation, assignment, history and customer/account isolation during final testing.
 
+## PPPoE & Network — implementation in progress
+
+- [x] PPPoE profile page now performs read-only profile discovery from tenant-assigned active MikroTik routers instead of showing a generic internet-plan placeholder.
+- [x] ONU-to-service-account assignment now verifies that the selected account belongs to the selected customer and tenant.
+- [ ] Complete IP address allocation/release, RouterOS sync/retry and topology/outage event workflows.
+- [ ] Final testing phase: test read-only router polling against the isolated Flexihub test router; do not enable RouterOS writes against SmartISP.
+
 ## Hotspot — implementation in progress
 
 - [x] Tenant-scoped hotspot plan listing now handles router-name schema variants and orders by the package primary key.
