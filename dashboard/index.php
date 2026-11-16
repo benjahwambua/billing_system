@@ -418,7 +418,7 @@ if ($isHost) {
             SELECT COUNT(*)
             FROM internet_accounts
             WHERE tenant_id = ?
-            AND status = 'Active'
+            AND LOWER(status) = 'active'
             ",
             [$tenantId]
         );
@@ -463,7 +463,7 @@ if ($isHost) {
             FROM active_sessions
             WHERE tenant_id = ?
             AND status = 'online'
-            AND session_type = 'hotspot'
+            AND LOWER(session_type) = 'hotspot'
             ",
             [$tenantId]
         );
@@ -496,7 +496,7 @@ if ($isHost) {
             AND expiry_date IS NOT NULL
             AND expiry_date BETWEEN CURDATE()
             AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
-            AND status = 'Active'
+            AND LOWER(status) = 'active'
             ",
             [$tenantId]
         );
