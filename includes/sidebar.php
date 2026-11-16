@@ -740,6 +740,7 @@ ob_start();
             <div class="sidebar-menu-section">
                 <div class="sidebar-menu-heading"><?= sidebarModuleIcon('OPERATIONS') ?><span class="sidebar-heading-label">OPERATIONS</span></div>
                 <a href="../operations/agent_sales.php" class="sidebar-menu-link <?= sidebarActive('/operations/agent_sales.php') ?>"><span class="sidebar-menu-icon">♙</span><span class="sidebar-menu-text">Agent Sales</span></a>
+                <a href="../operations/field_jobs.php" class="sidebar-menu-link <?= sidebarActive('/operations/field_jobs.php') ?>"><span class="sidebar-menu-icon">⚒</span><span class="sidebar-menu-text">Field Jobs &amp; Dispatch</span></a>
                 <a href="../support/index.php" class="sidebar-menu-link <?= sidebarActive('/support/') ?>"><span class="sidebar-menu-icon">?</span><span class="sidebar-menu-text">Support Centre</span></a>
                 <a href="../operations/adverts.php" class="sidebar-menu-link <?= sidebarActive('/operations/adverts.php') ?>"><span class="sidebar-menu-icon">▤</span><span class="sidebar-menu-text">Adverts</span></a>
             </div>
