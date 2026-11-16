@@ -127,7 +127,7 @@ if (!function_exists('sidebarCanHref')) {
             'receipts'=>'billing','transactions'=>'billing','expenses'=>'billing','revenue'=>'billing',
             'reports'=>'reports','communication'=>'communication','ai'=>'ai','staffs'=>'staff',
             'users'=>'staff','roles'=>'staff','sessions'=>'staff','settings'=>'settings',
-            'operations'=>'operations','inventory'=>'inventory','wallet'=>'wallet','platform'=>'platform','tenants'=>'platform',
+            'operations'=>'operations','inventory'=>'inventory','resellers'=>'resellers','wallet'=>'wallet','platform'=>'platform','tenants'=>'platform',
             'platform_plans'=>'platform','platform_subscriptions'=>'platform','platform_wallets'=>'platform','platform_transactions'=>'platform',
             'platform_revenue'=>'platform','platform_users'=>'platform','support'=>'support',
             'system_events'=>'platform','audit_logs'=>'platform','platform_settings'=>'platform'
@@ -744,6 +744,7 @@ ob_start();
                 <a href="../support/index.php" class="sidebar-menu-link <?= sidebarActive('/support/') ?>"><span class="sidebar-menu-icon">?</span><span class="sidebar-menu-text">Support Centre</span></a>
                 <a href="../operations/adverts.php" class="sidebar-menu-link <?= sidebarActive('/operations/adverts.php') ?>"><span class="sidebar-menu-icon">▤</span><span class="sidebar-menu-text">Adverts</span></a>
                 <a href="../inventory/index.php" class="sidebar-menu-link <?= sidebarActive('/inventory/') ?>"><span class="sidebar-menu-icon">▣</span><span class="sidebar-menu-text">Inventory</span></a>
+                <a href="../resellers/index.php" class="sidebar-menu-link <?= sidebarActive('/resellers/') ?>"><span class="sidebar-menu-icon">♙</span><span class="sidebar-menu-text">Resellers</span></a>
             </div>
 
             <!-- =================================================
