@@ -21,6 +21,14 @@ if($callbackCheck && $callbackCheck->num_rows>0){
  if($stmt){$stmt->bind_param('i',$tenantId);if($stmt->execute()){$result=$stmt->get_result();while($row=$result->fetch_assoc())$callbackRows[]=$row;}else $warnings[]='Callback events could not be loaded.';$stmt->close();}
  else $warnings[]='Callback event storage could not be queried.';
 }else $warnings[]='Callback event storage is not installed.';
+$allocatableGatewayIds=[];
+foreach($gatewayRows as $gatewayRow){
+ if(($gatewayRow['status']??'')!=='confirmed' || !in_array((string)($gatewayRow['flow']??''),['customer','internet','billing'],true))continue;
+ $ref=trim((string)($gatewayRow['account_reference']??''));
+ $matched=$ref!==''?dbFetchOne("SELECT id FROM invoices WHERE tenant_id=? AND invoice_number=? LIMIT 1",'is',$tenantId,$ref):null;
+ if(!$matched && $ref!=='' && ctype_digit($ref))$matched=dbFetchOne("SELECT id FROM invoices WHERE tenant_id=? AND id=? LIMIT 1",'ii',$tenantId,(int)$ref);
+ if(!$matched)$allocatableGatewayIds[]=(int)$gatewayRow['id'];
+}
 $pageTitle='Payment Reconciliation';
 require_once '../includes/header.php';
 require_once '../includes/sidebar.php';
@@ -41,7 +49,7 @@ require_once '../includes/sidebar.php';
    <td><?=e((string)($row['account_reference']??$row['checkout_request_id']??''))?></td>
    <td><?=e(formatMoney($row['amount']??0))?></td><td><?=e((string)($row['provider_receipt']??''))?></td>
    <td><span class="status-badge <?=($row['status']??'')==='confirmed'?'warning':'danger'?>"><?=e((string)($row['status']??''))?></span></td>
-   <td><?=e((string)($row['failure_reason']??$row['result_description']??''))?></td><td><?=e((string)($row['created_at']??''))?></td><td><?php if(($row['status']??'')==='confirmed' && in_array((string)($row['flow']??''),['customer','internet','billing'],true)):?><a class="btn btn-sm btn-primary" href="recover_mpesa.php?id=<?=e((string)$row['id'])?>">Recover</a><?php else:?>—<?php endif;?></td>
+   <td><?=e((string)($row['failure_reason']??$row['result_description']??''))?></td><td><?=e((string)($row['created_at']??''))?></td><td><?php if(($row['status']??'')==='confirmed' && in_array((string)($row['flow']??''),['customer','internet','billing'],true)):?><a class="btn btn-sm btn-primary" href="recover_mpesa.php?id=<?=e((string)$row['id'])?>">Recover</a><?php if(in_array((int)$row['id'],$allocatableGatewayIds,true)):?><a class="btn btn-sm btn-secondary" href="allocate_mpesa.php?id=<?=e((string)$row['id'])?>">Allocate</a><?php endif;?><?php else:?>—<?php endif;?></td>
   </tr><?php endforeach;?>
   <?php if(!$gatewayRows):?><tr><td colspan="9">No confirmed or failed gateway transactions require review.</td></tr><?php endif;?>
   </tbody></table></div>
