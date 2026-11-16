@@ -4,6 +4,18 @@
 **Baseline:** `ui/global-style-polish`  
 **Rule:** A menu item, database table, or unfinished page does not count as a completed module. Mark a capability complete only after its schema, tenant-scoped workflow, permissions, UI, and practical tests have been checked.
 
+## Dashboard — current focus
+
+- [x] Separate platform-host and tenant ISP dashboard views.
+- [x] Tenant-scoped customer, revenue, service, router, session, payment and outstanding-balance summaries.
+- [x] Host overview for tenants, platform collections, wallet balances and recent platform activity.
+- [x] ISP operational snapshot with router status, service lifecycle, expiring services and quick actions.
+- [x] Tenant payment analytics for hourly collections, seven-day collections, session mix and service lifecycle.
+- [x] PPPoE online count is now queried by PPPoE session type rather than inferred by subtracting hotspot sessions from all online sessions.
+- [x] Dashboard analytics styling aligned with the shared dark navy/blue command-centre theme.
+- [ ] Run against the user's current XAMPP database and verify every metric, status label, link and empty state.
+- [ ] Review desktop, tablet and mobile rendering in the browser before signing off the dashboard.
+
 ## Cross-cutting foundation — do first
 
 | Capability | Required outcome | Current assessment |
