@@ -3,6 +3,7 @@ require_once __DIR__.'/../includes/auth.php';
 global $conn;
 if(empty($_SESSION['customer_portal_authenticated'])||empty($_SESSION['customer_portal_tenant_id'])||empty($_SESSION['customer_portal_customer_id'])){header('Location: login.php');exit;}
 $tenantId=(int)$_SESSION['customer_portal_tenant_id'];$customerId=(int)$_SESSION['customer_portal_customer_id'];$portalUserId=(int)$_SESSION['customer_portal_user_id'];
+if(!flexihubTableHasColumn('customer_support_tickets','tenant_id')||!flexihubTableHasColumn('customer_support_messages','tenant_id')){http_response_code(503);exit('Customer support is temporarily unavailable. Please contact your ISP.');}
 $identity=$conn->prepare("SELECT c.id FROM customers c INNER JOIN customer_portal_users p ON p.customer_id=c.id AND p.tenant_id=c.tenant_id INNER JOIN tenants t ON t.id=c.tenant_id WHERE c.id=? AND c.tenant_id=? AND p.id=? AND p.status='active' AND LOWER(t.status) IN ('active','trial') LIMIT 1");
 if(!$identity){http_response_code(503);exit('Customer support is temporarily unavailable.');}
 $identity->bind_param('iii',$customerId,$tenantId,$portalUserId);$identity->execute();$identityValid=(bool)$identity->get_result()->fetch_assoc();$identity->close();
