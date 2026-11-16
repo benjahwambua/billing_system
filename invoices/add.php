@@ -17,10 +17,19 @@ $q=$conn->prepare("SELECT id,customer_number,first_name,last_name FROM customers
 if($q){$q->bind_param('i',$tid);$q->execute();$z=$q->get_result();while($x=$z->fetch_assoc())$customers[]=$x;$q->close();}
 
 $accounts=[];
-$q=$conn->prepare("SELECT ia.*, c.customer_number, c.first_name, c.last_name FROM internet_accounts ia INNER JOIN customers c ON c.id=ia.customer_id AND c.tenant_id=ia.tenant_id WHERE ia.tenant_id=? ORDER BY c.first_name,c.last_name,ia.id DESC");
+$q=$conn->prepare("SELECT ia.*, c.customer_number, c.first_name, c.last_name, ip.price AS plan_price FROM internet_accounts ia INNER JOIN customers c ON c.id=ia.customer_id AND c.tenant_id=ia.tenant_id LEFT JOIN internet_plans ip ON ip.id=ia.plan_id AND ip.tenant_id=ia.tenant_id WHERE ia.tenant_id=? ORDER BY c.first_name,c.last_name,ia.id DESC");
 if($q){$q->bind_param('i',$tid);$q->execute();$z=$q->get_result();while($x=$z->fetch_assoc())$accounts[]=$x;$q->close();}
 
-$v=['customer_id'=>'','account_id'=>'','amount'=>'','invoice_date'=>date('Y-m-d'),'due_date'=>date('Y-m-d'),'description'=>''];
+$v=['customer_id'=>trim((string)($_GET['customer_id']??'')),'account_id'=>trim((string)($_GET['account_id']??'')),'amount'=>'','invoice_date'=>date('Y-m-d'),'due_date'=>date('Y-m-d'),'description'=>''];
+if ($v['account_id'] !== '') {
+    foreach ($accounts as $accountOption) {
+        if ((int)$accountOption['id'] === (int)$v['account_id']) {
+            $v['customer_id'] = (string)$accountOption['customer_id'];
+            $v['amount'] = is_numeric($accountOption['plan_price'] ?? null) ? number_format((float)$accountOption['plan_price'], 2, '.', '') : '';
+            break;
+        }
+    }
+}
 if($_SERVER['REQUEST_METHOD']==='POST'){
     requireCsrf();
     foreach($v as $k=>$d)$v[$k]=trim((string)($_POST[$k]??$d));
