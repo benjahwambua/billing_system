@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/../includes/auth.php';
 requireActiveUser();requireTenantContext();requireModulePermission('support','view');
+if(!flexihubTableHasColumn('customer_support_tickets','tenant_id')||!flexihubTableHasColumn('customer_support_messages','tenant_id')){http_response_code(503);exit('Customer support tickets are not enabled yet. Apply database/043_customer_support_tickets.sql during the planned database update.');}
 global $conn;$tenantId=(int)getCurrentTenantId();$userId=(int)getCurrentUserId();
 $errors=[];$notice='';$ticketId=(int)($_GET['id']??$_POST['ticket_id']??0);
 $statuses=['open','in_progress','waiting_customer','resolved','closed'];
