@@ -18,6 +18,7 @@ if($check && $check->num_rows>0){
 }
 $value=['tax_name'=>(string)($setting['tax_name']??'VAT'),'rate_percent'=>(string)($setting['rate_percent']??'16.0000'),'is_active'=>(int)($setting['is_active']??0)];
 if($_SERVER['REQUEST_METHOD']==='POST'){
+ if(!userCan('settings','edit')){http_response_code(403);exit('You do not have permission to change tax settings.');}
  requireCsrf();
  $value['tax_name']=trim((string)($_POST['tax_name']??'VAT'));
  $value['rate_percent']=trim((string)($_POST['rate_percent']??''));
