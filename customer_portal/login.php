@@ -8,7 +8,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  $tenantId=(int)($_POST['tenant_id']??0);$email=trim((string)($_POST['email']??''));$password=(string)($_POST['password']??'');
  if($tenantId<=0||!filter_var($email,FILTER_VALIDATE_EMAIL)||$password==='')$error='Enter your ISP ID, email and password.';
  else{
-  $stmt=$conn->prepare("SELECT id,tenant_id,customer_id,email,password_hash,status FROM customer_portal_users WHERE tenant_id=? AND LOWER(email)=LOWER(?) AND status='active' LIMIT 1");
+  $stmt=$conn->prepare("SELECT p.id,p.tenant_id,p.customer_id,p.email,p.password_hash,p.status FROM customer_portal_users p INNER JOIN tenants t ON t.id=p.tenant_id WHERE p.tenant_id=? AND LOWER(p.email)=LOWER(?) AND p.status='active' AND LOWER(t.status) IN ('active','trial') LIMIT 1");
   if($stmt){$stmt->bind_param('is',$tenantId,$email);$stmt->execute();$account=$stmt->get_result()->fetch_assoc();$stmt->close();}
   else $account=null;
   if(!$account||empty($account['password_hash'])||!password_verify($password,(string)$account['password_hash'])){
