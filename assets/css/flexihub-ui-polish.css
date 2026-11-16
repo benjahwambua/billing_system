@@ -447,3 +447,48 @@ form .form-row>label{margin:0}
 @media(max-width:680px){
   form .form-row{grid-template-columns:minmax(0,1fr)!important}
 }
+
+
+/* =========================================================
+   SHARED COMMAND-CENTRE SURFACES
+   Bring legacy internal module cards and tables into the
+   same navy/blue visual system without changing behaviour.
+========================================================= */
+.dashboard-card,
+.main-content>.card,
+.page-content>.card{
+  color:#e2e8f0!important;
+  border:1px solid rgba(148,163,184,.16)!important;
+  border-radius:15px!important;
+  background:linear-gradient(150deg,rgba(16,24,39,.98),rgba(10,17,29,.98))!important;
+  box-shadow:0 14px 36px rgba(0,0,0,.18)!important;
+}
+.dashboard-card :is(h1,h2,h3,h4,strong),
+.main-content>.card :is(h1,h2,h3,h4,strong),
+.page-content>.card :is(h1,h2,h3,h4,strong){color:#f8fafc}
+.dashboard-card :is(p,small,.muted,.text-muted),
+.main-content>.card :is(p,small,.muted,.text-muted),
+.page-content>.card :is(p,small,.muted,.text-muted){color:#94a3b8}
+.dashboard-card table,
+.main-content>.card table,
+.page-content>.card table{color:#e2e8f0;border-color:rgba(148,163,184,.14)}
+.dashboard-card th,
+.main-content>.card th,
+.page-content>.card th{background:#0b1422!important;color:#a9bad0!important;border-bottom:1px solid rgba(148,163,184,.16)!important}
+.dashboard-card td,
+.main-content>.card td,
+.page-content>.card td{color:#e2e8f0;border-bottom:1px solid rgba(148,163,184,.12)}
+.dashboard-card tbody tr:hover,
+.main-content>.card tbody tr:hover,
+.page-content>.card tbody tr:hover{background:rgba(37,99,235,.07)}
+.dashboard-card :is(input,select,textarea),
+.main-content>.card :is(input,select,textarea),
+.page-content>.card :is(input,select,textarea){
+  background:#0b111b!important;color:#f8fafc!important;border-color:rgba(148,163,184,.22)!important;
+}
+.dashboard-card .btn-primary,
+.main-content .btn-primary,
+.page-content .btn-primary{background:linear-gradient(135deg,#1d4ed8,#3b82f6)!important;color:#fff!important;border-color:rgba(96,165,250,.25)!important}
+.dashboard-card .btn-secondary,
+.main-content .btn-secondary,
+.page-content .btn-secondary{background:#172235!important;color:#cbd5e1!important;border-color:rgba(148,163,184,.18)!important}
