@@ -180,7 +180,7 @@ require_once '../includes/header.php';
 
             <div class="form-actions hotspot-form-actions">
                 <a class="btn btn-secondary" href="packages.php">Cancel</a>
-                <button class="btn btn-primary" type="submit" <?= !$routers ? 'disabled' : '' ?>>
+                <button class="btn btn-primary" type="submit" <?= (!$routers || !$routerLinkAvailable) ? 'disabled' : '' ?>>
                     <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
                     Save Hotspot Plan
                 </button>
