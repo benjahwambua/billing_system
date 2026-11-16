@@ -80,7 +80,9 @@
 - [x] Create-customer shortcuts are hidden when the current user lacks customer-create permission.
 - [x] Added tenant-scoped customer groups and group assignment schema migration (`database/037_customer_groups.sql`) plus group management page.
 - [ ] Apply and verify the customer groups migration during the final database testing phase; group assignment controls depend on it.
-- [ ] Complete customer groups and group assignment using an explicit tenant-scoped schema.
+- [x] Added customer self-service portal with one-time, hashed 48-hour invitations, password activation, tenant-scoped login and customer-only session state.
+- [x] Portal dashboard displays only the signed-in customer's services, invoices, payments and subscription history.
+- [ ] Configure secure external HTTPS/tenant URL delivery and verify portal invitation/password reset flows during final testing.
 - [ ] Add duplicate contact handling and customer self-service portal.
 
 ## Billing — implementation in progress
