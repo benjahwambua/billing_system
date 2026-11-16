@@ -117,8 +117,10 @@
 - [x] Recurring invoice generation runs through the tenant-aware CLI service worker with account/service-period duplicate prevention.
 - [x] Overdue invoices observe plan grace periods and queue service suspension through the isolated activation workflow.
 - [x] Manual payment workflow validates invoice ownership, serializes payment posting, prevents overpayment, supports partial payments and defers renewal until full settlement.
-- [ ] Add tax configuration/calculation and credit notes/refunds with approval and audit controls.
-- [ ] Verify gateway reconciliation, unmatched/duplicate receipts and failed-payment recovery end to end.
+- [x] Tenant tax configuration and tax-exclusive invoice calculations with immutable per-invoice tax snapshots (migration 045 prepared; schema application and runtime verification pending).
+- [ ] Credit notes/refunds with approval and audit controls.
+- [x] Added tenant-scoped, read-only reconciliation queues for confirmed/failed gateway transactions and received/failed callback events.
+- [ ] Implement controlled recovery/allocation for confirmed transactions, unmatched receipts and failed-payment recovery; verify end to end.
 - [ ] Final testing phase: verify invoice/payment balances against the existing database and test normal, duplicate and failed payment paths.
 - [ ] Final testing phase: verify tenant boundaries, customer creation, filtering and linked account/ledger totals.
 
@@ -151,10 +153,11 @@
 ## Workstream 2 — Billing and financial control
 
 - [x] Recurring invoice generation with duplicate prevention and tenant billing cycles.
-- [ ] Tax configuration and invoice line calculations.
+- [x] Tenant tax configuration and invoice tax snapshots (migration 045 prepared; runtime verification pending).
 - [x] Partial payments and invoice-linked balance calculation; verify edge cases against the final database ledger.
-- [ ] Duplicate, unmatched, excess and unapplied payment handling.
-- [ ] Reconciliation against gateway callbacks and statements.
+- [x] Existing manual and callback paths enforce duplicate receipt checks and reject overpayments; a tenant-scoped review queue exposes failed/confirmed gateway events.
+- [ ] Safe allocation of unmatched receipts and handling of excess/unapplied collections.
+- [ ] Automated reconciliation against gateway callbacks and provider statements (review queue is available; automated allocation is not yet implemented).
 - [ ] Refunds, reversals and credit notes with approval/audit controls.
 - [ ] Separate ISP customer ledger from Flexihub SaaS subscription ledger.
 
