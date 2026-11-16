@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $update->close();
         }
     }
-    if (!$errors) $customer = array_merge($customer, $values);
+    if (!$errors) $customer = array_merge($customer, $values, ['customer_group_id' => $groupId > 0 ? $groupId : null]);
 }
 
 $pageTitle = 'Edit Customer';
