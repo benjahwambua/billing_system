@@ -3,6 +3,10 @@ require_once __DIR__.'/../includes/auth.php';
 global $conn;
 if(empty($_SESSION['customer_portal_authenticated'])||empty($_SESSION['customer_portal_tenant_id'])||empty($_SESSION['customer_portal_customer_id'])){header('Location: login.php');exit;}
 $tenantId=(int)$_SESSION['customer_portal_tenant_id'];$customerId=(int)$_SESSION['customer_portal_customer_id'];$portalUserId=(int)$_SESSION['customer_portal_user_id'];
+$identity=$conn->prepare("SELECT c.id FROM customers c INNER JOIN customer_portal_users p ON p.customer_id=c.id AND p.tenant_id=c.tenant_id INNER JOIN tenants t ON t.id=c.tenant_id WHERE c.id=? AND c.tenant_id=? AND p.id=? AND p.status='active' AND LOWER(t.status) IN ('active','trial') LIMIT 1");
+if(!$identity){http_response_code(503);exit('Customer support is temporarily unavailable.');}
+$identity->bind_param('iii',$customerId,$tenantId,$portalUserId);$identity->execute();$identityValid=(bool)$identity->get_result()->fetch_assoc();$identity->close();
+if(!$identityValid){unset($_SESSION['customer_portal_authenticated'],$_SESSION['customer_portal_user_id'],$_SESSION['customer_portal_tenant_id'],$_SESSION['customer_portal_customer_id']);header('Location: login.php');exit;}
 $errors=[];$notice='';$ticketId=(int)($_GET['id']??$_POST['ticket_id']??0);
 $categories=['technical','billing','installation','account','other'];
 if($_SERVER['REQUEST_METHOD']==='POST'){
