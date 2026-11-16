@@ -94,7 +94,7 @@ require_once '../includes/sidebar.php';
    <td><?php $assessment=$gatewayAssessments[(int)$row['id']]??null; if($assessment):?><span class="status-badge <?=in_array($assessment['kind'],['excess','unapplied','conflict'],true)?'warning':'success'?>"><?=e($assessment['label'])?></span><?php else:?>—<?php endif;?></td>
    <td><?=e((string)($row['failure_reason']??$row['result_description']??''))?></td><td><?=e((string)($row['created_at']??''))?></td><td><?php if(($row['status']??'')==='confirmed' && in_array((string)($row['flow']??''),['customer','internet','billing'],true)):?><?php if(!empty($assessment['recover'])):?><a class="btn btn-sm btn-primary" href="recover_mpesa.php?id=<?=e((string)$row['id'])?>">Recover</a><?php elseif(in_array((int)$row['id'],$allocatableGatewayIds,true)):?><a class="btn btn-sm btn-secondary" href="allocate_mpesa.php?id=<?=e((string)$row['id'])?>">Allocate</a><?php else:?>Finance review required<?php endif;?><?php else:?>—<?php endif;?></td>
   </tr><?php endforeach;?>
-  <?php if(!$gatewayRows):?><tr><td colspan="9">No confirmed or failed gateway transactions require review.</td></tr><?php endif;?>
+  <?php if(!$gatewayRows):?><tr><td colspan="10">No confirmed or failed gateway transactions require review.</td></tr><?php endif;?>
   </tbody></table></div>
  </div>
  <div class="card" style="padding:20px">
