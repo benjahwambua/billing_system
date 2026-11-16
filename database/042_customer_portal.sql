@@ -17,5 +17,6 @@ CREATE TABLE IF NOT EXISTS customer_portal_users (
     UNIQUE KEY uq_customer_portal_tenant_customer (tenant_id, customer_id),
     UNIQUE KEY uq_customer_portal_tenant_email (tenant_id, email),
     KEY idx_customer_portal_invite (tenant_id, invite_token_hash, invite_expires_at),
-    KEY idx_customer_portal_status (tenant_id, status)
+    KEY idx_customer_portal_status (tenant_id, status),
+    CONSTRAINT fk_customer_portal_users_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
