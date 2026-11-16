@@ -7,6 +7,7 @@ $tenantId = (int)getCurrentTenantId();
 if ($tenantId <= 0) { http_response_code(403); exit('A valid tenant context is required.'); }
 $pageTitle = 'Add Customer';
 $errors = [];
+$status = 'active';
 
 function customerAddColumns() {
     global $conn;
