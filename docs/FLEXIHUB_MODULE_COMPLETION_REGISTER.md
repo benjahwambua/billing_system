@@ -33,6 +33,13 @@
 - [ ] Apply migration 038 against the existing database after schema preflight; verify role/permission and assignment counts before/after.
 - [ ] Complete role revocation, verify platform-host role administration and remove remaining legacy tenant authorization fallback after the canonical migration is confirmed.
 
+## Support & Customer Care — implementation in progress
+
+- [x] Added tenant-scoped customer support tickets and message history.
+- [x] Customer portal users can open requests, view their own tickets and reply to active conversations.
+- [x] Tenant staff can view the organisation queue, assign active staff, reply and update ticket status.
+- [ ] Add SLA timers, notification delivery and ticket attachment upload; verify customer/tenant isolation during final testing.
+
 ## Operations & Field Service — implementation in progress
 
 - [x] Added tenant-scoped field job, update-history and attachment metadata schema.
