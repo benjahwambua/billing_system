@@ -123,7 +123,7 @@ foreach ($analyticsSessionBreakdown as $row) {
         <div class="fh-analytics-card">
             <span>PPPoE Online</span>
             <strong><?= dashboardNumber($activePppoeSessions) ?></strong>
-            <small>Online users excluding hotspot</small>
+            <small>Active PPPoE sessions</small>
         </div>
 
         <div class="fh-analytics-card">
