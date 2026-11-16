@@ -11,6 +11,14 @@ if($tid<=0){http_response_code(403);exit('A valid tenant context is required.');
 if(!flexihubTableHasColumn('customers','tenant_id')||!flexihubTableHasColumn('invoices','tenant_id')){http_response_code(503);exit('Invoice tenant isolation is unavailable. Please contact the administrator.');}
 $errors=[];
 $cols=flexihubTableColumns('invoices');
+$taxSettings=null;$taxStorageReady=false;
+$taxTableCheck=$conn->query("SHOW TABLES LIKE 'tenant_tax_settings'");
+$taxLineCheck=$conn->query("SHOW TABLES LIKE 'invoice_tax_lines'");
+if($taxTableCheck && $taxLineCheck && $taxTableCheck->num_rows>0 && $taxLineCheck->num_rows>0){
+ $taxStorageReady=true;
+ $taxStmt=$conn->prepare("SELECT tax_name,rate_percent,is_active FROM tenant_tax_settings WHERE tenant_id=? LIMIT 1");
+ if($taxStmt){$taxStmt->bind_param('i',$tid);$taxStmt->execute();$taxSettings=$taxStmt->get_result()->fetch_assoc();$taxStmt->close();}
+}
 
 $customers=[];
 $q=$conn->prepare("SELECT id,customer_number,first_name,last_name FROM customers WHERE tenant_id=? ORDER BY first_name,last_name");
@@ -69,12 +77,28 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     }
 
     if(!$errors){
+        $taxActive=$taxStorageReady && $taxSettings && (int)$taxSettings['is_active']===1;
+        $taxRate=$taxActive?(float)$taxSettings['rate_percent']:0.0;
+        $taxName=$taxActive?(string)$taxSettings['tax_name']:'';
+        $taxAmount=round($amount*$taxRate/100,2);
+        $grandTotal=round($amount+$taxAmount,2);
         $data=['tenant_id'=>$tid,'customer_id'=>$cid,'internet_account_id'=>$accountId>0?$accountId:null,'account_id'=>$accountId>0?$accountId:null,'invoice_date'=>$v['invoice_date'],'due_date'=>$v['due_date'],'description'=>$v['description'],
-               'total_amount'=>$amount,'amount'=>$amount,'subtotal'=>$amount,'total'=>$amount,'status'=>'Unpaid','paid_amount'=>0,'amount_paid'=>0,'balance'=>$amount,
+               'total_amount'=>$grandTotal,'amount'=>$grandTotal,'subtotal'=>$amount,'tax_amount'=>$taxAmount,'tax_rate'=>$taxRate,'total'=>$grandTotal,'status'=>'Unpaid','paid_amount'=>0,'amount_paid'=>0,'balance'=>$grandTotal,
                'invoice_number'=>'INV-'.date('YmdHis').'-'.random_int(100,999)];
-        $id=flexihubWorkflowInsert('invoices',$data);
-        if($id)redirect('index.php');
-        $errors[]='Unable to create invoice. Please check the invoice table fields and try again.';
+        $conn->begin_transaction();
+        try{
+            $id=flexihubWorkflowInsert('invoices',$data);
+            if(!$id)throw new RuntimeException('Unable to create invoice. Please check the invoice table fields and try again.');
+            if($taxActive){
+                $taxInsert=$conn->prepare("INSERT INTO invoice_tax_lines (tenant_id,invoice_id,tax_name,rate_percent,taxable_amount,tax_amount) VALUES (?,?,?,?,?,?)");
+                if(!$taxInsert)throw new RuntimeException('Unable to prepare the invoice tax snapshot.');
+                $taxInsert->bind_param('iisddd',$tid,$id,$taxName,$taxRate,$amount,$taxAmount);
+                if(!$taxInsert->execute()){$taxInsert->close();throw new RuntimeException('Unable to save the invoice tax snapshot.');}
+                $taxInsert->close();
+            }
+            $conn->commit();
+            redirect('index.php');
+        }catch(Throwable $e){$conn->rollback();$errors[]=$e->getMessage();}
     }
 }
 require_once '../includes/header.php';
@@ -88,10 +112,12 @@ require_once '../includes/sidebar.php';
 <div class="form-grid">
 <label>Customer *<select name="customer_id" required><option value="">Select customer</option><?php foreach($customers as $c):?><option value="<?=$c['id']?>" <?=$v['customer_id']==$c['id']?'selected':''?>><?=e($c['customer_number'].' — '.trim($c['first_name'].' '.$c['last_name']))?></option><?php endforeach;?></select></label>
 <label>Internet Account (optional)<select name="account_id"><option value="">No specific account</option><?php foreach($accounts as $a): ?><option value="<?=(int)$a['id']?>" <?=((int)$v['account_id']===(int)$a['id'])?'selected':''?>><?=e(($a['customer_number']??'').' — '.trim(($a['first_name']??'').' '.($a['last_name']??'')).' · '.($a['account_number']??$a['username']??('Account #'.$a['id'])))?></option><?php endforeach; ?></select></label>
-<label>Amount *<input type="number" name="amount" step="0.01" min="0.01" value="<?=e($v['amount'])?>" required></label>
+<label>Subtotal (before tax) *<input type="number" name="amount" step="0.01" min="0.01" value="<?=e($v['amount'])?>" required></label>
 <label>Invoice Date<input type="date" name="invoice_date" value="<?=e($v['invoice_date'])?>"></label>
 <label>Due Date<input type="date" name="due_date" value="<?=e($v['due_date'])?>"></label>
 <label style="grid-column:1/-1">Description<textarea name="description"><?=e($v['description'])?></textarea></label>
-</div><button class="btn btn-primary">Create Invoice</button>
+</div>
+<?php if($taxSettings && (int)$taxSettings['is_active']===1):?><p class="alert alert-info"><?=e($taxSettings['tax_name'])?> of <?=e(number_format((float)$taxSettings['rate_percent'],4))?>% will be added to the subtotal.</p><?php elseif(!$taxStorageReady):?><p class="alert alert-warning">Tax migration 045 is not installed yet. Invoices will continue without tax until tax settings are enabled.</p><?php endif;?>
+<button class="btn btn-primary">Create Invoice</button>
 </form></div></div>
 <?php require_once '../includes/footer.php';?>
