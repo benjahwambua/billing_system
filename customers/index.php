@@ -119,6 +119,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
         </div>
         <div class="hero-actions">
             <?php if (userCan('customers', 'create')): ?><a href="add.php" class="btn btn-primary">+ Add Customer</a><?php endif; ?>
+            <a href="groups.php" class="btn btn-secondary">Customer Groups</a>
             <a href="../reports/customers.php" class="btn btn-secondary">Customer Report</a>
         </div>
     </section>
