@@ -263,6 +263,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         
 
+                            unset($_SESSION['customer_portal_authenticated'],$_SESSION['customer_portal_user_id'],$_SESSION['customer_portal_tenant_id'],$_SESSION['customer_portal_customer_id']);
+
                             $_SESSION['user_id'] =
                                 (int) $user['id'];
 
