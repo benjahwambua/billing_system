@@ -26,7 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = trim($_POST['phone'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $address = trim($_POST['address'] ?? '');
-    $status = trim($_POST['status'] ?? 'active');
+    $status = strtolower(trim($_POST['status'] ?? 'active'));
+    if (!in_array($status, ['active', 'inactive', 'suspended'], true)) $status = 'active';
 
     if ($first === '' && $last === '') $errors[] = 'Enter the customer first name or last name.';
     if ($phone !== '' && !isValidPhone($phone)) $errors[] = 'Enter a valid phone number.';
@@ -77,7 +78,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
             <div><label>Phone</label><input class="form-control" name="phone" value="<?= e($_POST['phone'] ?? '') ?>" placeholder="+254..."></div>
             <div><label>Email</label><input class="form-control" type="email" name="email" value="<?= e($_POST['email'] ?? '') ?>"></div>
             <div class="full"><label>Address / Location</label><input class="form-control" name="address" value="<?= e($_POST['address'] ?? '') ?>"></div>
-            <div><label>Status</label><select class="form-control" name="status"><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select></div>
+            <div><label>Status</label><select class="form-control" name="status"><option value="active" <?= $status === 'active' ? 'selected' : '' ?>>Active</option><option value="inactive" <?= $status === 'inactive' ? 'selected' : '' ?>>Inactive</option><option value="suspended" <?= $status === 'suspended' ? 'selected' : '' ?>>Suspended</option></select></div>
             <div class="full"><button class="btn btn-primary" type="submit">Save Customer</button></div>
         </form>
     </div>
