@@ -176,12 +176,15 @@
 
 ## Delivery sequence and completion gate
 
-1. Unified RBAC and tenant context.
-2. Network operations and provisioning.
-3. Billing and financial control.
-4. Customer lifecycle.
-5. Support and field operations.
-6. SaaS and reseller capabilities.
-7. Reliability and regression testing.
+1. Dashboard completion and consistent command-centre UI.
+2. Unified RBAC and tenant context.
+3. Customers, customer groups and self-service portal.
+4. Billing, invoices, payments and financial controls.
+5. Hotspot packages, captive portal, vouchers and M-Pesa activation.
+6. PPPoE accounts, profiles, servers, IP pools and network operations.
+7. Support, field operations and technician dispatch.
+8. Inventory and stock control.
+9. Resellers, commissions and SaaS/platform lifecycle.
+10. Final reliability, security, regression and responsive-browser testing.
 
-For each workstream: inspect existing implementation → reconcile schema → implement missing capability → apply shared UI → test tenant boundaries and normal/error paths → record the evidence here. Do not duplicate working features.
+For each workstream: reuse the existing project/schema → implement missing capability → apply the shared UI and tenant guards → record completion evidence here. Keep comprehensive XAMPP/browser and database verification until the modules are implemented; never claim runtime sign-off before those checks pass. Do not duplicate working features.
