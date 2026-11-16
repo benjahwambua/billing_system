@@ -9,8 +9,8 @@ if($ready&&$_SERVER['REQUEST_METHOD']==='POST'){
  requireCsrf();$action=(string)($_POST['action']??'');$poolId=(int)($_POST['pool_id']??0);$ip=trim((string)($_POST['ip_address']??''));$accountId=(int)($_POST['internet_account_id']??0);
  if($action==='allocate'){
   if(filter_var($ip,FILTER_VALIDATE_IP,FILTER_FLAG_IPV4)===false)$errors[]='Enter a valid IPv4 address.';
-  $conn->begin_transaction();
-  try{
+  if(!$errors&&!$conn->begin_transaction())$errors[]='Unable to start the allocation transaction.';
+  if(!$errors)try{
    $pool=$conn->prepare("SELECT id,network,cidr,gateway,start_ip,end_ip,status FROM ip_pools WHERE id=? AND tenant_id=? LIMIT 1 FOR UPDATE");
    if(!$pool)throw new RuntimeException('Unable to verify IP pool.');
    $pool->bind_param('ii',$poolId,$tenantId);$pool->execute();$p=$pool->get_result()->fetch_assoc();$pool->close();
