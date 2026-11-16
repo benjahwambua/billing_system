@@ -102,8 +102,9 @@
 - [ ] Apply and verify the customer groups migration during the final database testing phase; group assignment controls depend on it.
 - [x] Added customer self-service portal with one-time, hashed 48-hour invitations, password activation, tenant-scoped login and customer-only session state.
 - [x] Portal dashboard displays only the signed-in customer's services, invoices, payments and subscription history.
+- [x] Added password-confirmed customer phone/email self-service; sign-in email changes are synchronized to the portal credential and tenant-unique.
 - [ ] Configure secure external HTTPS/tenant URL delivery and verify portal invitation/password reset flows during final testing.
-- [ ] Add duplicate contact handling and extend the customer portal with secure invoice payment initiation and profile self-service.
+- [ ] Add secure invoice payment initiation and verified duplicate-contact handling (profile contact self-service is implemented).
 
 ## Billing — implementation in progress
 
