@@ -122,7 +122,8 @@
 - [x] Added tenant-scoped reconciliation queues for confirmed/failed gateway transactions and received/failed callback events.
 - [x] Added a protected, CSRF-checked recovery action for confirmed customer-billing M-Pesa transactions. It validates the stored successful callback receipt, amount and phone; enforces receipt uniqueness; reuses matching payment records; and creates missing payment/receipt artifacts transactionally.
 - [x] Recovery queues service activation only after full invoice settlement and only after checking the payment-linked service subscription for an existing renewal. Excess, duplicate/mismatched receipts, missing account links and unverifiable subscription state fail closed. Hotspot and platform SaaS recovery are deliberately excluded.
-- [ ] Implement unmatched/excess/unapplied receipt allocation and provider-statement reconciliation; add refunds/credit notes with approval and audit controls.
+- [x] Added controlled allocation for confirmed customer receipts whose original invoice reference cannot be resolved. Staff must select an invoice belonging to the same tenant, the registered customer phone must exactly match the verified M-Pesa payer, the payment must fit the current outstanding balance, and a reason is mandatory and audited within the financial transaction.
+- [ ] Implement excess/unapplied receipt handling and provider-statement reconciliation; add refunds/credit notes with approval and audit controls.
 - [ ] Final testing phase: verify invoice/payment balances against the existing database and test normal, duplicate, partial, excess, failed and recovered payment paths in XAMPP.
 - [ ] Final testing phase: verify tenant boundaries, customer creation, filtering and linked account/ledger totals.
 
@@ -158,8 +159,9 @@
 - [x] Tenant tax configuration and invoice tax snapshots (migration 045 prepared; runtime verification pending).
 - [x] Partial payments and invoice-linked balance calculation; verify edge cases against the final database ledger.
 - [x] Existing manual and callback paths enforce duplicate receipt checks and reject overpayments; tenant-scoped review and controlled recovery are available for confirmed customer-billing M-Pesa transactions.
-- [ ] Safe allocation of unmatched receipts and handling of excess/unapplied collections.
-- [ ] Automated provider-statement reconciliation and unmatched-receipt allocation.
+- [x] Controlled allocation of unmatched confirmed customer receipts to a tenant-owned invoice with verified payer phone, outstanding-balance guard and mandatory audit reason.
+- [ ] Safe handling of excess/unapplied collections.
+- [ ] Automated provider-statement reconciliation.
 - [ ] Refunds, reversals and credit notes with approval/audit controls.
 - [ ] Separate ISP customer ledger from Flexihub SaaS subscription ledger.
 
