@@ -64,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $types .= 's';
         }
     }
+    if ($hasGroupSchema) { $updates[] = 'customer_group_id = ?'; $params[] = $groupId > 0 ? $groupId : null; $types .= 'i'; }
     if (isset($columns['updated_at'])) $updates[] = 'updated_at = NOW()';
 
     if (!$errors && $updates) {
