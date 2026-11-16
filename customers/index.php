@@ -47,9 +47,9 @@ function customerCount($table, $conditions = [], $params = [], $types = '') {
 $tenantClause = [['tenant_id = ?'], [$tenantId], 'i'];
 
 $totalCustomers = customerCount('customers', $tenantClause[0], $tenantClause[1], $tenantClause[2]);
-$activeCustomers = customerCount('customers', array_merge($tenantClause[0], ['status = ?']), array_merge($tenantClause[1], ['active']), $tenantClause[2] . 's');
-$suspendedCustomers = customerCount('customers', array_merge($tenantClause[0], ['status = ?']), array_merge($tenantClause[1], ['suspended']), $tenantClause[2] . 's');
-$expiredCustomers = customerCount('customers', array_merge($tenantClause[0], ['status = ?']), array_merge($tenantClause[1], ['expired']), $tenantClause[2] . 's');
+$activeCustomers = customerCount('customers', array_merge($tenantClause[0], ['LOWER(status) = ?']), array_merge($tenantClause[1], ['active']), $tenantClause[2] . 's');
+$suspendedCustomers = customerCount('customers', array_merge($tenantClause[0], ['LOWER(status) = ?']), array_merge($tenantClause[1], ['suspended']), $tenantClause[2] . 's');
+$expiredCustomers = customerCount('customers', array_merge($tenantClause[0], ['LOWER(status) = ?']), array_merge($tenantClause[1], ['expired']), $tenantClause[2] . 's');
 
 $accountTotal = 0;
 $accountActive = 0;
@@ -58,9 +58,9 @@ $accountSuspended = 0;
 if (customerTableExists('internet_accounts')) {
     $accountTenant = $tenantId > 0 ? [['tenant_id = ?'], [$tenantId], 'i'] : [[], [], ''];
     $accountTotal = customerCount('internet_accounts', $accountTenant[0], $accountTenant[1], $accountTenant[2]);
-    $accountActive = customerCount('internet_accounts', array_merge($accountTenant[0], ['status = ?']), array_merge($accountTenant[1], ['active']), $accountTenant[2] . 's');
-    $accountExpired = customerCount('internet_accounts', array_merge($accountTenant[0], ['status = ?']), array_merge($accountTenant[1], ['expired']), $accountTenant[2] . 's');
-    $accountSuspended = customerCount('internet_accounts', array_merge($accountTenant[0], ['status = ?']), array_merge($accountTenant[1], ['suspended']), $accountTenant[2] . 's');
+    $accountActive = customerCount('internet_accounts', array_merge($accountTenant[0], ['LOWER(status) = ?']), array_merge($accountTenant[1], ['active']), $accountTenant[2] . 's');
+    $accountExpired = customerCount('internet_accounts', array_merge($accountTenant[0], ['LOWER(status) = ?']), array_merge($accountTenant[1], ['expired']), $accountTenant[2] . 's');
+    $accountSuspended = customerCount('internet_accounts', array_merge($accountTenant[0], ['LOWER(status) = ?']), array_merge($accountTenant[1], ['suspended']), $accountTenant[2] . 's');
 }
 
 $where = [];
@@ -70,9 +70,9 @@ $where[] = 'tenant_id = ?';
 $params[] = $tenantId;
 $types .= 'i';
 
-$statusFilter = strtolower(trim($_GET['status'] ?? ''));
+$statusFilter = strtolower(trim($_GET['status'] ?? ($status ?? '')));
 if (in_array($statusFilter, ['active','suspended','expired','inactive'], true)) {
-    $where[] = 'status = ?';
+    $where[] = 'LOWER(status) = ?';
     $params[] = $statusFilter;
     $types .= 's';
 }
@@ -118,7 +118,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
             <p>Manage subscribers, service status and customer accounts from one workspace.</p>
         </div>
         <div class="hero-actions">
-            <a href="add.php" class="btn btn-primary">+ Add Customer</a>
+            <?php if (userCan('customers', 'create')): ?><a href="add.php" class="btn btn-primary">+ Add Customer</a><?php endif; ?>
             <a href="../reports/customers.php" class="btn btn-secondary">Customer Report</a>
         </div>
     </section>
@@ -183,7 +183,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
             <div class="side-card quick-actions">
                 <span class="panel-kicker">QUICK ACTIONS</span>
                 <h3>Customer workflow</h3>
-                <a href="add.php">Create customer <span>→</span></a>
+                <?php if (userCan('customers', 'create')): ?><a href="add.php">Create customer <span>→</span></a><?php endif; ?>
                 <a href="../internet_accounts/index.php">Manage service accounts <span>→</span></a>
                 <a href="../pppoe_accounts/index.php">PPPoE accounts <span>→</span></a>
                 <a href="../hotspot/index.php">Hotspot services <span>→</span></a>
