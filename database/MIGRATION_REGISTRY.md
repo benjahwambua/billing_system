@@ -53,6 +53,7 @@ The logical IDs below resolve duplicate filename prefixes. They do **not** autho
 | FEATURE-035 | `035_support_ticket_workflow.sql` | Required before using support-ticket records; not confirmed applied to local DB |
 | FEATURE-036 | `036_mpesa_receipt_claims.sql` | One-time backfill; run read-only duplicate/length preflight first; paired SaaS ledger mirrors are deduplicated; true duplicate receipts must be reconciled |
 | FEATURE-037 | `037_customer_groups.sql` | New tenant-scoped customer grouping table and customer link; review existing customers tenant key type and FK/index compatibility before applying |
+| FEATURE-038 | `038_rbac_consolidation.sql` | Creates canonical access tables and conditionally copies compatible legacy tenant roles, module permissions and user assignments; review legacy table columns and role-name mapping before applying |
 
 ## Additional read-only type preflight
 
