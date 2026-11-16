@@ -85,8 +85,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         $data=['tenant_id'=>$tid,'customer_id'=>$cid,'internet_account_id'=>$accountId>0?$accountId:null,'account_id'=>$accountId>0?$accountId:null,'invoice_date'=>$v['invoice_date'],'due_date'=>$v['due_date'],'description'=>$v['description'],
                'total_amount'=>$grandTotal,'amount'=>$grandTotal,'subtotal'=>$amount,'tax_amount'=>$taxAmount,'tax_rate'=>$taxRate,'total'=>$grandTotal,'status'=>'Unpaid','paid_amount'=>0,'amount_paid'=>0,'balance'=>$grandTotal,
                'invoice_number'=>'INV-'.date('YmdHis').'-'.random_int(100,999)];
-        $conn->begin_transaction();
-        try{
+        if(!$conn->begin_transaction()){$errors[]='Unable to start the invoice transaction.';} else try{
             $id=flexihubWorkflowInsert('invoices',$data);
             if(!$id)throw new RuntimeException('Unable to create invoice. Please check the invoice table fields and try again.');
             if($taxActive){
