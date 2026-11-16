@@ -15,8 +15,8 @@ if(flexihubTableColumns('hotspot_sessions')){
                        LEFT JOIN customers c ON c.id=hs.customer_id AND c.tenant_id=hs.tenant_id
                        WHERE hs.tenant_id=? ORDER BY hs.id DESC LIMIT 200");
     if($q){$q->bind_param('i',$tenantId);$q->execute();$z=$q->get_result();while($r=$z->fetch_assoc())$rows[]=$r;$q->close();}
-}else if(flexihubTableColumns('active_sessions')){
-    $q=$conn->prepare("SELECT * FROM active_sessions WHERE tenant_id=? ORDER BY id DESC LIMIT 200");
+}else if(in_array('session_type', flexihubTableColumns('active_sessions'), true)){
+    $q=$conn->prepare("SELECT * FROM active_sessions WHERE tenant_id=? AND LOWER(session_type)='hotspot' ORDER BY id DESC LIMIT 200");
     if($q){$q->bind_param('i',$tenantId);$q->execute();$z=$q->get_result();while($r=$z->fetch_assoc())$rows[]=$r;$q->close();}
 }
 $pageTitle='Hotspot Sessions';
