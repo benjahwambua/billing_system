@@ -22,11 +22,13 @@
 
 - [x] Tenant-scoped customer directory, search, status filters, summary metrics and customer account view.
 - [x] Customer creation with tenant ownership, input validation, generated customer number and CSRF protection.
+- [x] Tenant-scoped customer edit workflow with CSRF protection, validated status and contact fields, and permission enforcement.
 - [x] Customer detail view links services, invoices, subscriptions and payment history using tenant-scoped lookups.
 - [x] Status shortcuts now pass their selected status into the directory; status comparisons are case-normalized.
 - [x] Create-customer shortcuts are hidden when the current user lacks customer-create permission.
 - [ ] Complete customer groups and group assignment using an explicit tenant-scoped schema.
-- [ ] Review customer edit/update workflow, duplicate contact handling and customer self-service portal.
+- [ ] Complete customer groups and group assignment using an explicit tenant-scoped schema.
+- [ ] Add duplicate contact handling and customer self-service portal.
 - [ ] Final testing phase: verify tenant boundaries, customer creation, filtering and linked account/ledger totals.
 
 ## Cross-cutting foundation — do first
