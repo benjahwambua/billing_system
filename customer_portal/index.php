@@ -5,7 +5,7 @@ if(empty($_SESSION['customer_portal_authenticated'])||empty($_SESSION['customer_
  header('Location: login.php');exit;
 }
 $tenantId=(int)$_SESSION['customer_portal_tenant_id'];$customerId=(int)$_SESSION['customer_portal_customer_id'];
-$stmt=$conn->prepare("SELECT c.* FROM customers c INNER JOIN customer_portal_users p ON p.customer_id=c.id AND p.tenant_id=c.tenant_id WHERE c.id=? AND c.tenant_id=? AND p.id=? AND p.status='active' LIMIT 1");
+$stmt=$conn->prepare("SELECT c.* FROM customers c INNER JOIN customer_portal_users p ON p.customer_id=c.id AND p.tenant_id=c.tenant_id INNER JOIN tenants t ON t.id=c.tenant_id WHERE c.id=? AND c.tenant_id=? AND p.id=? AND p.status='active' AND LOWER(t.status) IN ('active','trial') LIMIT 1");
 if(!$stmt){http_response_code(503);exit('Customer portal is temporarily unavailable.');}
 $stmt->bind_param('iii',$customerId,$tenantId,$_SESSION['customer_portal_user_id']);$stmt->execute();$customer=$stmt->get_result()->fetch_assoc();$stmt->close();
 if(!$customer){unset($_SESSION['customer_portal_authenticated'],$_SESSION['customer_portal_user_id'],$_SESSION['customer_portal_tenant_id'],$_SESSION['customer_portal_customer_id']);header('Location: login.php');exit;}
