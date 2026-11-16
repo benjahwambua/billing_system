@@ -86,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  ON ar.id = ?
                 AND ar.tenant_id = ?
                 AND ar.status = 'active'
+                AND ar.is_system = 0
              WHERE u.id = ?
                AND u.tenant_id = ?
              LIMIT 1"
@@ -151,6 +152,7 @@ $stmt = $conn->prepare(
      FROM access_roles
      WHERE tenant_id = ?
        AND status = 'active'
+       AND is_system = 0
      ORDER BY name"
 );
 
