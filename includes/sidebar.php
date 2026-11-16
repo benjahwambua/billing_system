@@ -743,7 +743,7 @@ ob_start();
                 <a href="../operations/field_jobs.php" class="sidebar-menu-link <?= sidebarActive('/operations/field_jobs.php') ?>"><span class="sidebar-menu-icon">⚒</span><span class="sidebar-menu-text">Field Jobs &amp; Dispatch</span></a>
                 <?php if ($isHost): ?>
                 <a href="../support/index.php" class="sidebar-menu-link <?= sidebarActive('/support/index.php') ?>"><span class="sidebar-menu-icon">?</span><span class="sidebar-menu-text">Platform Support</span></a>
-                <?php else: ?>
+                <?php elseif (function_exists('flexihubTableHasColumn') && flexihubTableHasColumn('customer_support_tickets','tenant_id')): ?>
                 <a href="../support/tenant_tickets.php" class="sidebar-menu-link <?= sidebarActive('/support/tenant_tickets.php') ?>"><span class="sidebar-menu-icon">?</span><span class="sidebar-menu-text">Customer Support Tickets</span></a>
                 <?php endif; ?>
                 <a href="../operations/adverts.php" class="sidebar-menu-link <?= sidebarActive('/operations/adverts.php') ?>"><span class="sidebar-menu-icon">▤</span><span class="sidebar-menu-text">Adverts</span></a>
