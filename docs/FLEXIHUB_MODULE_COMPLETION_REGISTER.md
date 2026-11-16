@@ -36,6 +36,14 @@
 - [ ] Add secure photo/document upload and technician performance/SLA reporting.
 - [ ] Apply migration 039 and verify job creation, assignment, history and customer/account isolation during final testing.
 
+## Resellers — implementation in progress
+
+- [x] Added tenant-scoped reseller directory and invoice-linked commission ledger.
+- [x] Commission calculation uses recorded invoice collections and snapshots the reseller's commission rate.
+- [x] Added approval, payment and reversal status transitions with tenant scoping and duplicate invoice/reseller protection.
+- [ ] Add reseller customer attribution/portal access and automated commission reconciliation.
+- [ ] Apply migration 041 and verify commissions against actual payment ledger records during final testing.
+
 ## Inventory — implementation in progress
 
 - [x] Added tenant-scoped inventory item, storage location and stock movement ledger schema.
