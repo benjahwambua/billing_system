@@ -31,7 +31,15 @@ $accounts=[];
 $q=$conn->prepare("SELECT ia.*,c.customer_number,c.first_name,c.last_name,ip.name plan_name FROM internet_accounts ia JOIN customers c ON c.id=ia.customer_id AND c.tenant_id=ia.tenant_id LEFT JOIN internet_plans ip ON ip.id=ia.plan_id AND ip.tenant_id=ia.tenant_id WHERE ia.tenant_id=? ORDER BY c.first_name,c.last_name");
 if($q){$q->bind_param('i',$tid);$q->execute();$z=$q->get_result();while($x=$z->fetch_assoc())$accounts[]=$x;$q->close();}
 
-$v=['invoice_id'=>'','account_id'=>'','amount'=>'','payment_method'=>'cash','payment_date'=>date('Y-m-d'),'reference'=>''];
+$v=['invoice_id'=>trim((string)($_GET['invoice_id']??'')),'account_id'=>'','amount'=>'','payment_method'=>'cash','payment_date'=>date('Y-m-d'),'reference'=>''];
+if ($v['invoice_id'] !== '') {
+    foreach ($invoices as $invoiceOption) {
+        if ((int)$invoiceOption['id'] === (int)$v['invoice_id']) {
+            $v['account_id'] = (string)($invoiceOption['internet_account_id'] ?? $invoiceOption['account_id'] ?? '');
+            break;
+        }
+    }
+}
 if($_SERVER['REQUEST_METHOD']==='POST'){
     requireCsrf();
     foreach($v as $k=>$d)$v[$k]=trim((string)($_POST[$k]??$d));

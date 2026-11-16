@@ -104,6 +104,10 @@ function flexihubProcessHotspotFinalizationQueue($tenantId,$limit=25) {
    $enc=flexihubGatewayEncrypt($password);$prevId=$previous?(int)$previous['id']:0;
    $u=$conn->prepare("UPDATE hotspot_sales SET status='access_active',hotspot_username=?,hotspot_password_encrypted=?,started_at=NOW(),expires_at=?,renewed_from_sale_id=? WHERE id=? AND tenant_id=?");if(!$u)throw new Exception('Unable to update hotspot sale.');$u->bind_param('sssiii',$username,$enc,$auth['expires_at'],$prevId,$saleId,$tenantId);$u->execute();$u->close();
    $u=$conn->prepare("UPDATE hotspot_access_codes SET status='activated',activated_at=NOW(),expires_at=? WHERE id=(SELECT access_code_id FROM hotspot_sales WHERE id=? AND tenant_id=?) AND tenant_id=?");if($u){$u->bind_param('siii',$auth['expires_at'],$saleId,$tenantId,$tenantId);$u->execute();$u->close();}
+   if(function_exists('flexihubTableHasColumn')&&flexihubTableHasColumn('hotspot_vouchers','tenant_id')){
+    $voucherUpdate=$conn->prepare("UPDATE hotspot_vouchers v INNER JOIN hotspot_access_codes c ON c.tenant_id=v.tenant_id AND c.code=v.code INNER JOIN hotspot_sales hs ON hs.access_code_id=c.id AND hs.tenant_id=c.tenant_id SET v.status='activated',v.sold_at=COALESCE(v.sold_at,NOW()),v.activated_at=NOW(),v.expires_at=? WHERE hs.id=? AND hs.tenant_id=? AND c.tenant_id=? AND v.tenant_id=?");
+    if($voucherUpdate){$voucherUpdate->bind_param('siiii',$auth['expires_at'],$saleId,$tenantId,$tenantId,$tenantId);$voucherUpdate->execute();$voucherUpdate->close();}
+   }
    if($previous){$oldId=(int)$previous['id'];$u=$conn->prepare("UPDATE hotspot_sales SET status='renewed' WHERE id=? AND tenant_id=? AND status='access_active'");if($u){$u->bind_param('ii',$oldId,$tenantId);$u->execute();$u->close();}}
    $u=$conn->prepare("UPDATE hotspot_finalization_queue SET status='completed',processed_at=NOW(),last_error=NULL WHERE id=? AND tenant_id=? AND status='processing'");if($u){$u->bind_param('ii',$id,$tenantId);$u->execute();$u->close();}$completed++;
   } catch(Throwable $e) {

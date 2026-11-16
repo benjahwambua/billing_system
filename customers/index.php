@@ -47,9 +47,9 @@ function customerCount($table, $conditions = [], $params = [], $types = '') {
 $tenantClause = [['tenant_id = ?'], [$tenantId], 'i'];
 
 $totalCustomers = customerCount('customers', $tenantClause[0], $tenantClause[1], $tenantClause[2]);
-$activeCustomers = customerCount('customers', array_merge($tenantClause[0], ['status = ?']), array_merge($tenantClause[1], ['active']), $tenantClause[2] . 's');
-$suspendedCustomers = customerCount('customers', array_merge($tenantClause[0], ['status = ?']), array_merge($tenantClause[1], ['suspended']), $tenantClause[2] . 's');
-$expiredCustomers = customerCount('customers', array_merge($tenantClause[0], ['status = ?']), array_merge($tenantClause[1], ['expired']), $tenantClause[2] . 's');
+$activeCustomers = customerCount('customers', array_merge($tenantClause[0], ['LOWER(status) = ?']), array_merge($tenantClause[1], ['active']), $tenantClause[2] . 's');
+$suspendedCustomers = customerCount('customers', array_merge($tenantClause[0], ['LOWER(status) = ?']), array_merge($tenantClause[1], ['suspended']), $tenantClause[2] . 's');
+$expiredCustomers = customerCount('customers', array_merge($tenantClause[0], ['LOWER(status) = ?']), array_merge($tenantClause[1], ['expired']), $tenantClause[2] . 's');
 
 $accountTotal = 0;
 $accountActive = 0;
@@ -58,10 +58,16 @@ $accountSuspended = 0;
 if (customerTableExists('internet_accounts')) {
     $accountTenant = $tenantId > 0 ? [['tenant_id = ?'], [$tenantId], 'i'] : [[], [], ''];
     $accountTotal = customerCount('internet_accounts', $accountTenant[0], $accountTenant[1], $accountTenant[2]);
-    $accountActive = customerCount('internet_accounts', array_merge($accountTenant[0], ['status = ?']), array_merge($accountTenant[1], ['active']), $accountTenant[2] . 's');
-    $accountExpired = customerCount('internet_accounts', array_merge($accountTenant[0], ['status = ?']), array_merge($accountTenant[1], ['expired']), $accountTenant[2] . 's');
-    $accountSuspended = customerCount('internet_accounts', array_merge($accountTenant[0], ['status = ?']), array_merge($accountTenant[1], ['suspended']), $accountTenant[2] . 's');
+    $accountActive = customerCount('internet_accounts', array_merge($accountTenant[0], ['LOWER(status) = ?']), array_merge($accountTenant[1], ['active']), $accountTenant[2] . 's');
+    $accountExpired = customerCount('internet_accounts', array_merge($accountTenant[0], ['LOWER(status) = ?']), array_merge($accountTenant[1], ['expired']), $accountTenant[2] . 's');
+    $accountSuspended = customerCount('internet_accounts', array_merge($accountTenant[0], ['LOWER(status) = ?']), array_merge($accountTenant[1], ['suspended']), $accountTenant[2] . 's');
 }
+
+$hasCustomerGroups = customerColumnExists('customer_group_id') && customerTableExists('customer_groups');
+$groupSelect = $hasCustomerGroups ? ", (SELECT cg.name FROM customer_groups cg WHERE cg.id = customers.customer_group_id AND cg.tenant_id = customers.tenant_id LIMIT 1) AS customer_group_name" : '';
+$hasCustomerResellers = customerColumnExists('reseller_id') && customerTableExists('resellers');
+$resellerSelect = $hasCustomerResellers ? ", (SELECT r.business_name FROM resellers r WHERE r.id = customers.reseller_id AND r.tenant_id = customers.tenant_id LIMIT 1) AS reseller_name" : '';
+$customerColumnCount = 5 + ($hasCustomerGroups ? 1 : 0) + ($hasCustomerResellers ? 1 : 0);
 
 $where = [];
 $params = [];
@@ -70,9 +76,9 @@ $where[] = 'tenant_id = ?';
 $params[] = $tenantId;
 $types .= 'i';
 
-$statusFilter = strtolower(trim($_GET['status'] ?? ''));
+$statusFilter = strtolower(trim($_GET['status'] ?? ($status ?? '')));
 if (in_array($statusFilter, ['active','suspended','expired','inactive'], true)) {
-    $where[] = 'status = ?';
+    $where[] = 'LOWER(status) = ?';
     $params[] = $statusFilter;
     $types .= 's';
 }
@@ -92,7 +98,7 @@ if ($search !== '') {
     }
 }
 
-$sql = "SELECT * FROM customers";
+$sql = "SELECT *{$groupSelect}{$resellerSelect} FROM customers";
 if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
 $sql .= ' ORDER BY id DESC LIMIT 100';
 
@@ -118,7 +124,8 @@ require_once __DIR__ . '/../includes/sidebar.php';
             <p>Manage subscribers, service status and customer accounts from one workspace.</p>
         </div>
         <div class="hero-actions">
-            <a href="add.php" class="btn btn-primary">+ Add Customer</a>
+            <?php if (userCan('customers', 'create')): ?><a href="add.php" class="btn btn-primary">+ Add Customer</a><?php endif; ?>
+            <a href="groups.php" class="btn btn-secondary">Customer Groups</a>
             <a href="../reports/customers.php" class="btn btn-secondary">Customer Report</a>
         </div>
     </section>
@@ -148,10 +155,10 @@ require_once __DIR__ . '/../includes/sidebar.php';
             </form>
             <div class="table-responsive">
                 <table class="data-table">
-                    <thead><tr><th>Customer</th><th>Contact</th><th>Status</th><th>Created</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Customer</th><th>Contact</th><?php if ($hasCustomerGroups): ?><th>Group</th><?php endif; ?><?php if ($hasCustomerResellers): ?><th>Reseller</th><?php endif; ?><th>Status</th><th>Created</th><th>Action</th></tr></thead>
                     <tbody>
                     <?php if (!$customers): ?>
-                        <tr><td colspan="5" class="empty-state">No customers found for the selected filters.</td></tr>
+                        <tr><td colspan="<?= $customerColumnCount ?>" class="empty-state">No customers found for the selected filters.</td></tr>
                     <?php else: foreach ($customers as $c):
                         $name = trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? ''));
                         if ($name === '') $name = $c['customer_number'] ?? ('Customer #' . ($c['id'] ?? ''));
@@ -161,6 +168,8 @@ require_once __DIR__ . '/../includes/sidebar.php';
                         <tr>
                             <td><strong class="customer-name"><?= e($name) ?></strong><small><?= e($c['customer_number'] ?? '') ?></small></td>
                             <td><?= e($c['phone'] ?? '—') ?><small><?= e($c['email'] ?? '') ?></small></td>
+                            <?php if ($hasCustomerGroups): ?><td><?= e($c['customer_group_name'] ?? 'Unassigned') ?></td><?php endif; ?>
+                            <?php if ($hasCustomerResellers): ?><td><?= e($c['reseller_name'] ?? 'Direct') ?></td><?php endif; ?>
                             <td><span class="status-badge status-<?= e($safeStatus) ?>"><?= e(ucfirst($status)) ?></span></td>
                             <td><?= !empty($c['created_at']) ? e(date('d M Y', strtotime($c['created_at']))) : '—' ?></td>
                             <td><a class="btn btn-sm btn-secondary" href="view.php?id=<?= (int)$c['id'] ?>">View Customer</a></td>
@@ -183,7 +192,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
             <div class="side-card quick-actions">
                 <span class="panel-kicker">QUICK ACTIONS</span>
                 <h3>Customer workflow</h3>
-                <a href="add.php">Create customer <span>→</span></a>
+                <?php if (userCan('customers', 'create')): ?><a href="add.php">Create customer <span>→</span></a><?php endif; ?>
                 <a href="../internet_accounts/index.php">Manage service accounts <span>→</span></a>
                 <a href="../pppoe_accounts/index.php">PPPoE accounts <span>→</span></a>
                 <a href="../hotspot/index.php">Hotspot services <span>→</span></a>

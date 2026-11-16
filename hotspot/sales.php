@@ -51,6 +51,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $u->bind_param('ii',$codeId,$tenantId);
             if(!$u->execute() || $u->affected_rows!==1)throw new Exception('Access code was already sold.');
             $u->close();
+            if(function_exists('flexihubTableHasColumn')&&flexihubTableHasColumn('hotspot_vouchers','tenant_id')){
+                $voucherSale=$conn->prepare("UPDATE hotspot_vouchers SET status='sold',sold_at=NOW() WHERE tenant_id=? AND code=? AND status='unused'");
+                if($voucherSale){$voucherCode=(string)($code['code']??'');$voucherSale->bind_param('is',$tenantId,$voucherCode);$voucherSale->execute();$voucherSale->close();}
+            }
 
             if(!flexihubQueueHotspotFinalization($tenantId,(int)$saleId,0)){
                 throw new Exception('Sale recorded but hotspot activation could not be queued.');

@@ -52,6 +52,14 @@ The logical IDs below resolve duplicate filename prefixes. They do **not** autho
 | FEATURE-034B | `034_pppoe_server_ip_pool.sql` | Duplicate prefix; verify dependencies before assigning execution order |
 | FEATURE-035 | `035_support_ticket_workflow.sql` | Required before using support-ticket records; not confirmed applied to local DB |
 | FEATURE-036 | `036_mpesa_receipt_claims.sql` | One-time backfill; run read-only duplicate/length preflight first; paired SaaS ledger mirrors are deduplicated; true duplicate receipts must be reconciled |
+| FEATURE-037 | `037_customer_groups.sql` | New tenant-scoped customer grouping table and customer link; review existing customers tenant key type and FK/index compatibility before applying |
+| FEATURE-038 | `038_rbac_consolidation.sql` | Creates canonical access tables and conditionally copies compatible legacy tenant roles, module permissions and user assignments; review legacy table columns and role-name mapping before applying |
+| FEATURE-039 | `039_field_operations.sql` | Creates tenant-scoped field jobs, status history and attachment metadata; verify staffs/customer/account tenant keys and storage policy before applying |
+| FEATURE-040 | `040_inventory.sql` | Creates tenant-scoped inventory items, locations and signed stock movement ledger; review tenant key types and run stock reconciliation preflight before applying |
+| FEATURE-041 | `041_reseller_commissions.sql` | Creates tenant-scoped resellers, customer attribution and invoice-linked commission ledger; verify invoice actual_paid semantics, customer tenant keys and payment reconciliation before applying |
+| FEATURE-042 | `042_customer_portal.sql` | Creates separate customer portal credentials/invitations; verify HTTPS, session isolation, email uniqueness and invite expiry before enabling externally |
+| FEATURE-043 | `043_customer_support_tickets.sql` | Creates tenant-scoped customer ticket and message history tables; verify portal user/session identity, tenant joins and staff assignment before applying |
+| FEATURE-044 | `044_ip_pool_allocations.sql` | Creates tenant-scoped IP allocation ledger; preflight tenant/pool key types and confirm ip_pools has compatible primary key before applying |
 
 ## Additional read-only type preflight
 
