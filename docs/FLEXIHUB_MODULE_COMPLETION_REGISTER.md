@@ -26,7 +26,8 @@
 - [x] Customer detail view links services, invoices, subscriptions and payment history using tenant-scoped lookups.
 - [x] Status shortcuts now pass their selected status into the directory; status comparisons are case-normalized.
 - [x] Create-customer shortcuts are hidden when the current user lacks customer-create permission.
-- [ ] Complete customer groups and group assignment using an explicit tenant-scoped schema.
+- [x] Added tenant-scoped customer groups and group assignment schema migration (`database/037_customer_groups.sql`) plus group management page.
+- [ ] Apply and verify the customer groups migration during the final database testing phase; group assignment controls depend on it.
 - [ ] Complete customer groups and group assignment using an explicit tenant-scoped schema.
 - [ ] Add duplicate contact handling and customer self-service portal.
 - [ ] Final testing phase: verify tenant boundaries, customer creation, filtering and linked account/ledger totals.
