@@ -13,6 +13,7 @@ $notice='';
 $allowedTypes=['installation','repair','maintenance','survey','relocation','disconnection'];
 $allowedPriorities=['low','normal','high','urgent'];
 $allowedStatuses=['open','scheduled','assigned','in_progress','waiting_parts','completed','cancelled'];
+$schemaReady=flexihubTableHasColumn('field_jobs','tenant_id')&&flexihubTableHasColumn('field_job_updates','tenant_id');
 
 $customers=[];
 $q=$conn->prepare("SELECT id,customer_number,first_name,last_name FROM customers WHERE tenant_id=? ORDER BY first_name,last_name");
@@ -24,7 +25,7 @@ $staff=[];
 $q=$conn->prepare("SELECT id,staff_code,first_name,last_name,position FROM staffs WHERE tenant_id=? AND LOWER(status)='active' ORDER BY first_name,last_name");
 if($q){$q->bind_param('i',$tenantId);$q->execute();$r=$q->get_result();while($x=$r->fetch_assoc())$staff[]=$x;$q->close();}
 
-if($_SERVER['REQUEST_METHOD']==='POST'){
+if($schemaReady&&$_SERVER['REQUEST_METHOD']==='POST'){
     requireCsrf();
     $action=trim((string)($_POST['action']??''));
     if($action==='create'){
@@ -135,8 +136,7 @@ $sql="SELECT j.*,c.customer_number,TRIM(CONCAT_WS(' ',c.first_name,c.last_name))
 $params=[$tenantId];$types='i';
 if(in_array($statusFilter,$allowedStatuses,true)){$sql.=" AND j.status=?";$params[]=$statusFilter;$types.='s';}
 $sql.=" ORDER BY FIELD(j.priority,'urgent','high','normal','low'),j.scheduled_at ASC,j.id DESC LIMIT 300";
-$stmt=$conn->prepare($sql);
-if($stmt){$stmt->bind_param($types,...$params);if($stmt->execute()){$r=$stmt->get_result();while($x=$r->fetch_assoc())$rows[]=$x;}$stmt->close();}
+if($schemaReady){$stmt=$conn->prepare($sql);if($stmt){$stmt->bind_param($types,...$params);if($stmt->execute()){$r=$stmt->get_result();while($x=$r->fetch_assoc())$rows[]=$x;}$stmt->close();}}
 
 $counts=['open'=>0,'scheduled'=>0,'assigned'=>0,'in_progress'=>0,'waiting_parts'=>0,'completed'=>0,'cancelled'=>0];
 foreach($rows as $row){$key=(string)$row['status'];if(isset($counts[$key]))$counts[$key]++;}
@@ -146,10 +146,11 @@ require_once __DIR__.'/../includes/sidebar.php';
 ?>
 <div class="main-content field-ops">
  <div class="field-hero"><div><span>FIELD OPERATIONS</span><h1>Jobs & Technician Dispatch</h1><p>Schedule installations and repairs, assign technicians, track progress and record customer sign-off.</p></div><a class="btn btn-secondary" href="../staffs/list.php">Technician Directory</a></div>
+ <?php if(!$schemaReady): ?><div class="field-alert error">Field operations tables are not installed yet. Apply <code>database/039_field_operations.sql</code> during the planned database update.</div><?php endif; ?>
  <?php if($errors): ?><div class="field-alert error"><?php foreach($errors as $error): ?><div><?=e($error)?></div><?php endforeach; ?></div><?php endif; ?>
  <?php if($notice): ?><div class="field-alert success"><?=e($notice)?></div><?php endif; ?>
  <div class="field-metrics"><?php foreach(['open'=>'Open','scheduled'=>'Scheduled','assigned'=>'Assigned','in_progress'=>'In Progress','waiting_parts'=>'Waiting Parts','completed'=>'Completed'] as $key=>$label): ?><div><small><?=e($label)?></small><strong><?=number_format($counts[$key])?></strong></div><?php endforeach; ?></div>
- <?php if(userCan('operations','create')): ?>
+ <?php if($schemaReady&&userCan('operations','create')): ?>
  <section class="field-panel"><h2>Schedule a Job</h2><form method="post"><?=csrfField()?><input type="hidden" name="action" value="create"><div class="field-grid">
  <label>Customer *<select name="customer_id" required><option value="">Select customer</option><?php foreach($customers as $c): ?><option value="<?=(int)$c['id']?>"><?=e(($c['customer_number']??'').' — '.trim(($c['first_name']??'').' '.($c['last_name']??'')))?></option><?php endforeach; ?></select></label>
  <label>Internet Account (optional)<select name="internet_account_id"><option value="0">No linked account</option><?php foreach($serviceAccounts as $account): ?><option value="<?=(int)$account['id']?>"><?=e(($account['customer_number']??'').' — '.trim(($account['first_name']??'').' '.($account['last_name']??'')).' · '.($account['account_number']??$account['username']??('Account #'.$account['id'])))?></option><?php endforeach; ?></select></label>
