@@ -263,6 +263,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         
 
+                            unset($_SESSION['customer_portal_authenticated'],$_SESSION['customer_portal_user_id'],$_SESSION['customer_portal_tenant_id'],$_SESSION['customer_portal_customer_id']);
+
                             $_SESSION['user_id'] =
                                 (int) $user['id'];
 
@@ -286,44 +288,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                          
 
-                            $roleStmt = $conn->prepare("
-                                SELECT r.role_code
-                                FROM user_roles ur
-                                INNER JOIN roles r
-                                    ON r.id = ur.role_id
-                                WHERE ur.user_id = ?
-                                AND r.status = 'active'
-                            ");
+                            $userId = (int) $user['id'];
+
+                            if ($userScope === 'tenant') {
+                                $roleStmt = $conn->prepare("
+                                    SELECT UPPER(REPLACE(REPLACE(ar.name, ' ', '_'), '-', '_')) AS role_code
+                                    FROM access_user_roles aur
+                                    INNER JOIN access_roles ar
+                                        ON ar.id = aur.role_id
+                                       AND ar.tenant_id = aur.tenant_id
+                                    WHERE aur.user_id = ?
+                                      AND aur.tenant_id = ?
+                                      AND ar.status = 'active'
+                                ");
+                                if ($roleStmt) {
+                                    $roleStmt->bind_param('ii', $userId, $tenantId);
+                                }
+                            } else {
+                                // Platform-host roles remain isolated from tenant access roles.
+                                $roleStmt = $conn->prepare("
+                                    SELECT r.role_code
+                                    FROM user_roles ur
+                                    INNER JOIN roles r ON r.id = ur.role_id
+                                    WHERE ur.user_id = ?
+                                      AND r.status = 'active'
+                                ");
+                                if ($roleStmt) $roleStmt->bind_param('i', $userId);
+                            }
 
                             if ($roleStmt) {
-
-                                $userId = (int) $user['id'];
-
-                                if ($roleStmt->bind_param('i', $userId)) {
-
-                                    if ($roleStmt->execute()) {
-
-                                        $roleResult =
-                                            $roleStmt->get_result();
-
-                                        while (
-                                            $role =
-                                                $roleResult->fetch_assoc()
-                                        ) {
-
-                                            if (
-                                                !empty(
-                                                    $role['role_code']
-                                                )
-                                            ) {
-
-                                                $_SESSION['roles'][] =
-                                                    $role['role_code'];
+                                if ($roleStmt->execute()) {
+                                    $roleResult = $roleStmt->get_result();
+                                    if ($roleResult) {
+                                        while ($role = $roleResult->fetch_assoc()) {
+                                            if (!empty($role['role_code'])) {
+                                                $_SESSION['roles'][] = $role['role_code'];
                                             }
                                         }
                                     }
                                 }
-
                                 $roleStmt->close();
                             }
 
@@ -598,6 +601,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
     </style>
+    <link rel="stylesheet" href="../assets/css/flexihub-ui-polish.css?v=7">
 
 </head>
 

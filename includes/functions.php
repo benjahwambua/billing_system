@@ -1199,42 +1199,48 @@ if (!function_exists('getCurrentUserRoles')) {
     {
         global $conn;
 
-        $userId = getCurrentUserId();
+        $userId = (int)getCurrentUserId();
+        if ($userId <= 0 || !($conn instanceof mysqli)) return [];
 
-        if (!$userId) {
-            return [];
+        // Tenant users use the canonical access_* role assignments.
+        // Host-level legacy roles remain separate from tenant RBAC.
+        if (isTenantUser()
+            && flexihubTableHasColumn('access_user_roles', 'role_id')
+            && flexihubTableHasColumn('access_roles', 'tenant_id')
+            && flexihubTableHasColumn('access_roles', 'status')) {
+            $tenantId = (int)getCurrentTenantId();
+            if ($tenantId <= 0) return [];
+            $stmt = $conn->prepare(
+                "SELECT UPPER(REPLACE(REPLACE(ar.name, ' ', '_'), '-', '_')) AS role_code
+                 FROM access_user_roles aur
+                 INNER JOIN access_roles ar
+                    ON ar.id=aur.role_id AND ar.tenant_id=aur.tenant_id
+                 WHERE aur.user_id=? AND aur.tenant_id=? AND ar.status='active'
+                 ORDER BY ar.name"
+            );
+            if (!$stmt) return [];
+            $stmt->bind_param('ii', $userId, $tenantId);
+        } else {
+            $stmt = $conn->prepare(
+                "SELECT r.role_code
+                 FROM user_roles ur
+                 INNER JOIN roles r ON r.id=ur.role_id
+                 WHERE ur.user_id=? AND r.status='active'"
+            );
+            if (!$stmt) return [];
+            $stmt->bind_param('i', $userId);
         }
 
-        $stmt = $conn->prepare(
-            "SELECT r.role_code
-             FROM user_roles ur
-             INNER JOIN roles r
-                 ON r.id = ur.role_id
-             WHERE ur.user_id = ?
-             AND r.status = 'active'"
-        );
-
-        if (!$stmt) {
+        if (!$stmt->execute()) {
+            $stmt->close();
             return [];
         }
-
-        $stmt->bind_param(
-            'i',
-            $userId
-        );
-
-        $stmt->execute();
-
         $result = $stmt->get_result();
-
         $roles = [];
-
-        while ($row = $result->fetch_assoc()) {
-            $roles[] = $row['role_code'];
+        if ($result) while ($row = $result->fetch_assoc()) {
+            if (!empty($row['role_code'])) $roles[] = $row['role_code'];
         }
-
         $stmt->close();
-
         return $roles;
     }
 }
@@ -1315,11 +1321,36 @@ if (!function_exists('userHasPermission')) {
 if (!function_exists('isSuperUser')) {
     function isSuperUser()
     {
-        if (isHostUser()) {
-            return hasRole('HOST_SUPER_ADMIN') || (($_SESSION['legacy_role'] ?? '') === 'Administrator');
-        }
+        global $conn;
+
+        /*
+         * Read the legacy role from the database as the source of truth.
+         * Older/local installations may not have the newer access-role
+         * tables, and an existing browser session may contain stale role data.
+         */
+        $userId = (int)getCurrentUserId();
         $legacyRole = strtolower(trim((string)($_SESSION['legacy_role'] ?? '')));
-        return in_array($legacyRole, ['administrator','super user','super_user','superuser'], true)
+
+        if ($userId > 0 && $conn instanceof mysqli) {
+            $stmt = $conn->prepare("SELECT role FROM users WHERE id = ? LIMIT 1");
+            if ($stmt) {
+                $stmt->bind_param('i', $userId);
+                if ($stmt->execute()) {
+                    $row = $stmt->get_result()->fetch_assoc();
+                    if ($row && array_key_exists('role', $row)) {
+                        $legacyRole = strtolower(trim((string)$row['role']));
+                        $_SESSION['legacy_role'] = $row['role'];
+                    }
+                }
+                $stmt->close();
+            }
+        }
+
+        if (isHostUser()) {
+            return $legacyRole === 'administrator' || hasRole('HOST_SUPER_ADMIN');
+        }
+
+        return in_array($legacyRole, ['administrator', 'super user', 'super_user', 'superuser'], true)
             || hasRole('SUPER_ADMIN')
             || hasRole('TENANT_SUPER_ADMIN');
     }

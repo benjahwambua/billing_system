@@ -317,6 +317,7 @@ if ($isHost) {
         $paymentsTodayCount = 0;
         $onlineUsers = 0;
         $activeHotspotSessions = 0;
+        $activePppoeSessions = 0;
         $expiringServices = 0;
         $outstandingAmount = 0;
 
@@ -417,7 +418,7 @@ if ($isHost) {
             SELECT COUNT(*)
             FROM internet_accounts
             WHERE tenant_id = ?
-            AND status = 'Active'
+            AND LOWER(status) = 'active'
             ",
             [$tenantId]
         );
@@ -462,7 +463,19 @@ if ($isHost) {
             FROM active_sessions
             WHERE tenant_id = ?
             AND status = 'online'
-            AND session_type = 'hotspot'
+            AND LOWER(session_type) = 'hotspot'
+            ",
+            [$tenantId]
+        );
+
+        $activePppoeSessions = dashboardCount(
+            $conn,
+            "
+            SELECT COUNT(*)
+            FROM active_sessions
+            WHERE tenant_id = ?
+            AND status = 'online'
+            AND LOWER(session_type) = 'pppoe'
             ",
             [$tenantId]
         );
@@ -483,7 +496,7 @@ if ($isHost) {
             AND expiry_date IS NOT NULL
             AND expiry_date BETWEEN CURDATE()
             AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
-            AND status = 'Active'
+            AND LOWER(status) = 'active'
             ",
             [$tenantId]
         );
@@ -1048,10 +1061,10 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <div class="dashboard-panel isp-health-panel">
-            <div class="dashboard-panel-header"><div><h2>ISP Health</h2><span>Live operational snapshot</span></div><a href="../network/status.php">Network Monitor</a></div>
+            <div class="dashboard-panel-header"><div><h2>ISP Health</h2><span>Current operational snapshot</span></div><a href="../network/status.php">Network Monitor</a></div>
             <div class="isp-health-grid">
                 <div><span>Routers</span><strong><?= dashboardNumber($onlineRouters) ?> / <?= dashboardNumber($totalRouters) ?></strong><small>Online / configured</small></div>
-                <div><span>PPPoE Online</span><strong><?= dashboardNumber(max(0, $onlineUsers - $activeHotspotSessions)) ?></strong><small>Current sessions</small></div>
+                <div><span>PPPoE Online</span><strong><?= dashboardNumber($activePppoeSessions) ?></strong><small>Current sessions</small></div>
                 <div><span>Hotspot Online</span><strong><?= dashboardNumber($activeHotspotSessions) ?></strong><small>Current sessions</small></div>
                 <div><span>Revenue This Month</span><strong><?= dashboardMoney($revenueMonth) ?></strong><small>Collected</small></div>
                 <div><span>Outstanding</span><strong><?= dashboardMoney($outstandingAmount) ?></strong><small>Open balances</small></div>
@@ -2087,3 +2100,8 @@ require_once __DIR__ . '/../includes/header.php';
 }
 
 </style>
+
+<?php
+// Render the shared application footer and close the page layout.
+require_once __DIR__ . '/../includes/footer.php';
+?>

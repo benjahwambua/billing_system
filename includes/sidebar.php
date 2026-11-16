@@ -127,7 +127,7 @@ if (!function_exists('sidebarCanHref')) {
             'receipts'=>'billing','transactions'=>'billing','expenses'=>'billing','revenue'=>'billing',
             'reports'=>'reports','communication'=>'communication','ai'=>'ai','staffs'=>'staff',
             'users'=>'staff','roles'=>'staff','sessions'=>'staff','settings'=>'settings',
-            'operations'=>'operations','wallet'=>'wallet','platform'=>'platform','tenants'=>'platform',
+            'operations'=>'operations','inventory'=>'inventory','resellers'=>'resellers','wallet'=>'wallet','platform'=>'platform','tenants'=>'platform',
             'platform_plans'=>'platform','platform_subscriptions'=>'platform','platform_wallets'=>'platform','platform_transactions'=>'platform',
             'platform_revenue'=>'platform','platform_users'=>'platform','support'=>'support',
             'system_events'=>'platform','audit_logs'=>'platform','platform_settings'=>'platform'
@@ -275,6 +275,14 @@ ob_start();
                 >
                     <span class="sidebar-menu-icon">◈</span>
                     <span class="sidebar-menu-text">Platform Revenue</span>
+                </a>
+
+                <a
+                    href="../platform/billing.php"
+                    class="sidebar-menu-link <?= sidebarActive('/platform/billing.php') ?>"
+                >
+                    <span class="sidebar-menu-icon">▤</span>
+                    <span class="sidebar-menu-text">Platform Billing</span>
                 </a>
 
             </div>
@@ -503,11 +511,19 @@ ob_start();
                 </a>
 
                 <a
-                    href="../pppoe/ip_pools.php"
-                    class="sidebar-menu-link <?= sidebarActive('/pppoe/ip_pools.php') ?>"
+                    href="../ip_pools/index.php"
+                    class="sidebar-menu-link <?= sidebarActive('/ip_pools/') ?>"
                 >
                     <span class="sidebar-menu-icon">⊙</span>
                     <span class="sidebar-menu-text">IP Pools</span>
+                </a>
+
+                <a
+                    href="../ip_pools/allocations.php"
+                    class="sidebar-menu-link <?= sidebarActive('/ip_pools/allocations.php') ?>"
+                >
+                    <span class="sidebar-menu-icon">⌖</span>
+                    <span class="sidebar-menu-text">IP Allocations</span>
                 </a>
 
                 <a
@@ -734,14 +750,39 @@ ob_start();
                     <span class="sidebar-menu-text">Revenue</span>
                 </a>
 
+                <a
+                    href="../wallet/index.php"
+                    class="sidebar-menu-link <?= sidebarActive('/wallet/') ?>"
+                >
+                    <span class="sidebar-menu-icon">▰</span>
+                    <span class="sidebar-menu-text">Wallet</span>
+                </a>
+
+                <a
+                    href="../wallet/transactions.php"
+                    class="sidebar-menu-link <?= sidebarActive('/wallet/transactions.php') ?>"
+                >
+                    <span class="sidebar-menu-icon">⇄</span>
+                    <span class="sidebar-menu-text">Wallet Transactions</span>
+                </a>
+
             </div>
 
 
             <div class="sidebar-menu-section">
                 <div class="sidebar-menu-heading"><?= sidebarModuleIcon('OPERATIONS') ?><span class="sidebar-heading-label">OPERATIONS</span></div>
                 <a href="../operations/agent_sales.php" class="sidebar-menu-link <?= sidebarActive('/operations/agent_sales.php') ?>"><span class="sidebar-menu-icon">♙</span><span class="sidebar-menu-text">Agent Sales</span></a>
-                <a href="../support/index.php" class="sidebar-menu-link <?= sidebarActive('/support/') ?>"><span class="sidebar-menu-icon">?</span><span class="sidebar-menu-text">Support Centre</span></a>
+                <a href="../operations/field_jobs.php" class="sidebar-menu-link <?= sidebarActive('/operations/field_jobs.php') ?>"><span class="sidebar-menu-icon">⚒</span><span class="sidebar-menu-text">Field Jobs &amp; Dispatch</span></a>
+                <a href="../operations/index.php" class="sidebar-menu-link <?= sidebarActive('/operations/index.php') ?>"><span class="sidebar-menu-icon">▦</span><span class="sidebar-menu-text">Field Operations</span></a>
+                <a href="../operations/technician_performance.php" class="sidebar-menu-link <?= sidebarActive('/operations/technician_performance.php') ?>"><span class="sidebar-menu-icon">◷</span><span class="sidebar-menu-text">Technician Performance</span></a>
+                <?php if ($isHost): ?>
+                <a href="../support/index.php" class="sidebar-menu-link <?= sidebarActive('/support/index.php') ?>"><span class="sidebar-menu-icon">?</span><span class="sidebar-menu-text">Platform Support</span></a>
+                <?php elseif (function_exists('flexihubTableHasColumn') && flexihubTableHasColumn('customer_support_tickets','tenant_id')): ?>
+                <a href="../support/tenant_tickets.php" class="sidebar-menu-link <?= sidebarActive('/support/tenant_tickets.php') ?>"><span class="sidebar-menu-icon">?</span><span class="sidebar-menu-text">Customer Support Tickets</span></a>
+                <?php endif; ?>
                 <a href="../operations/adverts.php" class="sidebar-menu-link <?= sidebarActive('/operations/adverts.php') ?>"><span class="sidebar-menu-icon">▤</span><span class="sidebar-menu-text">Adverts</span></a>
+                <a href="../inventory/index.php" class="sidebar-menu-link <?= sidebarActive('/inventory/') ?>"><span class="sidebar-menu-icon">▣</span><span class="sidebar-menu-text">Inventory</span></a>
+                <a href="../resellers/index.php" class="sidebar-menu-link <?= sidebarActive('/resellers/') ?>"><span class="sidebar-menu-icon">♙</span><span class="sidebar-menu-text">Resellers</span></a>
             </div>
 
             <!-- =================================================
@@ -1422,4 +1463,59 @@ echo $sidebarHtml;
 .sidebar-menu-section.has-dropdown .sidebar-menu-heading:hover .sidebar-heading-icon,
 .sidebar-menu-section.active-group .sidebar-heading-icon{color:#60a5fa;}
 .sidebar-heading-label{flex:1;min-width:0;}
+
+/* Sidebar refinement: stronger navigation labels and clearer active state. */
+.sidebar-menu-link{
+    font-size:14.5px;
+    font-weight:700;
+    letter-spacing:.005em;
+    color:#dbe5f3;
+    min-height:42px;
+    border:1px solid transparent;
+    border-radius:8px;
+}
+.sidebar-menu-link:hover{
+    background:rgba(59,130,246,.12);
+    color:#fff;
+    border-color:rgba(96,165,250,.13);
+}
+.sidebar-menu-link.active{
+    background:linear-gradient(90deg,rgba(37,99,235,.27),rgba(37,99,235,.12));
+    color:#fff;
+    font-weight:750;
+    border-color:rgba(96,165,250,.25);
+    box-shadow:inset 3px 0 0 #3b82f6;
+}
+.sidebar-menu-icon{
+    color:#a8b7cc;
+    font-size:15px;
+    font-weight:700;
+}
+.sidebar-menu-link.active .sidebar-menu-icon{
+    color:#93c5fd;
+}
+.sidebar-menu-text{
+    font-weight:inherit;
+    line-height:1.35;
+}
+.sidebar-menu-heading{
+    color:#94a3b8;
+    font-size:10.5px;
+    font-weight:800;
+    letter-spacing:.09em;
+}
+.sidebar-menu-section.has-dropdown .sidebar-menu-heading{
+    border:1px solid transparent;
+}
+.sidebar-menu-section.has-dropdown.active-group > .sidebar-menu-heading{
+    color:#bfdbfe;
+    font-weight:800;
+}
+.sidebar-menu-section.has-dropdown .sidebar-menu-heading:hover{
+    border-color:rgba(96,165,250,.12);
+}
+@media(max-width:700px){
+    .sidebar-menu-link{font-size:14.5px;min-height:44px}
+}
+
 </style>
