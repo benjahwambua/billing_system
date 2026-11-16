@@ -18,15 +18,34 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  if($email===''||!filter_var($email,FILTER_VALIDATE_EMAIL))$error='A valid customer email address is required before portal access can be invited.';
  else{
   $token=bin2hex(random_bytes(32));$tokenHash=hash('sha256',$token);
-  $q=$conn->prepare("INSERT INTO customer_portal_users (tenant_id,customer_id,email,status,invite_token_hash,invite_expires_at) VALUES (?,?,?,'invited',?,DATE_ADD(NOW(),INTERVAL 48 HOUR)) ON DUPLICATE KEY UPDATE email=VALUES(email),status='invited',invite_token_hash=VALUES(invite_token_hash),invite_expires_at=DATE_ADD(NOW(),INTERVAL 48 HOUR)");
-  if(!$q)$error='Unable to prepare customer portal invitation.';
-  else{$q->bind_param('iiss',$tenantId,$customerId,$email,$tokenHash);if($q->execute()){$scriptPath=str_replace(chr(92),'/',(string)($_SERVER['SCRIPT_NAME']??'/customers/portal_invite.php'));
+  $conflict=$conn->prepare("SELECT id FROM customer_portal_users WHERE tenant_id=? AND LOWER(email)=LOWER(?) AND customer_id<>? LIMIT 1");
+  if(!$conflict)$error='Unable to verify customer portal email ownership.';
+  else{$conflict->bind_param('isi',$tenantId,$email,$customerId);$conflict->execute();$emailInUse=(bool)$conflict->get_result()->fetch_assoc();$conflict->close();if($emailInUse)$error='That email address is already linked to another customer portal account in this organisation.';}
+  if(!$error){
+   $existing=$conn->prepare("SELECT id FROM customer_portal_users WHERE tenant_id=? AND customer_id=? LIMIT 1");
+   if(!$existing)$error='Unable to check the existing portal account.';
+   else{
+    $existing->bind_param('ii',$tenantId,$customerId);$existing->execute();$existingRow=$existing->get_result()->fetch_assoc();$existing->close();
+    if($existingRow){
+     $q=$conn->prepare("UPDATE customer_portal_users SET email=?,password_hash=NULL,status='invited',invite_token_hash=?,invite_expires_at=DATE_ADD(NOW(),INTERVAL 48 HOUR) WHERE id=? AND tenant_id=? AND customer_id=?");
+     if($q){$q->bind_param('ssiii',$email,$tokenHash,$existingRow['id'],$tenantId,$customerId);$saved=$q->execute();$q->close();}else $saved=false;
+    }else{
+     $q=$conn->prepare("INSERT INTO customer_portal_users (tenant_id,customer_id,email,status,invite_token_hash,invite_expires_at) VALUES (?,?,?,'invited',?,DATE_ADD(NOW(),INTERVAL 48 HOUR))");
+     if($q){$q->bind_param('iiss',$tenantId,$customerId,$email,$tokenHash);$saved=$q->execute();$q->close();}else $saved=false;
+    }
+    if(!$saved)$error='Unable to create customer portal invitation.';
+    else{
+     $scriptPath=str_replace(chr(92),'/',(string)($_SERVER['SCRIPT_NAME']??'/customers/portal_invite.php'));
      $appPath=rtrim(dirname(dirname($scriptPath)),'/');
      $scheme=(!empty($_SERVER['HTTPS'])&&strtolower((string)$_SERVER['HTTPS'])!=='off')?'https':'http';
      $host=preg_replace('/[^A-Za-z0-9.\\-:\\[\\]]/','',(string)($_SERVER['SERVER_NAME']??'localhost'));
      $port=(int)($_SERVER['SERVER_PORT']??($scheme==='https'?443:80));
      if(($scheme==='https'&&$port!==443)||($scheme==='http'&&$port!==80))$host.=':'.$port;
-     $inviteUrl=$scheme.'://'.$host.$appPath.'/customer_portal/activate.php?tenant_id='.$tenantId.'&token='.rawurlencode($token);$customer['email']=$email;}else $error='Unable to create customer portal invitation.';$q->close();}
+     $inviteUrl=$scheme.'://'.$host.$appPath.'/customer_portal/activate.php?tenant_id='.$tenantId.'&token='.rawurlencode($token);
+     $customer['email']=$email;
+    }
+   }
+  }
  }
 }
 $pageTitle='Customer Portal Invitation';require_once __DIR__.'/../includes/header.php';require_once __DIR__.'/../includes/sidebar.php';
