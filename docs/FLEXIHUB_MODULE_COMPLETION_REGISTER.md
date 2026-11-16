@@ -18,6 +18,14 @@
 - [ ] Final testing phase: run against the user's current XAMPP database and verify every metric, status label, link and empty state.
 - [ ] Final testing phase: review desktop, tablet and mobile rendering in the browser before signing off the dashboard.
 
+## Cross-cutting RBAC — implementation in progress
+
+- [x] Tenant role editor and user assignment use the canonical `access_*` role tables.
+- [x] Tenant role resolution now reads canonical access-role assignments; host roles remain isolated from tenant RBAC.
+- [x] Added idempotent consolidation migration to create canonical access tables and copy compatible legacy tenant roles, module permissions and user assignments without deleting legacy data.
+- [ ] Apply migration 038 against the existing database after schema preflight; verify role/permission and assignment counts before/after.
+- [ ] Complete role revocation, verify platform-host role administration and remove remaining legacy tenant authorization fallback after the canonical migration is confirmed.
+
 ## Customers — implementation in progress
 
 - [x] Tenant-scoped customer directory, search, status filters, summary metrics and customer account view.
@@ -51,7 +59,7 @@
 
 | Capability | Required outcome | Current assessment |
 |---|---|---|
-| Unified roles and permissions | One authoritative role assignment and permission model for tenant users; platform-host scope separated; no conflicting legacy/new RBAC paths | Incomplete / schema must be reconciled |
+| Unified roles and permissions | One authoritative role assignment and permission model for tenant users; platform-host scope separated; no conflicting legacy/new RBAC paths | Canonical `access_roles`, `access_role_permissions`, and `access_user_roles` implemented in application code; migration 038 consolidates compatible legacy tenant roles/assignments; apply and verify during final database testing |
 | Tenant isolation | Every tenant-owned read/write is scoped to the authenticated tenant; host-only operations are explicitly guarded | Partially present; audit required |
 | Audit trail | Record sensitive access, financial changes, approvals, and network actions | Not verified |
 | Shared UI system | All authenticated pages use the common layout and design tokens; standalone pages have an intentional matching variant | Existing global CSS; consistency audit required |
