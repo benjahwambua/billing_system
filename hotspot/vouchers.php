@@ -24,7 +24,8 @@ if($schemaReady&&$_SERVER['REQUEST_METHOD']==='POST'){
     $saved=false;
     for($attempt=0;$attempt<5&&!$saved;$attempt++){
      $code=strtoupper(substr(bin2hex(random_bytes(6)),0,10));
-     $insert->bind_param('isisss',$tenantId,$code,$packageId,$batch,$package['price'],$expiresAt);
+     $voucherPrice=(float)$package['price'];
+     $insert->bind_param('isisds',$tenantId,$code,$packageId,$batch,$voucherPrice,$expiresAt);
      if($insert->execute()){$saved=true;$created++;}
      elseif($insert->errno!==1062)throw new RuntimeException('Unable to generate voucher batch.');
     }
