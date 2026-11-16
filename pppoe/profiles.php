@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/auth.php';
 require_once '../includes/functions.php';
+require_once '../includes/billing_workflow.php';
 require_once '../includes/mikrotik_api.php';
 requireActiveUser();
 requireTenantContext();
