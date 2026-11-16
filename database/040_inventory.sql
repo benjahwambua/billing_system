@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS inventory_locations (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_inventory_location_tenant_name (tenant_id, name),
-    KEY idx_inventory_locations_tenant_status (tenant_id, status)
+    UNIQUE KEY uq_inventory_location_tenant_id (tenant_id, id),
+    KEY idx_inventory_locations_tenant_status (tenant_id, status),
+    CONSTRAINT fk_inventory_locations_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS inventory_items (
@@ -28,8 +30,10 @@ CREATE TABLE IF NOT EXISTS inventory_items (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_inventory_item_tenant_sku (tenant_id, sku),
+    UNIQUE KEY uq_inventory_item_tenant_id (tenant_id, id),
     KEY idx_inventory_items_tenant_status (tenant_id, status),
-    KEY idx_inventory_items_tenant_category (tenant_id, category)
+    KEY idx_inventory_items_tenant_category (tenant_id, category),
+    CONSTRAINT fk_inventory_items_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS inventory_movements (
@@ -45,5 +49,8 @@ CREATE TABLE IF NOT EXISTS inventory_movements (
     created_by BIGINT UNSIGNED NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_inventory_movements_item (tenant_id, item_id, location_id, created_at),
-    KEY idx_inventory_movements_location (tenant_id, location_id, created_at)
+    KEY idx_inventory_movements_location (tenant_id, location_id, created_at),
+    CONSTRAINT fk_inventory_movements_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_inventory_movements_item FOREIGN KEY (tenant_id, item_id) REFERENCES inventory_items(tenant_id, id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_inventory_movements_location FOREIGN KEY (tenant_id, location_id) REFERENCES inventory_locations(tenant_id, id) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
