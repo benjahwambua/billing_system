@@ -1199,42 +1199,48 @@ if (!function_exists('getCurrentUserRoles')) {
     {
         global $conn;
 
-        $userId = getCurrentUserId();
+        $userId = (int)getCurrentUserId();
+        if ($userId <= 0 || !($conn instanceof mysqli)) return [];
 
-        if (!$userId) {
-            return [];
+        // Tenant users use the canonical access_* role assignments.
+        // Host-level legacy roles remain separate from tenant RBAC.
+        if (isTenantUser()
+            && flexihubTableHasColumn('access_user_roles', 'role_id')
+            && flexihubTableHasColumn('access_roles', 'tenant_id')
+            && flexihubTableHasColumn('access_roles', 'status')) {
+            $tenantId = (int)getCurrentTenantId();
+            if ($tenantId <= 0) return [];
+            $stmt = $conn->prepare(
+                "SELECT UPPER(REPLACE(REPLACE(ar.name, ' ', '_'), '-', '_')) AS role_code
+                 FROM access_user_roles aur
+                 INNER JOIN access_roles ar
+                    ON ar.id=aur.role_id AND ar.tenant_id=aur.tenant_id
+                 WHERE aur.user_id=? AND aur.tenant_id=? AND ar.status='active'
+                 ORDER BY ar.name"
+            );
+            if (!$stmt) return [];
+            $stmt->bind_param('ii', $userId, $tenantId);
+        } else {
+            $stmt = $conn->prepare(
+                "SELECT r.role_code
+                 FROM user_roles ur
+                 INNER JOIN roles r ON r.id=ur.role_id
+                 WHERE ur.user_id=? AND r.status='active'"
+            );
+            if (!$stmt) return [];
+            $stmt->bind_param('i', $userId);
         }
 
-        $stmt = $conn->prepare(
-            "SELECT r.role_code
-             FROM user_roles ur
-             INNER JOIN roles r
-                 ON r.id = ur.role_id
-             WHERE ur.user_id = ?
-             AND r.status = 'active'"
-        );
-
-        if (!$stmt) {
+        if (!$stmt->execute()) {
+            $stmt->close();
             return [];
         }
-
-        $stmt->bind_param(
-            'i',
-            $userId
-        );
-
-        $stmt->execute();
-
         $result = $stmt->get_result();
-
         $roles = [];
-
-        while ($row = $result->fetch_assoc()) {
-            $roles[] = $row['role_code'];
+        if ($result) while ($row = $result->fetch_assoc()) {
+            if (!empty($row['role_code'])) $roles[] = $row['role_code'];
         }
-
         $stmt->close();
-
         return $roles;
     }
 }
