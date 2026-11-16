@@ -77,12 +77,20 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
                     if (!$customerExists) $error='Select a customer belonging to your organisation.';
                 }
                 if ($error==='' && $serviceAccountId>0) {
-                    $refCheck=$conn->prepare("SELECT id FROM internet_accounts WHERE id=? AND tenant_id=? LIMIT 1");
-                    $refCheck->bind_param('ii',$serviceAccountId,$tenantId);
-                    $refCheck->execute();
-                    $accountExists=(bool)$refCheck->get_result()->fetch_assoc();
-                    $refCheck->close();
-                    if (!$accountExists) $error='Select an internet account belonging to your organisation.';
+                    if ($customerId<=0) {
+                        $error='Select the customer who owns this internet account.';
+                    } else {
+                        $refCheck=$conn->prepare("SELECT id FROM internet_accounts WHERE id=? AND tenant_id=? AND customer_id=? LIMIT 1");
+                        if (!$refCheck) {
+                            $error='Unable to verify the selected customer service account.';
+                        } else {
+                            $refCheck->bind_param('iii',$serviceAccountId,$tenantId,$customerId);
+                            $refCheck->execute();
+                            $accountExists=(bool)$refCheck->get_result()->fetch_assoc();
+                            $refCheck->close();
+                            if (!$accountExists) $error='The selected internet account does not belong to the selected customer in this organisation.';
+                        }
+                    }
                 }
                 if ($error==='') {
                     $q=$conn->prepare("INSERT INTO onu_devices (tenant_id,olt_id,serial_number,name,pon_port,customer_id,service_account_id,mac_address,vendor,model,status) VALUES (?,?,?,?,?,?,?,?,?,?,'unknown')");
