@@ -36,6 +36,14 @@
 - [ ] Add secure photo/document upload and technician performance/SLA reporting.
 - [ ] Apply migration 039 and verify job creation, assignment, history and customer/account isolation during final testing.
 
+## Inventory — implementation in progress
+
+- [x] Added tenant-scoped inventory item, storage location and stock movement ledger schema.
+- [x] Added item/location creation, receipt/issue/adjustment posting, tenant ownership checks and prevention of negative stock issues.
+- [x] Added on-hand balances calculated from the movement ledger and reorder-level indicators.
+- [ ] Apply migration 040 and verify stock ledger balances and concurrent issue protection during final testing.
+- [ ] Add supplier/purchase order workflow, transfers between locations and secure attachment support.
+
 ## PPPoE & Network — implementation in progress
 
 - [x] PPPoE profile page now performs read-only profile discovery from tenant-assigned active MikroTik routers instead of showing a generic internet-plan placeholder.
