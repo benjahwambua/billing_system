@@ -63,6 +63,9 @@ if (customerTableExists('internet_accounts')) {
     $accountSuspended = customerCount('internet_accounts', array_merge($accountTenant[0], ['LOWER(status) = ?']), array_merge($accountTenant[1], ['suspended']), $accountTenant[2] . 's');
 }
 
+$hasCustomerGroups = customerColumnExists('customer_group_id') && customerTableExists('customer_groups');
+$groupSelect = $hasCustomerGroups ? ", (SELECT cg.name FROM customer_groups cg WHERE cg.id = customers.customer_group_id AND cg.tenant_id = customers.tenant_id LIMIT 1) AS customer_group_name" : '';
+
 $where = [];
 $params = [];
 $types = '';
@@ -92,7 +95,7 @@ if ($search !== '') {
     }
 }
 
-$sql = "SELECT * FROM customers";
+$sql = "SELECT *{$groupSelect} FROM customers";
 if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
 $sql .= ' ORDER BY id DESC LIMIT 100';
 
@@ -149,10 +152,10 @@ require_once __DIR__ . '/../includes/sidebar.php';
             </form>
             <div class="table-responsive">
                 <table class="data-table">
-                    <thead><tr><th>Customer</th><th>Contact</th><th>Status</th><th>Created</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Customer</th><th>Contact</th><?php if ($hasCustomerGroups): ?><th>Group</th><?php endif; ?><th>Status</th><th>Created</th><th>Action</th></tr></thead>
                     <tbody>
                     <?php if (!$customers): ?>
-                        <tr><td colspan="5" class="empty-state">No customers found for the selected filters.</td></tr>
+                        <tr><td colspan="<?= $hasCustomerGroups ? 6 : 5 ?>" class="empty-state">No customers found for the selected filters.</td></tr>
                     <?php else: foreach ($customers as $c):
                         $name = trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? ''));
                         if ($name === '') $name = $c['customer_number'] ?? ('Customer #' . ($c['id'] ?? ''));
@@ -162,6 +165,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
                         <tr>
                             <td><strong class="customer-name"><?= e($name) ?></strong><small><?= e($c['customer_number'] ?? '') ?></small></td>
                             <td><?= e($c['phone'] ?? '—') ?><small><?= e($c['email'] ?? '') ?></small></td>
+                            <?php if ($hasCustomerGroups): ?><td><?= e($c['customer_group_name'] ?? 'Unassigned') ?></td><?php endif; ?>
                             <td><span class="status-badge status-<?= e($safeStatus) ?>"><?= e(ucfirst($status)) ?></span></td>
                             <td><?= !empty($c['created_at']) ? e(date('d M Y', strtotime($c['created_at']))) : '—' ?></td>
                             <td><a class="btn btn-sm btn-secondary" href="view.php?id=<?= (int)$c['id'] ?>">View Customer</a></td>
