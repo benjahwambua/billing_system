@@ -2,7 +2,7 @@
 require_once '../includes/auth.php';
 requireActiveUser();requireTenantContext();requireModulePermission('hotspot','view');
 global $conn;$tenantId=(int)getCurrentTenantId();$errors=[];$notice='';
-$schemaReady=flexihubTableHasColumn('hotspot_vouchers','tenant_id');
+$schemaReady=flexihubTableHasColumn('hotspot_vouchers','tenant_id')&&flexihubTableHasColumn('hotspot_access_codes','tenant_id');
 $packages=[];
 if($schemaReady){$q=$conn->prepare("SELECT id,name,price,duration_minutes FROM hotspot_packages WHERE tenant_id=? AND status='active' ORDER BY name");if($q){$q->bind_param('i',$tenantId);$q->execute();$z=$q->get_result();while($x=$z->fetch_assoc())$packages[]=$x;$q->close();}}
 if($schemaReady&&$_SERVER['REQUEST_METHOD']==='POST'){
