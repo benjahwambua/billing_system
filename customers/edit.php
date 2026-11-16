@@ -25,6 +25,13 @@ $stmt->close();
 if (!$customer) { http_response_code(404); exit('Customer not found.'); }
 
 $errors = [];
+$customerGroups = [];
+$groupsCheck = $conn->query("SHOW TABLES LIKE 'customer_groups'");
+$hasGroupSchema = isset($columns['customer_group_id']) && $groupsCheck && $groupsCheck->num_rows > 0;
+if ($hasGroupSchema) {
+    $groupStmt = $conn->prepare("SELECT id, name FROM customer_groups WHERE tenant_id = ? AND status = 'active' ORDER BY name");
+    if ($groupStmt) { $groupStmt->bind_param('i', $tenantId); $groupStmt->execute(); $groupResult = $groupStmt->get_result(); while ($groupRow = $groupResult->fetch_assoc()) $customerGroups[] = $groupRow; $groupStmt->close(); }
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrf();
     $values = [
@@ -40,6 +47,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($values['phone'] !== '' && !isValidPhone($values['phone'])) $errors[] = 'Enter a valid phone number.';
     if ($values['email'] !== '' && !isValidEmail($values['email'])) $errors[] = 'Enter a valid email address.';
     if (!in_array($values['status'], ['active', 'inactive', 'suspended', 'expired'], true)) $errors[] = 'Select a valid customer status.';
+    $groupId = (int)($_POST['customer_group_id'] ?? 0);
+    if ($groupId > 0 && $hasGroupSchema) {
+        $groupCheck = $conn->prepare("SELECT id FROM customer_groups WHERE id = ? AND tenant_id = ? AND status = 'active' LIMIT 1");
+        if (!$groupCheck) $errors[] = 'Unable to verify the selected customer group.';
+        else { $groupCheck->bind_param('ii', $groupId, $tenantId); $groupCheck->execute(); $validGroup = (bool)$groupCheck->get_result()->fetch_assoc(); $groupCheck->close(); if (!$validGroup) $errors[] = 'Select an active customer group belonging to this ISP.'; }
+    }
 
     $updates = [];
     $params = [];
@@ -93,6 +106,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
             <div><label>Phone</label><input class="form-control" name="phone" value="<?=e($customer['phone'] ?? '')?>"></div>
             <div><label>Email</label><input class="form-control" type="email" name="email" value="<?=e($customer['email'] ?? '')?>"></div>
             <div class="full"><label>Address / Location</label><input class="form-control" name="address" value="<?=e($customer['address'] ?? '')?>"></div>
+            <?php if ($hasGroupSchema): ?><div><label>Customer Group</label><select class="form-control" name="customer_group_id"><option value="0">Unassigned</option><?php foreach ($customerGroups as $group): ?><option value="<?=$group['id']?>" <?=((int)($customer['customer_group_id'] ?? 0)===(int)$group['id'])?'selected':''?>><?=e($group['name'])?></option><?php endforeach; ?></select></div><?php endif; ?>
             <div><label>Status</label><select class="form-control" name="status"><?php foreach (['active','inactive','suspended','expired'] as $status): ?><option value="<?=$status?>" <?=strtolower((string)($customer['status'] ?? 'active')) === $status ? 'selected' : ''?>><?=ucfirst($status)?></option><?php endforeach; ?></select></div>
             <div class="full"><button class="btn btn-primary" type="submit">Save Changes</button></div>
         </form>
