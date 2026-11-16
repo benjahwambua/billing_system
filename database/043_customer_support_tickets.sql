@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS customer_support_tickets (
     UNIQUE KEY uq_customer_ticket_tenant_number (tenant_id, ticket_number),
     KEY idx_customer_tickets_tenant_status (tenant_id, status, priority),
     KEY idx_customer_tickets_customer (tenant_id, customer_id, created_at),
-    KEY idx_customer_tickets_assignee (tenant_id, assigned_user_id, status)
+    KEY idx_customer_tickets_assignee (tenant_id, assigned_user_id, status),
+    CONSTRAINT fk_customer_support_tickets_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS customer_support_messages (
@@ -32,5 +33,6 @@ CREATE TABLE IF NOT EXISTS customer_support_messages (
     sender_id BIGINT UNSIGNED NULL,
     message TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_customer_support_messages_ticket (tenant_id, ticket_id, id)
+    KEY idx_customer_support_messages_ticket (tenant_id, ticket_id, id),
+    CONSTRAINT fk_customer_support_messages_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
