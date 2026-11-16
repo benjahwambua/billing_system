@@ -101,5 +101,16 @@ require_once __DIR__ . '/../includes/sidebar.php';
 </div>
 <style>
 .main-content{padding:24px}.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.page-header h1{margin:0 0 5px}.page-header p{margin:0;color:#6b7280}.card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:22px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.form-grid .full{grid-column:1/-1}label{display:block;font-size:13px;font-weight:600;margin-bottom:7px}.form-control{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px}.btn{display:inline-block;padding:9px 14px;border-radius:6px;border:1px solid transparent;text-decoration:none;font-size:13px;font-weight:600;cursor:pointer}.btn-primary{background:#111827;color:#fff}.btn-secondary{background:#f3f4f6;color:#111827}.alert{padding:12px 14px;border-radius:7px;margin-bottom:18px}.alert-danger{background:#fee2e2;color:#991b1b}@media(max-width:700px){.main-content{padding:15px}.form-grid{grid-template-columns:1fr}}
+
+/* Match the Flexihub navy/blue command-centre shell. */
+.main-content{color:#e2e8f0;background:transparent}
+.main-content .page-header h1{color:#f8fafc}
+.main-content .page-header p{color:#94a3b8}
+.main-content .card{background:linear-gradient(145deg,#101827,#0b111b);border:1px solid rgba(148,163,184,.16);border-radius:15px;color:#e2e8f0;box-shadow:0 14px 36px rgba(0,0,0,.2)}
+.main-content label{color:#cbd5e1}
+.main-content .form-control{background:#0b111b;color:#f8fafc;border:1px solid rgba(148,163,184,.2);border-radius:9px}
+.main-content .form-control:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(37,99,235,.14)}
+.main-content .btn-primary{background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff}
+.main-content .btn-secondary{background:#172235;color:#cbd5e1;border-color:rgba(148,163,184,.16)}
 </style>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
