@@ -4,7 +4,7 @@
 **Baseline:** `ui/global-style-polish`  
 **Rule:** A menu item, database table, or unfinished page does not count as a completed module. Mark a capability complete only after its schema, tenant-scoped workflow, permissions, UI, and practical tests have been checked.
 
-## Dashboard — current focus
+## Dashboard — implementation complete; runtime sign-off deferred
 
 - [x] Separate platform-host and tenant ISP dashboard views.
 - [x] Tenant-scoped customer, revenue, service, router, session, payment and outstanding-balance summaries.
@@ -13,8 +13,21 @@
 - [x] Tenant payment analytics for hourly collections, seven-day collections, session mix and service lifecycle.
 - [x] PPPoE online count is now queried by PPPoE session type rather than inferred by subtracting hotspot sessions from all online sessions.
 - [x] Dashboard analytics styling aligned with the shared dark navy/blue command-centre theme.
-- [ ] Run against the user's current XAMPP database and verify every metric, status label, link and empty state.
-- [ ] Review desktop, tablet and mobile rendering in the browser before signing off the dashboard.
+- [x] Status and session-type filters normalized to avoid case-sensitive status/session mismatches.
+- [x] PPPoE analytics caption corrected to describe the directly queried PPPoE session count.
+- [ ] Final testing phase: run against the user's current XAMPP database and verify every metric, status label, link and empty state.
+- [ ] Final testing phase: review desktop, tablet and mobile rendering in the browser before signing off the dashboard.
+
+## Customers — implementation in progress
+
+- [x] Tenant-scoped customer directory, search, status filters, summary metrics and customer account view.
+- [x] Customer creation with tenant ownership, input validation, generated customer number and CSRF protection.
+- [x] Customer detail view links services, invoices, subscriptions and payment history using tenant-scoped lookups.
+- [x] Status shortcuts now pass their selected status into the directory; status comparisons are case-normalized.
+- [x] Create-customer shortcuts are hidden when the current user lacks customer-create permission.
+- [ ] Complete customer groups and group assignment using an explicit tenant-scoped schema.
+- [ ] Review customer edit/update workflow, duplicate contact handling and customer self-service portal.
+- [ ] Final testing phase: verify tenant boundaries, customer creation, filtering and linked account/ledger totals.
 
 ## Cross-cutting foundation — do first
 
