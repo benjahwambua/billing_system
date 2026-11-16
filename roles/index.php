@@ -78,9 +78,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim((string) ($_POST['name'] ?? ''));
     $description = trim((string) ($_POST['description'] ?? ''));
 
+    $roleCode = strtoupper(trim(preg_replace('/[^A-Z0-9]+/i', '_', $name), '_'));
+    $reservedRoleCodes = ['SUPER_ADMIN', 'TENANT_SUPER_ADMIN', 'HOST_SUPER_ADMIN', 'ADMINISTRATOR', 'SUPERUSER'];
     if ($name === '' || mb_strlen($name) > 100 || mb_strlen($description) > 255) {
         http_response_code(422);
         exit('Enter a role name (up to 100 characters) and a description no longer than 255 characters.');
+    }
+    if (in_array($roleCode, $reservedRoleCodes, true)) {
+        http_response_code(422);
+        exit('That role name is reserved for protected system access. Choose a different name.');
     }
 
     if ($roleId > 0) {
