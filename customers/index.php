@@ -65,6 +65,9 @@ if (customerTableExists('internet_accounts')) {
 
 $hasCustomerGroups = customerColumnExists('customer_group_id') && customerTableExists('customer_groups');
 $groupSelect = $hasCustomerGroups ? ", (SELECT cg.name FROM customer_groups cg WHERE cg.id = customers.customer_group_id AND cg.tenant_id = customers.tenant_id LIMIT 1) AS customer_group_name" : '';
+$hasCustomerResellers = customerColumnExists('reseller_id') && customerTableExists('resellers');
+$resellerSelect = $hasCustomerResellers ? ", (SELECT r.business_name FROM resellers r WHERE r.id = customers.reseller_id AND r.tenant_id = customers.tenant_id LIMIT 1) AS reseller_name" : '';
+$customerColumnCount = 5 + ($hasCustomerGroups ? 1 : 0) + ($hasCustomerResellers ? 1 : 0);
 
 $where = [];
 $params = [];
@@ -95,7 +98,7 @@ if ($search !== '') {
     }
 }
 
-$sql = "SELECT *{$groupSelect} FROM customers";
+$sql = "SELECT *{$groupSelect}{$resellerSelect} FROM customers";
 if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
 $sql .= ' ORDER BY id DESC LIMIT 100';
 
@@ -152,10 +155,10 @@ require_once __DIR__ . '/../includes/sidebar.php';
             </form>
             <div class="table-responsive">
                 <table class="data-table">
-                    <thead><tr><th>Customer</th><th>Contact</th><?php if ($hasCustomerGroups): ?><th>Group</th><?php endif; ?><th>Status</th><th>Created</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Customer</th><th>Contact</th><?php if ($hasCustomerGroups): ?><th>Group</th><?php endif; ?><?php if ($hasCustomerResellers): ?><th>Reseller</th><?php endif; ?><th>Status</th><th>Created</th><th>Action</th></tr></thead>
                     <tbody>
                     <?php if (!$customers): ?>
-                        <tr><td colspan="<?= $hasCustomerGroups ? 6 : 5 ?>" class="empty-state">No customers found for the selected filters.</td></tr>
+                        <tr><td colspan="<?= $customerColumnCount ?>" class="empty-state">No customers found for the selected filters.</td></tr>
                     <?php else: foreach ($customers as $c):
                         $name = trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? ''));
                         if ($name === '') $name = $c['customer_number'] ?? ('Customer #' . ($c['id'] ?? ''));
@@ -166,6 +169,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
                             <td><strong class="customer-name"><?= e($name) ?></strong><small><?= e($c['customer_number'] ?? '') ?></small></td>
                             <td><?= e($c['phone'] ?? '—') ?><small><?= e($c['email'] ?? '') ?></small></td>
                             <?php if ($hasCustomerGroups): ?><td><?= e($c['customer_group_name'] ?? 'Unassigned') ?></td><?php endif; ?>
+                            <?php if ($hasCustomerResellers): ?><td><?= e($c['reseller_name'] ?? 'Direct') ?></td><?php endif; ?>
                             <td><span class="status-badge status-<?= e($safeStatus) ?>"><?= e(ucfirst($status)) ?></span></td>
                             <td><?= !empty($c['created_at']) ? e(date('d M Y', strtotime($c['created_at']))) : '—' ?></td>
                             <td><a class="btn btn-sm btn-secondary" href="view.php?id=<?= (int)$c['id'] ?>">View Customer</a></td>
