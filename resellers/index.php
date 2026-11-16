@@ -75,8 +75,10 @@ if($schemaReady&&$_SERVER['REQUEST_METHOD']==='POST'){
    }
   }
   if(!$errors){
+   $invoiceStatus=strtolower(trim((string)($invoice['status']??'')));
    $paid=(float)($invoice['actual_paid']??0);
-   if($paid<=0)$errors[]='The invoice has no recorded payments. A commission can only be calculated from collected revenue.';
+   if(in_array($invoiceStatus,['void','voided','cancelled','canceled','reversed','refunded'],true))$errors[]='Commissions cannot be calculated from a voided, cancelled, reversed or refunded invoice.';
+   elseif($paid<=0)$errors[]='The invoice has no recorded payments. A commission can only be calculated from collected revenue.';
    else{
     $rate=(float)$reseller['commission_rate'];$amount=round($paid*$rate/100,2);$customerId=(int)$invoice['customer_id'];
     $stmt=$conn->prepare("INSERT INTO reseller_commissions (tenant_id,reseller_id,customer_id,invoice_id,sale_amount,commission_rate,commission_amount,status,reference,notes,created_by) VALUES (?,?,?,?,?,?,?,'pending',?,?,?)");
