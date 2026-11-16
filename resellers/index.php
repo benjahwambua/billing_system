@@ -67,7 +67,7 @@ if($schemaReady&&$_SERVER['REQUEST_METHOD']==='POST'){
     $approvedAt=$status==='approved'?date('Y-m-d H:i:s'):null;
     $stmt=$conn->prepare("UPDATE reseller_commissions SET status=?,approved_by=IF(?='approved',?,approved_by),approved_at=IF(?='approved',?,approved_at),paid_by=IF(?='paid',?,paid_by),paid_at=IF(?='paid',?,paid_at),paid_reference=IF(?='paid',?,paid_reference) WHERE id=? AND tenant_id=?");
     if(!$stmt)$errors[]='Unable to prepare commission status update.';
-    else{$stmt->bind_param('ssisssissii',$status,$status,$userId,$status,$approvedAt,$status,$userId,$paidAt,$status,$payoutReference,$commissionId,$tenantId);if($stmt->execute())$notice='Commission status updated.';else $errors[]='Unable to update commission status.';$stmt->close();}
+    else{$stmt->bind_param('ssisssissssii',$status,$status,$userId,$status,$approvedAt,$status,$userId,$status,$paidAt,$status,$payoutReference,$commissionId,$tenantId);if($stmt->execute())$notice='Commission status updated.';else $errors[]='Unable to update commission status.';$stmt->close();}
    }
   }
  } else $errors[]='Invalid reseller action.';
