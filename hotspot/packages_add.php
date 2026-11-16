@@ -9,8 +9,14 @@ global $conn;
 $tenantId = (int)getCurrentTenantId();
 $error = '';
 $routers = [];
+$routerColumns = flexihubTableColumns('mikrotik_routers');
+$routerNameColumn = in_array('name', $routerColumns, true) ? 'name' : (in_array('router_name', $routerColumns, true) ? 'router_name' : null);
+$packageColumns = flexihubTableColumns('hotspot_packages');
+$routerLinkAvailable = in_array('router_id', $packageColumns, true);
 
-$q = $conn->prepare("SELECT id, COALESCE(name, router_name) name FROM mikrotik_routers WHERE tenant_id=? AND status='active' ORDER BY name");
+$q = $routerNameColumn
+    ? $conn->prepare("SELECT id, `{$routerNameColumn}` AS name FROM mikrotik_routers WHERE tenant_id=? AND status='active' ORDER BY `{$routerNameColumn}`")
+    : false;
 if ($q) {
     $q->bind_param('i', $tenantId);
     $q->execute();
@@ -60,12 +66,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Duration must be at least 1 minute.';
     } elseif ($price < 0) {
         $error = 'Price cannot be negative.';
+    } elseif (!$routerLinkAvailable) {
+        $error = 'Hotspot router assignment is not available in the installed database schema. Apply the reviewed router association migration first.';
     } elseif (!$rid || !$routerValid) {
         $error = 'Select an active MikroTik router belonging to your organisation.';
     } else {
         $q = $conn->prepare("INSERT INTO hotspot_packages(tenant_id,name,duration_minutes,price,status,router_id) VALUES(?,?,?,?,?,?)");
         if ($q) {
-            $q->bind_param('iidssi', $tenantId, $name, $mins, $price, $v['status'], $rid);
+            $q->bind_param('isidsi', $tenantId, $name, $mins, $price, $v['status'], $rid);
             if ($q->execute()) {
                 redirect('packages.php');
             }
