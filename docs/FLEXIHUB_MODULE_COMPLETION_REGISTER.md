@@ -4,6 +4,12 @@
 **Baseline:** `ui/global-style-polish`  
 **Rule:** A menu item, database table, or unfinished page does not count as a completed module. Mark a capability complete only after its schema, tenant-scoped workflow, permissions, UI, and practical tests have been checked.
 
+## Shared UI — implementation in progress
+
+- [x] Extended the global navy/blue design layer to normalize legacy internal cards, tables, fields and action buttons.
+- [x] Bumped the shared stylesheet cache version so existing pages receive the updated design rules.
+- [ ] Final browser pass across all modules for layout consistency and mobile responsiveness.
+
 ## Dashboard — implementation complete; runtime sign-off deferred
 
 - [x] Separate platform-host and tenant ISP dashboard views.
