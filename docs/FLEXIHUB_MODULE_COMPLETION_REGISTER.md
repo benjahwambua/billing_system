@@ -21,7 +21,8 @@
 ## Cross-cutting RBAC — implementation in progress
 
 - [x] Tenant role editor and user assignment use the canonical `access_*` role tables.
-- [x] Tenant role resolution now reads canonical access-role assignments; host roles remain isolated from tenant RBAC.
+- [x] Tenant role resolution and login session role loading now read canonical access-role assignments; host roles remain isolated from tenant RBAC.
+- [x] User access screen supports tenant-scoped role assignment and revocation, while preventing removal of a system role or a user's final assigned role.
 - [x] Added idempotent consolidation migration to create canonical access tables and copy compatible legacy tenant roles, module permissions and user assignments without deleting legacy data.
 - [ ] Apply migration 038 against the existing database after schema preflight; verify role/permission and assignment counts before/after.
 - [ ] Complete role revocation, verify platform-host role administration and remove remaining legacy tenant authorization fallback after the canonical migration is confirmed.
