@@ -60,7 +60,7 @@ The logical IDs below resolve duplicate filename prefixes. They do **not** autho
 | FEATURE-042 | `042_customer_portal.sql` | Creates separate customer portal credentials/invitations; verify HTTPS, session isolation, email uniqueness and invite expiry before enabling externally |
 | FEATURE-043 | `043_customer_support_tickets.sql` | Creates tenant-scoped customer ticket and message history tables; verify portal user/session identity, tenant joins and staff assignment before applying |
 | FEATURE-044 | `044_ip_pool_allocations.sql` | Creates tenant-scoped IP allocation ledger; preflight tenant/pool key types and confirm ip_pools has compatible primary key before applying |
-| FEATURE-045 | `045_tenant_tax_invoices.sql` | Adds tenant tax configuration and immutable invoice tax snapshots; verify tenant/invoice key types and invoice table engine before applying |
+| FEATURE-045 | `045_tenant_tax_invoices.sql` | Adds tenant tax configuration and immutable invoice tax snapshots; tenant FK uses the established BIGINT tenant key; invoice link is indexed but deliberately has no FK until the legacy invoice key type and engine are confirmed |
 
 ## Additional read-only type preflight
 
