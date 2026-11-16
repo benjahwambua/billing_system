@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS reseller_commissions (
     paid_by BIGINT UNSIGNED NULL,
     approved_at DATETIME NULL,
     paid_at DATETIME NULL,
+    paid_reference VARCHAR(120) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_reseller_invoice_commission (tenant_id, reseller_id, invoice_id),
