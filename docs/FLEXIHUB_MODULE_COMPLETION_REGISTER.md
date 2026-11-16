@@ -37,6 +37,8 @@
 - [x] Invoice creation can associate an internet account belonging to the selected tenant customer.
 - [x] Outstanding/debtor view calculates balances from the tenant-scoped payment ledger.
 - [x] Invoice list provides a permission-gated Record Payment path, preselecting the invoice and linked service account.
+- [x] Renewal workflow now prepares a customer- and account-linked invoice with the current plan price prefilled for review; it no longer links to a payment form without an invoice.
+- [x] Expiring/renewal lists display customer names from the customer name fields rather than assuming a legacy `name` column.
 - [ ] Complete recurring invoice/tax/credit-note controls and verify partial-payment allocation, overpayment prevention and reconciliation.
 - [ ] Final testing phase: verify invoice/payment balances against the existing database and test normal, duplicate and failed payment paths.
 - [ ] Final testing phase: verify tenant boundaries, customer creation, filtering and linked account/ledger totals.
