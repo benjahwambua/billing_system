@@ -88,7 +88,9 @@ BEGIN
     END IF;
 
     IF v_role_perms > 0 AND v_roles > 0 THEN
-        IF EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='role_permissions' AND COLUMN_NAME='module_key')
+        IF EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='role_permissions' AND COLUMN_NAME='role_id')
+           AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='roles' AND COLUMN_NAME='id')
+           AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='role_permissions' AND COLUMN_NAME='module_key')
            AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='role_permissions' AND COLUMN_NAME='can_view')
            AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='role_permissions' AND COLUMN_NAME='can_create')
            AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='role_permissions' AND COLUMN_NAME='can_edit')
@@ -105,7 +107,10 @@ BEGIN
         END IF;
     END IF;
 
-    IF v_user_roles > 0 AND v_roles > 0 AND v_users_tenant > 0 THEN
+    IF v_user_roles > 0 AND v_roles > 0 AND v_users_tenant > 0
+       AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_roles' AND COLUMN_NAME='user_id')
+       AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_roles' AND COLUMN_NAME='role_id')
+       AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='roles' AND COLUMN_NAME='id') THEN
         INSERT IGNORE INTO access_user_roles (tenant_id, user_id, role_id)
         SELECT u.tenant_id, ur.user_id, ar.id
         FROM user_roles ur
