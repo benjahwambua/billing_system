@@ -23,11 +23,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit('You do not have permission to assign user roles.');
     }
 
+    $action = trim((string)($_POST['action'] ?? 'assign'));
     $userId = (int) ($_POST['user_id'] ?? 0);
     $roleId = (int) ($_POST['role_id'] ?? 0);
 
     if ($userId <= 0 || $roleId <= 0) {
         $errorMessage = 'Select a valid user and role.';
+    } elseif ($action === 'remove') {
+        $roleCheck = $conn->prepare("SELECT is_system FROM access_roles WHERE id=? AND tenant_id=? LIMIT 1");
+        if (!$roleCheck) {
+            $errorMessage = 'Unable to verify the selected role.';
+        } else {
+            $roleCheck->bind_param('ii', $roleId, $tenantId);
+            $roleCheck->execute();
+            $roleRecord = $roleCheck->get_result()->fetch_assoc();
+            $roleCheck->close();
+            if (!$roleRecord) {
+                $errorMessage = 'The selected role does not belong to this organisation.';
+            } elseif (!empty($roleRecord['is_system'])) {
+                $errorMessage = 'System role assignments cannot be removed here.';
+            } else {
+                $assignmentCount = 0;
+                if ($userId === (int)getCurrentUserId()) {
+                    $countStmt = $conn->prepare("SELECT COUNT(*) AS total FROM access_user_roles WHERE user_id=? AND tenant_id=?");
+                    if ($countStmt) {
+                        $countStmt->bind_param('ii', $userId, $tenantId);
+                        $countStmt->execute();
+                        $assignmentCount = (int)($countStmt->get_result()->fetch_assoc()['total'] ?? 0);
+                        $countStmt->close();
+                    }
+                }
+                if ($userId === (int)getCurrentUserId() && $assignmentCount <= 1) {
+                    $errorMessage = 'Assign another role before removing your own final access role.';
+                } else {
+                    $remove = $conn->prepare("DELETE aur FROM access_user_roles aur
+                        INNER JOIN users u ON u.id=aur.user_id AND u.tenant_id=aur.tenant_id
+                        INNER JOIN access_roles ar ON ar.id=aur.role_id AND ar.tenant_id=aur.tenant_id
+                        WHERE aur.tenant_id=? AND aur.user_id=? AND aur.role_id=?");
+                    if (!$remove) {
+                        $errorMessage = 'Unable to prepare role removal.';
+                    } else {
+                        $remove->bind_param('iii', $tenantId, $userId, $roleId);
+                        if ($remove->execute() && $remove->affected_rows > 0) {
+                            $remove->close();
+                            header('Location: index.php?removed=1');
+                            exit;
+                        }
+                        $remove->close();
+                        $errorMessage = 'No matching role assignment was removed.';
+                    }
+                }
+            }
+        }
+    } elseif ($action !== 'assign') {
+        $errorMessage = 'Invalid role assignment action.';
     } else {
         $stmt = $conn->prepare(
             "INSERT IGNORE INTO access_user_roles (tenant_id, user_id, role_id)
@@ -166,6 +215,8 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="alert alert-success" role="status">Role assigned successfully.</div>
 <?php elseif (isset($_GET['already_assigned'])): ?>
     <div class="alert alert-info" role="status">That role is already assigned to this user.</div>
+<?php elseif (isset($_GET['removed'])): ?>
+    <div class="alert alert-success" role="status">Role assignment removed.</div>
 <?php endif; ?>
 
 <section class="dashboard-card">
@@ -214,6 +265,7 @@ require_once __DIR__ . '/../includes/header.php';
                                     <div class="table-actions">
                                         <?php foreach ($userAssignments as $assignment): ?>
                                             <span class="badge"><?= e($assignment['role_name']) ?></span>
+                                            <?php if ($canEditUsers): ?><form method="post" class="inline-role-remove"><?= csrfField() ?><input type="hidden" name="action" value="remove"><input type="hidden" name="user_id" value="<?= e($userId) ?>"><input type="hidden" name="role_id" value="<?= e($assignment['role_id']) ?>"><button type="submit" class="btn btn-secondary btn-sm" aria-label="Remove <?= e($assignment['role_name']) ?> role">Remove</button></form><?php endif; ?>
                                         <?php endforeach; ?>
                                     </div>
                                 <?php else: ?>
@@ -225,6 +277,7 @@ require_once __DIR__ . '/../includes/header.php';
                                     <?php if ($roles): ?>
                                         <form method="post" class="role-assignment-form">
                                             <?= csrfField() ?>
+                                            <input type="hidden" name="action" value="assign">
                                             <input type="hidden" name="user_id" value="<?= e($userId) ?>">
                                             <select name="role_id" aria-label="Role for <?= e($user['username']) ?>" required>
                                                 <option value="">Select role</option>
