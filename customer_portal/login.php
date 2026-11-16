@@ -20,7 +20,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     if(!$valid)$error='The portal credentials could not be verified.';
     else{
      session_regenerate_id(true);
-     unset($_SESSION['user_id'],$_SESSION['user_scope'],$_SESSION['tenant_id'],$_SESSION['roles'],$_SESSION['role'],$_SESSION['session_token']);
+     unset($_SESSION['user_id'],$_SESSION['user_scope'],$_SESSION['tenant_id'],$_SESSION['roles'],$_SESSION['role'],$_SESSION['user_role'],$_SESSION['tenant_name'],$_SESSION['session_token']);
      $_SESSION['customer_portal_authenticated']=true;
      $_SESSION['customer_portal_user_id']=(int)$account['id'];
      $_SESSION['customer_portal_tenant_id']=$tenantId;
