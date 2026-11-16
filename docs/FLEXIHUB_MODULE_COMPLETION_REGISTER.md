@@ -49,6 +49,7 @@
 - [x] Added status history, resolution notes and customer sign-off capture.
 - [ ] Add secure photo/document upload and technician performance/SLA reporting.
 - [ ] Apply migration 039 and verify job creation, assignment, history and customer/account isolation during final testing.
+- [ ] Apply migration 044 and verify IP allocation uniqueness, release/reallocation and tenant isolation during final testing.
 
 ## Resellers — implementation in progress
 
@@ -130,10 +131,12 @@
 
 ## Workstream 1 — Network operations
 
-- [ ] IP address pool lifecycle: create/edit/disable, allocation, release, overlap/conflict detection, exhaustion warnings.
+- [x] IP address pool lifecycle: create/edit/disable, manual allocation/release, overlap/conflict detection.
+- [ ] Add pool exhaustion thresholds/alerts and automatic PPPoE address assignment.
   - Existing verified foundation: tenant-scoped pool CRUD, IPv4/CIDR and range validation, overlap checks, active PPPoE-server assignment protection, and pool-to-server association.
   - Latest improvement: pool list now shows tenant-scoped assigned/active PPPoE server counts when the association schema is present, and hides create/edit actions without the corresponding permission.
-  - Still missing: live address allocation/release, in-use address accounting, pool exhaustion thresholds/alerts, and end-to-end RouterOS synchronization tests.
+  - [x] Added tenant-scoped IP allocation/release ledger with address-range, subnet, gateway, account ownership and duplicate-allocation checks; allocation posting is transactional.
+  - Still missing: pool exhaustion thresholds/alerts, automated assignment from PPPoE provisioning, and end-to-end RouterOS synchronization tests.
 - [ ] Router provisioning synchronisation: desired vs actual state, sync status, safe retry and error history.
   - Latest addition: `routers/sync.php` provides a tenant-scoped, read-only comparison of Flexihub PPPoE IP pool ranges and PPP profiles against RouterOS, linked from each router row. It uses the existing deterministic `fh_t{tenant}_pool{pool}` and `fh_t{tenant}_pppoe{server}` names and performs only RouterOS print/identity reads.
   - Still missing: durable sync state, command queue, retries, error history, automated scheduled reconciliation, and safe write-path tests. The RouterOS write lock remains disabled.
