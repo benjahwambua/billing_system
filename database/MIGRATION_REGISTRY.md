@@ -55,6 +55,7 @@ The logical IDs below resolve duplicate filename prefixes. They do **not** autho
 | FEATURE-037 | `037_customer_groups.sql` | New tenant-scoped customer grouping table and customer link; review existing customers tenant key type and FK/index compatibility before applying |
 | FEATURE-038 | `038_rbac_consolidation.sql` | Creates canonical access tables and conditionally copies compatible legacy tenant roles, module permissions and user assignments; review legacy table columns and role-name mapping before applying |
 | FEATURE-039 | `039_field_operations.sql` | Creates tenant-scoped field jobs, status history and attachment metadata; verify staffs/customer/account tenant keys and storage policy before applying |
+| FEATURE-040 | `040_inventory.sql` | Creates tenant-scoped inventory items, locations and signed stock movement ledger; review tenant key types and run stock reconciliation preflight before applying |
 
 ## Additional read-only type preflight
 
