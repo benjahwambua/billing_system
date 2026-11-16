@@ -17,6 +17,9 @@ $allowedStatuses=['open','scheduled','assigned','in_progress','waiting_parts','c
 $customers=[];
 $q=$conn->prepare("SELECT id,customer_number,first_name,last_name FROM customers WHERE tenant_id=? ORDER BY first_name,last_name");
 if($q){$q->bind_param('i',$tenantId);$q->execute();$r=$q->get_result();while($x=$r->fetch_assoc())$customers[]=$x;$q->close();}
+$serviceAccounts=[];
+$q=$conn->prepare("SELECT ia.id,ia.customer_id,ia.account_number,ia.username,c.customer_number,c.first_name,c.last_name FROM internet_accounts ia INNER JOIN customers c ON c.id=ia.customer_id AND c.tenant_id=ia.tenant_id WHERE ia.tenant_id=? ORDER BY c.first_name,c.last_name,ia.id DESC");
+if($q){$q->bind_param('i',$tenantId);$q->execute();$r=$q->get_result();while($x=$r->fetch_assoc())$serviceAccounts[]=$x;$q->close();}
 $staff=[];
 $q=$conn->prepare("SELECT id,staff_code,first_name,last_name,position FROM staffs WHERE tenant_id=? AND LOWER(status)='active' ORDER BY first_name,last_name");
 if($q){$q->bind_param('i',$tenantId);$q->execute();$r=$q->get_result();while($x=$r->fetch_assoc())$staff[]=$x;$q->close();}
@@ -149,7 +152,7 @@ require_once __DIR__.'/../includes/sidebar.php';
  <?php if(userCan('operations','create')): ?>
  <section class="field-panel"><h2>Schedule a Job</h2><form method="post"><?=csrfField()?><input type="hidden" name="action" value="create"><div class="field-grid">
  <label>Customer *<select name="customer_id" required><option value="">Select customer</option><?php foreach($customers as $c): ?><option value="<?=(int)$c['id']?>"><?=e(($c['customer_number']??'').' — '.trim(($c['first_name']??'').' '.($c['last_name']??'')))?></option><?php endforeach; ?></select></label>
- <label>Internet Account ID (optional)<input type="number" min="1" name="internet_account_id" placeholder="Linked service account ID"></label>
+ <label>Internet Account (optional)<select name="internet_account_id"><option value="0">No linked account</option><?php foreach($serviceAccounts as $account): ?><option value="<?=(int)$account['id']?>"><?=e(($account['customer_number']??'').' — '.trim(($account['first_name']??'').' '.($account['last_name']??'')).' · '.($account['account_number']??$account['username']??('Account #'.$account['id'])))?></option><?php endforeach; ?></select></label>
  <label>Job Type<select name="job_type"><?php foreach($allowedTypes as $type): ?><option value="<?=$type?>"><?=ucfirst($type)?></option><?php endforeach; ?></select></label>
  <label>Title *<input name="title" maxlength="200" required placeholder="e.g. Install fibre connection"></label>
  <label>Priority<select name="priority"><?php foreach($allowedPriorities as $priority): ?><option value="<?=$priority?>" <?=$priority==='normal'?'selected':''?>><?=ucfirst($priority)?></option><?php endforeach; ?></select></label>
