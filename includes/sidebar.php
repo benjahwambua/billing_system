@@ -277,6 +277,14 @@ ob_start();
                     <span class="sidebar-menu-text">Platform Revenue</span>
                 </a>
 
+                <a
+                    href="../platform/billing.php"
+                    class="sidebar-menu-link <?= sidebarActive('/platform/billing.php') ?>"
+                >
+                    <span class="sidebar-menu-icon">▤</span>
+                    <span class="sidebar-menu-text">Platform Billing</span>
+                </a>
+
             </div>
 
 
@@ -503,11 +511,19 @@ ob_start();
                 </a>
 
                 <a
-                    href="../pppoe/ip_pools.php"
-                    class="sidebar-menu-link <?= sidebarActive('/pppoe/ip_pools.php') ?>"
+                    href="../ip_pools/index.php"
+                    class="sidebar-menu-link <?= sidebarActive('/ip_pools/') ?>"
                 >
                     <span class="sidebar-menu-icon">⊙</span>
                     <span class="sidebar-menu-text">IP Pools</span>
+                </a>
+
+                <a
+                    href="../ip_pools/allocations.php"
+                    class="sidebar-menu-link <?= sidebarActive('/ip_pools/allocations.php') ?>"
+                >
+                    <span class="sidebar-menu-icon">⌖</span>
+                    <span class="sidebar-menu-text">IP Allocations</span>
                 </a>
 
                 <a
@@ -732,6 +748,22 @@ ob_start();
                 >
                     <span class="sidebar-menu-icon">◈</span>
                     <span class="sidebar-menu-text">Revenue</span>
+                </a>
+
+                <a
+                    href="../wallet/index.php"
+                    class="sidebar-menu-link <?= sidebarActive('/wallet/') ?>"
+                >
+                    <span class="sidebar-menu-icon">▰</span>
+                    <span class="sidebar-menu-text">Wallet</span>
+                </a>
+
+                <a
+                    href="../wallet/transactions.php"
+                    class="sidebar-menu-link <?= sidebarActive('/wallet/transactions.php') ?>"
+                >
+                    <span class="sidebar-menu-icon">⇄</span>
+                    <span class="sidebar-menu-text">Wallet Transactions</span>
                 </a>
 
             </div>
