@@ -28,7 +28,21 @@ if (!$router) {
     exit('Router not found for this tenant.');
 }
 
-$routerColumns = flexihubTableColumns('mikrotik_routers');
+$readColumns = static function ($table) use ($conn) {
+    if (!in_array($table, ['mikrotik_routers', 'pppoe_servers', 'ip_pools'], true)) {
+        return [];
+    }
+    $columns = [];
+    $query = $conn->query('SHOW COLUMNS FROM ' . $table);
+    if ($query) {
+        while ($column = $query->fetch_assoc()) {
+            $columns[] = $column['Field'];
+        }
+        $query->free();
+    }
+    return $columns;
+};
+$routerColumns = $readColumns('mikrotik_routers');
 $pick = static function (array $row, array $columns, array $candidates, $default = '') {
     foreach ($candidates as $column) {
         if (in_array($column, $columns, true) && isset($row[$column]) && $row[$column] !== '') {
@@ -43,8 +57,8 @@ $username = (string)$pick($router, $routerColumns, ['username', 'user']);
 $password = (string)$pick($router, $routerColumns, ['password', 'api_password']);
 $port = (int)$pick($router, $routerColumns, ['api_port', 'port'], 8728);
 
-$serverColumns = flexihubTableColumns('pppoe_servers');
-$poolColumns = flexihubTableColumns('ip_pools');
+$serverColumns = $readColumns('pppoe_servers');
+$poolColumns = $readColumns('ip_pools');
 $requiredServerColumns = ['id', 'tenant_id', 'router_id', 'ip_pool_id'];
 $requiredPoolColumns = ['id', 'tenant_id', 'start_ip', 'end_ip', 'gateway'];
 foreach ($requiredServerColumns as $column) {
