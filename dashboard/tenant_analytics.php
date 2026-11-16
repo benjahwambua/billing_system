@@ -101,7 +101,7 @@ foreach ($analyticsSessionBreakdown as $row) {
     <div class="fh-analytics-heading">
         <div>
             <h2>Operational Analytics</h2>
-            <p>Live tenant-level billing and connectivity indicators.</p>
+            <p>Tenant-level billing and connectivity indicators from recorded platform activity.</p>
         </div>
         <a href="../reports/index.php">Open Reports</a>
     </div>
@@ -122,7 +122,7 @@ foreach ($analyticsSessionBreakdown as $row) {
 
         <div class="fh-analytics-card">
             <span>PPPoE Online</span>
-            <strong><?= dashboardNumber(max(0, $onlineUsers - $activeHotspotSessions)) ?></strong>
+            <strong><?= dashboardNumber($activePppoeSessions) ?></strong>
             <small>Online users excluding hotspot</small>
         </div>
 
@@ -548,4 +548,24 @@ foreach ($analyticsSessionBreakdown as $row) {
         flex-direction: column;
     }
 }
+
+
+/* Dark command-centre treatment: keep analytics consistent with the shared shell. */
+.fh-analytics-heading h2,.fh-panel-title h3{color:var(--fh-text,#f1f5f9)}
+.fh-analytics-heading p,.fh-analytics-card span,.fh-analytics-card small,
+.fh-panel-title span,.fh-hour-value,.fh-day-value,.fh-hour-label,.fh-day-label,
+.fh-breakdown-top strong,.fh-lifecycle-row span{color:var(--fh-muted,#94a3b8)}
+.fh-analytics-heading a{color:#60a5fa}
+.fh-analytics-card,.fh-analytics-panel{
+    background:linear-gradient(145deg,rgba(16,24,39,.98),rgba(9,15,25,.98));
+    border-color:rgba(148,163,184,.16);
+    box-shadow:0 12px 28px rgba(0,0,0,.14);
+}
+.fh-analytics-card strong,.fh-breakdown-top span,.fh-lifecycle-row strong{color:#f8fafc}
+.fh-panel-title{border-bottom-color:rgba(148,163,184,.13)}
+.fh-breakdown-row,.fh-lifecycle-row{border-bottom-color:rgba(148,163,184,.1)}
+.fh-hour-bar,.fh-day-bar,.fh-progress span{background:linear-gradient(180deg,#3b82f6,#1d4ed8)}
+.fh-progress{background:rgba(148,163,184,.13)}
+.fh-empty{color:var(--fh-muted,#94a3b8)}
+
 </style>
