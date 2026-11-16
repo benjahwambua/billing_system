@@ -33,6 +33,7 @@
 - [x] Hotspot plan creation now uses the correct parameter types and validates tenant-owned active router assignment.
 - [x] Hotspot session fallback now filters the shared active-session table to hotspot sessions only.
 - [x] Hotspot workspace shortcuts include voucher and public payment-status workflows.
+- [x] Public captive portal now follows the dark navy/blue brand styling with mobile-friendly payment and access-status forms.
 - [x] Hotspot package editing now supports tenant-scoped router reassignment and validates active routers; legacy Add Plan route forwards to the router-aware workflow.
 - [ ] Verify captive portal purchase, M-Pesa callback, voucher/code activation, expiry and retry queue end to end.
 - [ ] Final testing phase: confirm the router association migration and test only against the isolated Flexihub test router.
