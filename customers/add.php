@@ -17,6 +17,13 @@ function customerAddColumns() {
 }
 
 $columns = customerAddColumns();
+$customerGroups = [];
+$groupsCheck = $conn->query("SHOW TABLES LIKE 'customer_groups'");
+$hasGroupSchema = isset($columns['customer_group_id']) && $groupsCheck && $groupsCheck->num_rows > 0;
+if ($hasGroupSchema) {
+    $groupStmt = $conn->prepare("SELECT id, name FROM customer_groups WHERE tenant_id = ? AND status = 'active' ORDER BY name");
+    if ($groupStmt) { $groupStmt->bind_param('i', $tenantId); $groupStmt->execute(); $groupResult = $groupStmt->get_result(); while ($groupRow = $groupResult->fetch_assoc()) $customerGroups[] = $groupRow; $groupStmt->close(); }
+}
 if (!isset($columns['tenant_id'])) { http_response_code(503); exit('Customer tenant isolation is unavailable. Please contact the administrator.'); }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -27,7 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
     $address = trim($_POST['address'] ?? '');
     $status = strtolower(trim($_POST['status'] ?? 'active'));
+    $groupId = (int)($_POST['customer_group_id'] ?? 0);
     if (!in_array($status, ['active', 'inactive', 'suspended'], true)) $status = 'active';
+    if ($groupId > 0 && $hasGroupSchema) {
+        $groupCheck = $conn->prepare("SELECT id FROM customer_groups WHERE id = ? AND tenant_id = ? AND status = 'active' LIMIT 1");
+        if (!$groupCheck) $errors[] = 'Unable to verify the selected customer group.';
+        else { $groupCheck->bind_param('ii', $groupId, $tenantId); $groupCheck->execute(); $validGroup = (bool)$groupCheck->get_result()->fetch_assoc(); $groupCheck->close(); if (!$validGroup) $errors[] = 'Select an active customer group belonging to this ISP.'; }
+    }
 
     if ($first === '' && $last === '') $errors[] = 'Enter the customer first name or last name.';
     if ($phone !== '' && !isValidPhone($phone)) $errors[] = 'Enter a valid phone number.';
@@ -45,6 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($columns['customer_number'])) $set('customer_number',generateCustomerNumber());
         $set('first_name',$first); $set('last_name',$last); $set('phone',$phone);
         $set('email',$email); $set('address',$address); $set('status',$status);
+        if ($hasGroupSchema) $set('customer_group_id', $groupId > 0 ? $groupId : null);
 
         if (!$fields) $errors[] = 'The customers table does not contain writable fields.';
         else {
@@ -78,6 +92,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
             <div><label>Phone</label><input class="form-control" name="phone" value="<?= e($_POST['phone'] ?? '') ?>" placeholder="+254..."></div>
             <div><label>Email</label><input class="form-control" type="email" name="email" value="<?= e($_POST['email'] ?? '') ?>"></div>
             <div class="full"><label>Address / Location</label><input class="form-control" name="address" value="<?= e($_POST['address'] ?? '') ?>"></div>
+            <?php if ($hasGroupSchema): ?><div><label>Customer Group</label><select class="form-control" name="customer_group_id"><option value="0">Unassigned</option><?php foreach ($customerGroups as $group): ?><option value="<?=$group['id']?>" <?=((int)($_POST['customer_group_id'] ?? 0)===(int)$group['id'])?'selected':''?>><?=e($group['name'])?></option><?php endforeach; ?></select></div><?php endif; ?>
             <div><label>Status</label><select class="form-control" name="status"><option value="active" <?= $status === 'active' ? 'selected' : '' ?>>Active</option><option value="inactive" <?= $status === 'inactive' ? 'selected' : '' ?>>Inactive</option><option value="suspended" <?= $status === 'suspended' ? 'selected' : '' ?>>Suspended</option></select></div>
             <div class="full"><button class="btn btn-primary" type="submit">Save Customer</button></div>
         </form>
