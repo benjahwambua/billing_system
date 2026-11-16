@@ -27,6 +27,15 @@
 - [ ] Apply migration 038 against the existing database after schema preflight; verify role/permission and assignment counts before/after.
 - [ ] Complete role revocation, verify platform-host role administration and remove remaining legacy tenant authorization fallback after the canonical migration is confirmed.
 
+## Hotspot — implementation in progress
+
+- [x] Tenant-scoped hotspot plan listing now handles router-name schema variants and orders by the package primary key.
+- [x] Hotspot plan creation now uses the correct parameter types and validates tenant-owned active router assignment.
+- [x] Hotspot session fallback now filters the shared active-session table to hotspot sessions only.
+- [x] Hotspot workspace shortcuts include voucher and public payment-status workflows.
+- [ ] Complete package edit/router reassignment and verify captive portal purchase, M-Pesa callback, voucher/code activation, expiry and retry queue end to end.
+- [ ] Final testing phase: confirm the router association migration and test only against the isolated Flexihub test router.
+
 ## Customers — implementation in progress
 
 - [x] Tenant-scoped customer directory, search, status filters, summary metrics and customer account view.
