@@ -47,7 +47,8 @@
 - [x] Added job scheduling for installations, repairs, maintenance, surveys, relocations and disconnections.
 - [x] Added tenant-owned customer/account validation, technician assignment from active staff, priority and status tracking.
 - [x] Added status history, resolution notes and customer sign-off capture.
-- [ ] Add secure photo/document upload and technician performance/SLA reporting.
+- [x] Added tenant-scoped technician workload and completion reporting with date filters, open/urgent counts and average completion hours.
+- [ ] Add secure photo/document upload and SLA timers/escalation.
 - [ ] Apply migration 039 and verify job creation, assignment, history and customer/account isolation during final testing.
 - [ ] Apply migration 044 and verify IP allocation uniqueness, release/reallocation and tenant isolation during final testing.
 
@@ -176,7 +177,7 @@
 - [x] Installation and repair work orders with dispatch/scheduling.
 - [x] Job status, notes, timestamps and customer sign-off.
 - [ ] Add secure job photo uploads and materials-used tracking.
-- [ ] Technician job history and performance reporting.
+- [x] Technician job history and performance reporting.
 - [ ] CPE/ONT inventory issue, return and customer/site assignment.
 
 ## Workstream 5 — Flexihub SaaS and resellers
