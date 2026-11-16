@@ -151,7 +151,7 @@
 ## Workstream 2 — Billing and financial control
 
 - [x] Recurring invoice generation with duplicate prevention and tenant billing cycles.
-- [ ] Tax configuration and invoice line calculations.
+- [x] Tenant tax configuration and tax-exclusive invoice calculations with immutable per-invoice tax snapshots (migration 045 prepared; schema application and runtime verification pending).
 - [x] Partial payments and invoice-linked balance calculation; verify edge cases against the final database ledger.
 - [ ] Duplicate, unmatched, excess and unapplied payment handling.
 - [ ] Reconciliation against gateway callbacks and statements.
