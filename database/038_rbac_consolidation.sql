@@ -76,7 +76,9 @@ BEGIN
 
     IF v_roles > 0 THEN
         IF EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='roles' AND COLUMN_NAME='tenant_id')
-           AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='roles' AND COLUMN_NAME='name') THEN
+           AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='roles' AND COLUMN_NAME='name')
+           AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='roles' AND COLUMN_NAME='description')
+           AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='roles' AND COLUMN_NAME='is_system') THEN
             INSERT IGNORE INTO access_roles (tenant_id, name, description, is_system, status)
             SELECT r.tenant_id, r.name, r.description, COALESCE(r.is_system,0), 'active'
             FROM roles r
@@ -92,19 +94,14 @@ BEGIN
            AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='role_permissions' AND COLUMN_NAME='can_edit')
            AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='role_permissions' AND COLUMN_NAME='can_delete')
            AND EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='role_permissions' AND COLUMN_NAME='can_approve') THEN
-            INSERT INTO access_role_permissions
+            INSERT IGNORE INTO access_role_permissions
                 (tenant_id, role_id, module_key, can_view, can_create, can_edit, can_delete, can_approve)
             SELECT r.tenant_id, ar.id, rp.module_key, rp.can_view, rp.can_create, rp.can_edit, rp.can_delete, rp.can_approve
             FROM role_permissions rp
             INNER JOIN roles r ON r.id=rp.role_id
             INNER JOIN access_roles ar ON ar.tenant_id=r.tenant_id AND ar.name=r.name
             WHERE rp.module_key IS NOT NULL
-            ON DUPLICATE KEY UPDATE
-                can_view=VALUES(can_view),
-                can_create=VALUES(can_create),
-                can_edit=VALUES(can_edit),
-                can_delete=VALUES(can_delete),
-                can_approve=VALUES(can_approve);
+            ;
         END IF;
     END IF;
 
