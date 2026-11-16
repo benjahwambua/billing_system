@@ -39,7 +39,11 @@
 - [x] Invoice list provides a permission-gated Record Payment path, preselecting the invoice and linked service account.
 - [x] Renewal workflow now prepares a customer- and account-linked invoice with the current plan price prefilled for review; it no longer links to a payment form without an invoice.
 - [x] Expiring/renewal lists display customer names from the customer name fields rather than assuming a legacy `name` column.
-- [ ] Complete recurring invoice/tax/credit-note controls and verify partial-payment allocation, overpayment prevention and reconciliation.
+- [x] Recurring invoice generation runs through the tenant-aware CLI service worker with account/service-period duplicate prevention.
+- [x] Overdue invoices observe plan grace periods and queue service suspension through the isolated activation workflow.
+- [x] Manual payment workflow validates invoice ownership, serializes payment posting, prevents overpayment, supports partial payments and defers renewal until full settlement.
+- [ ] Add tax configuration/calculation and credit notes/refunds with approval and audit controls.
+- [ ] Verify gateway reconciliation, unmatched/duplicate receipts and failed-payment recovery end to end.
 - [ ] Final testing phase: verify invoice/payment balances against the existing database and test normal, duplicate and failed payment paths.
 - [ ] Final testing phase: verify tenant boundaries, customer creation, filtering and linked account/ledger totals.
 
