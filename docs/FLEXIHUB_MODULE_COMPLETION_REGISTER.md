@@ -27,6 +27,15 @@
 - [ ] Apply migration 038 against the existing database after schema preflight; verify role/permission and assignment counts before/after.
 - [ ] Complete role revocation, verify platform-host role administration and remove remaining legacy tenant authorization fallback after the canonical migration is confirmed.
 
+## Operations & Field Service — implementation in progress
+
+- [x] Added tenant-scoped field job, update-history and attachment metadata schema.
+- [x] Added job scheduling for installations, repairs, maintenance, surveys, relocations and disconnections.
+- [x] Added tenant-owned customer/account validation, technician assignment from active staff, priority and status tracking.
+- [x] Added status history, resolution notes and customer sign-off capture.
+- [ ] Add secure photo/document upload and technician performance/SLA reporting.
+- [ ] Apply migration 039 and verify job creation, assignment, history and customer/account isolation during final testing.
+
 ## Hotspot — implementation in progress
 
 - [x] Tenant-scoped hotspot plan listing now handles router-name schema variants and orders by the package primary key.
