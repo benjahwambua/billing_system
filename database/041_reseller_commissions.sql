@@ -42,7 +42,9 @@ CREATE TABLE IF NOT EXISTS reseller_commissions (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_reseller_invoice_commission (tenant_id, reseller_id, invoice_id),
     KEY idx_reseller_commissions_tenant_status (tenant_id, status),
-    KEY idx_reseller_commissions_reseller (tenant_id, reseller_id, created_at)
+    KEY idx_reseller_commissions_reseller (tenant_id, reseller_id, created_at),
+    CONSTRAINT fk_reseller_commissions_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_reseller_commissions_reseller FOREIGN KEY (tenant_id, reseller_id) REFERENCES resellers(tenant_id, id) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 DROP PROCEDURE IF EXISTS flexihub_add_customer_reseller_link;
