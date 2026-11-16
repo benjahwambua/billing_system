@@ -230,6 +230,14 @@ ob_start();
             </div>
 
                 <a
+                    href="../platform/index.php"
+                    class="sidebar-menu-link <?= sidebarActive('/platform/index.php') ?>"
+                >
+                    <span class="sidebar-menu-icon">⌂</span>
+                    <span class="sidebar-menu-text">Platform Overview</span>
+                </a>
+
+                <a
                     href="../tenants/index.php"
                     class="sidebar-menu-link <?= sidebarActive('/tenants/') ?>"
                 >
@@ -416,6 +424,14 @@ ob_start();
                 >
                     <span class="sidebar-menu-icon">♙</span>
                     <span class="sidebar-menu-text">Customer Groups</span>
+                </a>
+
+                <a
+                    href="../customer_portal/login.php"
+                    class="sidebar-menu-link <?= sidebarActive('/customer_portal/') ?>"
+                >
+                    <span class="sidebar-menu-icon">↗</span>
+                    <span class="sidebar-menu-text">Customer Portal Login</span>
                 </a>
 
             </div>
