@@ -56,7 +56,7 @@ The logical IDs below resolve duplicate filename prefixes. They do **not** autho
 | FEATURE-038 | `038_rbac_consolidation.sql` | Creates canonical access tables and conditionally copies compatible legacy tenant roles, module permissions and user assignments; review legacy table columns and role-name mapping before applying |
 | FEATURE-039 | `039_field_operations.sql` | Creates tenant-scoped field jobs, status history and attachment metadata; verify staffs/customer/account tenant keys and storage policy before applying |
 | FEATURE-040 | `040_inventory.sql` | Creates tenant-scoped inventory items, locations and signed stock movement ledger; review tenant key types and run stock reconciliation preflight before applying |
-| FEATURE-041 | `041_reseller_commissions.sql` | Creates tenant-scoped resellers and invoice-linked commission ledger; verify invoice actual_paid semantics and payment reconciliation before applying |
+| FEATURE-041 | `041_reseller_commissions.sql` | Creates tenant-scoped resellers, customer attribution and invoice-linked commission ledger; verify invoice actual_paid semantics, customer tenant keys and payment reconciliation before applying |
 | FEATURE-042 | `042_customer_portal.sql` | Creates separate customer portal credentials/invitations; verify HTTPS, session isolation, email uniqueness and invite expiry before enabling externally |
 
 ## Additional read-only type preflight
