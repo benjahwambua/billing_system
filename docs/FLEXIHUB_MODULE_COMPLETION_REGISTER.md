@@ -119,9 +119,11 @@
 - [x] Manual payment workflow validates invoice ownership, serializes payment posting, prevents overpayment, supports partial payments and defers renewal until full settlement.
 - [x] Tenant tax configuration and tax-exclusive invoice calculations with immutable per-invoice tax snapshots (migration 045 prepared; schema application and runtime verification pending).
 - [ ] Credit notes/refunds with approval and audit controls.
-- [x] Added tenant-scoped, read-only reconciliation queues for confirmed/failed gateway transactions and received/failed callback events.
-- [ ] Implement controlled recovery/allocation for confirmed transactions, unmatched receipts and failed-payment recovery; verify end to end.
-- [ ] Final testing phase: verify invoice/payment balances against the existing database and test normal, duplicate and failed payment paths.
+- [x] Added tenant-scoped reconciliation queues for confirmed/failed gateway transactions and received/failed callback events.
+- [x] Added a protected, CSRF-checked recovery action for confirmed customer-billing M-Pesa transactions. It validates the stored successful callback receipt, amount and phone; enforces receipt uniqueness; reuses matching payment records; and creates missing payment/receipt artifacts transactionally.
+- [x] Recovery queues service activation only after full invoice settlement and only after checking the payment-linked service subscription for an existing renewal. Excess, duplicate/mismatched receipts, missing account links and unverifiable subscription state fail closed. Hotspot and platform SaaS recovery are deliberately excluded.
+- [ ] Implement unmatched/excess/unapplied receipt allocation and provider-statement reconciliation; add refunds/credit notes with approval and audit controls.
+- [ ] Final testing phase: verify invoice/payment balances against the existing database and test normal, duplicate, partial, excess, failed and recovered payment paths in XAMPP.
 - [ ] Final testing phase: verify tenant boundaries, customer creation, filtering and linked account/ledger totals.
 
 ## Cross-cutting foundation — do first
@@ -155,9 +157,9 @@
 - [x] Recurring invoice generation with duplicate prevention and tenant billing cycles.
 - [x] Tenant tax configuration and invoice tax snapshots (migration 045 prepared; runtime verification pending).
 - [x] Partial payments and invoice-linked balance calculation; verify edge cases against the final database ledger.
-- [x] Existing manual and callback paths enforce duplicate receipt checks and reject overpayments; a tenant-scoped review queue exposes failed/confirmed gateway events.
+- [x] Existing manual and callback paths enforce duplicate receipt checks and reject overpayments; tenant-scoped review and controlled recovery are available for confirmed customer-billing M-Pesa transactions.
 - [ ] Safe allocation of unmatched receipts and handling of excess/unapplied collections.
-- [ ] Automated reconciliation against gateway callbacks and provider statements (review queue is available; automated allocation is not yet implemented).
+- [ ] Automated provider-statement reconciliation and unmatched-receipt allocation.
 - [ ] Refunds, reversals and credit notes with approval/audit controls.
 - [ ] Separate ISP customer ledger from Flexihub SaaS subscription ledger.
 
