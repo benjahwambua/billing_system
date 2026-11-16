@@ -63,7 +63,9 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $stmt=$conn->prepare("INSERT INTO field_jobs (tenant_id,job_number,customer_id,internet_account_id,job_type,title,description,priority,status,scheduled_at,assigned_staff_id,service_address,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
             if(!$stmt)$errors[]='Unable to prepare field job creation.';
             else{
-                $stmt->bind_param('isiissssssisi',$tenantId,$jobNumber,$customerId,$accountId?:null,$type,$title,$description,$priority,$status,$scheduledAt,$assigned?:null,$address,$userId);
+                $accountValue=$accountId>0?$accountId:null;
+                $assignedValue=$assigned>0?$assigned:null;
+                $stmt->bind_param('isiissssssisi',$tenantId,$jobNumber,$customerId,$accountValue,$type,$title,$description,$priority,$status,$scheduledAt,$assignedValue,$address,$userId);
                 if($stmt->execute()){
                     $jobId=(int)$stmt->insert_id;$stmt->close();
                     $log=$conn->prepare("INSERT INTO field_job_updates (tenant_id,job_id,created_by,assigned_staff_id,update_type,status_to,note) VALUES (?,?,?,?,'created',?,?)");
@@ -101,7 +103,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $stmt=$conn->prepare("UPDATE field_jobs SET status=?,assigned_staff_id=?,scheduled_at=?,resolution_notes=?,customer_signoff_name=NULLIF(?,''),customer_signoff_at=?,completed_at=? WHERE id=? AND tenant_id=?");
             if(!$stmt)$errors[]='Unable to prepare field job update.';
             else{
-                $stmt->bind_param('sisssssii',$status,$assigned?:null,$scheduledAt,$note,$signoff,$signoffAt,$completedAt,$jobId,$tenantId);
+                $assignedValue=$assigned>0?$assigned:null;
+                $stmt->bind_param('sisssssii',$status,$assignedValue,$scheduledAt,$note,$signoff,$signoffAt,$completedAt,$jobId,$tenantId);
                 if(!$stmt->execute())$errors[]='Unable to update field job.';
                 $stmt->close();
                 if(!$errors){
