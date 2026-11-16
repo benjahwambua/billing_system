@@ -75,9 +75,9 @@ function flexihubRecoverConfirmedCustomerMpesa($tenantId, $gatewayTransactionId,
         }
 
         $reference=trim((string)($tx['account_reference']??''));
-        if($reference==='') throw new RuntimeException('The transaction has no invoice reference.');
-        $matchedReferenceInvoice=dbFetchOne("SELECT id FROM invoices WHERE tenant_id=? AND invoice_number=? LIMIT 1",'is',$tenantId,$reference);
-        if(!$matchedReferenceInvoice && ctype_digit($reference)) $matchedReferenceInvoice=dbFetchOne("SELECT id FROM invoices WHERE tenant_id=? AND id=? LIMIT 1",'ii',$tenantId,(int)$reference);
+        if($reference==='' && $targetInvoiceId<=0) throw new RuntimeException('The transaction has no invoice reference. Use controlled allocation only after verifying the payer/customer match.');
+        $matchedReferenceInvoice=$reference!==''?dbFetchOne("SELECT id FROM invoices WHERE tenant_id=? AND invoice_number=? LIMIT 1",'is',$tenantId,$reference):null;
+        if(!$matchedReferenceInvoice && $reference!=='' && ctype_digit($reference)) $matchedReferenceInvoice=dbFetchOne("SELECT id FROM invoices WHERE tenant_id=? AND id=? LIMIT 1",'ii',$tenantId,(int)$reference);
         if($targetInvoiceId>0) {
             if($matchedReferenceInvoice) throw new RuntimeException('The original invoice reference resolves correctly. Use normal recovery instead of manual allocation.');
             $invoice=dbFetchOne("SELECT * FROM invoices WHERE id=? AND tenant_id=? LIMIT 1 FOR UPDATE",'ii',$targetInvoiceId,$tenantId);
