@@ -24,6 +24,28 @@ function flexihubRecoverConfirmedCustomerMpesa($tenantId, $gatewayTransactionId)
         if(!$tx) throw new RuntimeException('Only confirmed customer-billing M-Pesa transactions can be recovered here.');
 
         $payload=json_decode((string)($tx['callback_payload']??''),true);
+        $storedCheckout=trim((string)($tx['checkout_request_id']??''));
+        $storedStk=$payload['Body']['stkCallback']??null;
+        if(!is_array($storedStk) || ($storedCheckout!=='' && trim((string)($storedStk['CheckoutRequestID']??''))!==$storedCheckout)) {
+            // The callback payload is persisted before the financial transaction.
+            // A rolled-back finalization can therefore leave it on payment_callbacks
+            // even when the gateway row's in-transaction payload update rolled back.
+            $events=$conn->prepare("SELECT callback_payload FROM payment_callbacks WHERE tenant_id=? AND transaction_reference=? AND provider='mpesa' AND event_type='stk_callback' ORDER BY id DESC LIMIT 20");
+            if(!$events) throw new RuntimeException('The stored M-Pesa callback could not be located.');
+            $accountReference=(string)($tx['account_reference']??'');
+            $events->bind_param('is',$tenantId,$accountReference);
+            if(!$events->execute()) { $events->close(); throw new RuntimeException('The stored M-Pesa callback could not be loaded.'); }
+            $eventRows=$events->get_result();
+            $matchedPayload=null;
+            while($eventRow=$eventRows->fetch_assoc()) {
+                $candidate=json_decode((string)($eventRow['callback_payload']??''),true);
+                $candidateStk=$candidate['Body']['stkCallback']??null;
+                if(is_array($candidateStk) && ($storedCheckout==='' || trim((string)($candidateStk['CheckoutRequestID']??''))===$storedCheckout)) { $matchedPayload=$candidate; break; }
+            }
+            $events->close();
+            if($matchedPayload===null) throw new RuntimeException('No stored successful callback matches this gateway transaction.');
+            $payload=$matchedPayload;
+        }
         $stk=$payload['Body']['stkCallback']??null;
         if(!is_array($stk) || (string)($stk['ResultCode']??'')!=='0') throw new RuntimeException('The stored callback is not a successful M-Pesa STK response.');
         $meta=[];
