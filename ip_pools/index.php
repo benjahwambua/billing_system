@@ -98,7 +98,7 @@ require_once __DIR__ . '/../includes/header.php';
             <p>Manage tenant address ranges and their PPPoE server assignments.</p>
         </div>
         <?php if ($canCreate): ?>
-            <a class="btn btn-primary" href="add.php">+ Add IP Pool</a>
+            <div class="page-actions"><a class="btn btn-secondary" href="allocations.php">IP Allocations</a><?php if ($canCreate): ?><a class="btn btn-primary" href="add.php">+ Add IP Pool</a><?php endif; ?></div>
         <?php endif; ?>
     </div>
 
