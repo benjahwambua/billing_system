@@ -18,7 +18,8 @@ if($schemaReady&&$_SERVER['REQUEST_METHOD']==='POST'){
   $conn->begin_transaction();
   try{
    $insert=$conn->prepare("INSERT INTO hotspot_vouchers (tenant_id,code,package_id,batch_reference,price,status,expires_at) VALUES (?,?,?,?,?,'unused',?)");
-   if(!$insert)throw new RuntimeException('Unable to prepare voucher generation.');
+   $accessInsert=$conn->prepare("INSERT INTO hotspot_access_codes (tenant_id,code,package_id,status,expires_at) VALUES (?,?,?,'unused',?)");
+   if(!$insert||!$accessInsert)throw new RuntimeException('Unable to prepare voucher and captive-portal code generation.');
    $created=0;
    for($n=0;$n<$quantity;$n++){
     $saved=false;
@@ -26,13 +27,21 @@ if($schemaReady&&$_SERVER['REQUEST_METHOD']==='POST'){
      $code=strtoupper(substr(bin2hex(random_bytes(6)),0,10));
      $voucherPrice=(float)$package['price'];
      $insert->bind_param('isisds',$tenantId,$code,$packageId,$batch,$voucherPrice,$expiresAt);
-     if($insert->execute()){$saved=true;$created++;}
-     elseif($insert->errno!==1062)throw new RuntimeException('Unable to generate voucher batch.');
+     if(!$insert->execute()){
+      if($insert->errno===1062)continue;
+      throw new RuntimeException('Unable to generate voucher batch.');
+     }
+     $accessInsert->bind_param('isis',$tenantId,$code,$packageId,$expiresAt);
+     if(!$accessInsert->execute()){
+      if($accessInsert->errno===1062)throw new RuntimeException('Voucher code collision detected. Retry the batch.');
+      throw new RuntimeException('Unable to register voucher for captive-portal sales.');
+     }
+     $saved=true;$created++;
     }
     if(!$saved)throw new RuntimeException('Could not generate a unique voucher code. Retry the batch.');
    }
-   $insert->close();$conn->commit();$notice=number_format($created).' vouchers generated in batch '.$batch.'.';
-  }catch(Throwable $e){$conn->rollback();if(isset($insert)&&$insert instanceof mysqli_stmt)$insert->close();$errors[]=$e->getMessage();}
+   $insert->close();$accessInsert->close();$conn->commit();$notice=number_format($created).' vouchers generated in batch '.$batch.' and added to the captive-portal access-code inventory.';
+  }catch(Throwable $e){$conn->rollback();if(isset($insert)&&$insert instanceof mysqli_stmt)$insert->close();if(isset($accessInsert)&&$accessInsert instanceof mysqli_stmt)$accessInsert->close();$errors[]=$e->getMessage();}
  }
 }
 $rows=[];
