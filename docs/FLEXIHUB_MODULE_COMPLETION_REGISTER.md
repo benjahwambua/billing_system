@@ -84,6 +84,7 @@
 - [x] Hotspot package editing now supports tenant-scoped router reassignment and validates active routers; legacy Add Plan route forwards to the router-aware workflow.
 - [x] Added tenant-scoped voucher batch generation with package validation, expiry controls and unique code generation.
 - [x] Generated vouchers are also registered as captive-portal access codes; sale and successful activation states synchronize back to the voucher ledger.
+- [x] Legacy access-code generation now forwards to the unified voucher batch workflow to avoid two disconnected code-generation paths.
 - [ ] Verify captive portal purchase, M-Pesa callback, voucher/code activation, expiry and retry queue end to end.
 - [ ] Final testing phase: confirm the router association migration and test only against the isolated Flexihub test router.
 
