@@ -20,7 +20,11 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   $token=bin2hex(random_bytes(32));$tokenHash=hash('sha256',$token);$expires=date('Y-m-d H:i:s',time()+172800);
   $q=$conn->prepare("INSERT INTO customer_portal_users (tenant_id,customer_id,email,status,invite_token_hash,invite_expires_at) VALUES (?,?,?,'invited',?,?) ON DUPLICATE KEY UPDATE email=VALUES(email),status='invited',invite_token_hash=VALUES(invite_token_hash),invite_expires_at=VALUES(invite_expires_at)");
   if(!$q)$error='Unable to prepare customer portal invitation.';
-  else{$q->bind_param('iisss',$tenantId,$customerId,$email,$tokenHash,$expires);if($q->execute()){$inviteUrl='../customer_portal/activate.php?tenant_id='.$tenantId.'&token='.rawurlencode($token);$customer['email']=$email;}else $error='Unable to create customer portal invitation.';$q->close();}
+  else{$q->bind_param('iisss',$tenantId,$customerId,$email,$tokenHash,$expires);if($q->execute()){$scriptPath=str_replace('\\\\','/',(string)($_SERVER['SCRIPT_NAME']??'/customers/portal_invite.php'));
+     $appPath=rtrim(dirname(dirname($scriptPath)),'/');
+     $scheme=(!empty($_SERVER['HTTPS'])&&strtolower((string)$_SERVER['HTTPS'])!=='off')?'https':'http';
+     $host=(string)($_SERVER['HTTP_HOST']??'localhost');
+     $inviteUrl=$scheme.'://'.$host.$appPath.'/customer_portal/activate.php?tenant_id='.$tenantId.'&token='.rawurlencode($token);$customer['email']=$email;}else $error='Unable to create customer portal invitation.';$q->close();}
  }
 }
 $pageTitle='Customer Portal Invitation';require_once __DIR__.'/../includes/header.php';require_once __DIR__.'/../includes/sidebar.php';
