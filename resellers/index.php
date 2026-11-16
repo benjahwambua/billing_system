@@ -7,11 +7,30 @@ requireModulePermission('resellers','view');
 global $conn;
 $tenantId=(int)getCurrentTenantId();$userId=(int)getCurrentUserId();
 $errors=[];$notice='';
-$schemaReady=flexihubTableHasColumn('resellers','tenant_id')&&flexihubTableHasColumn('reseller_commissions','tenant_id');
+$schemaReady=flexihubTableHasColumn('resellers','tenant_id')&&flexihubTableHasColumn('reseller_commissions','tenant_id')&&flexihubTableHasColumn('customers','reseller_id');
 
 if($schemaReady&&$_SERVER['REQUEST_METHOD']==='POST'){
  requireCsrf();$action=trim((string)($_POST['action']??''));
- if($action==='create'){
+ if($action==='assign_customer'){
+  requireModulePermission('resellers','edit');
+  $resellerId=(int)($_POST['reseller_id']??0);$customerId=(int)($_POST['customer_id']??0);
+  if($resellerId<=0||$customerId<=0)$errors[]='Select a reseller and customer.';
+  if(!$errors){
+   $check=$conn->prepare("SELECT id FROM resellers WHERE id=? AND tenant_id=? AND status='active' LIMIT 1");
+   if(!$check)$errors[]='Unable to verify reseller.';
+   else{$check->bind_param('ii',$resellerId,$tenantId);$check->execute();$ok=(bool)$check->get_result()->fetch_assoc();$check->close();if(!$ok)$errors[]='Selected reseller is not active in this organisation.';}
+  }
+  if(!$errors){
+   $check=$conn->prepare("SELECT id FROM customers WHERE id=? AND tenant_id=? LIMIT 1");
+   if(!$check)$errors[]='Unable to verify customer.';
+   else{$check->bind_param('ii',$customerId,$tenantId);$check->execute();$ok=(bool)$check->get_result()->fetch_assoc();$check->close();if(!$ok)$errors[]='Selected customer does not belong to this organisation.';}
+  }
+  if(!$errors){
+   $stmt=$conn->prepare("UPDATE customers SET reseller_id=? WHERE id=? AND tenant_id=?");
+   if(!$stmt)$errors[]='Unable to prepare customer reseller assignment.';
+   else{$stmt->bind_param('iii',$resellerId,$customerId,$tenantId);if($stmt->execute())$notice='Customer assigned to reseller.';else $errors[]='Unable to assign customer to reseller.';$stmt->close();}
+  }
+ } elseif($action==='create'){
   requireModulePermission('resellers','create');
   $name=trim((string)($_POST['business_name']??''));$contact=trim((string)($_POST['contact_person']??''));$phone=trim((string)($_POST['phone']??''));$email=trim((string)($_POST['email']??''));$rate=(float)($_POST['commission_rate']??0);$notes=trim((string)($_POST['notes']??''));
   if($name===''||mb_strlen($name)>180)$errors[]='Enter a reseller/business name of up to 180 characters.';
@@ -35,7 +54,13 @@ if($schemaReady&&$_SERVER['REQUEST_METHOD']==='POST'){
   if(!$errors){
    $stmt=$conn->prepare("SELECT * FROM invoices WHERE id=? AND tenant_id=? LIMIT 1");
    if(!$stmt)$errors[]='Unable to verify invoice.';
-   else{$stmt->bind_param('ii',$invoiceId,$tenantId);$stmt->execute();$invoice=$stmt->get_result()->fetch_assoc();$stmt->close();if(!$invoice)$errors[]='Selected invoice does not belong to this organisation.';}
+   else{$stmt->bind_param('ii',$invoiceId,$tenantId);$stmt->execute();$invoice=$stmt->get_result()->fetch_assoc();$stmt->close();if(!$invoice)$errors[]='Selected invoice does not belong to this organisation.';
+    else {
+     $owner=$conn->prepare("SELECT reseller_id FROM customers WHERE id=? AND tenant_id=? LIMIT 1");
+     if(!$owner)$errors[]='Unable to verify customer reseller attribution.';
+     else{$owner->bind_param('ii',$invoice['customer_id'],$tenantId);$owner->execute();$customerOwner=$owner->get_result()->fetch_assoc();$owner->close();if((int)($customerOwner['reseller_id']??0)!==$resellerId)$errors[]='The invoice customer is not assigned to the selected reseller.';}
+    }
+   }
   }
   if(!$errors){
    $paid=(float)($invoice['actual_paid']??0);
@@ -73,14 +98,16 @@ if($schemaReady&&$_SERVER['REQUEST_METHOD']==='POST'){
  } else $errors[]='Invalid reseller action.';
 }
 
-$resellers=[];$commissions=[];$invoices=[];
+$resellers=[];$commissions=[];$invoices=[];$customers=[];
 if($schemaReady){
  $q=$conn->prepare("SELECT r.*,COUNT(c.id) AS commission_count,COALESCE(SUM(CASE WHEN c.status<>'paid' AND c.status<>'reversed' THEN c.commission_amount ELSE 0 END),0) AS outstanding_commission FROM resellers r LEFT JOIN reseller_commissions c ON c.reseller_id=r.id AND c.tenant_id=r.tenant_id WHERE r.tenant_id=? GROUP BY r.id ORDER BY r.business_name");
  if($q){$q->bind_param('i',$tenantId);$q->execute();$z=$q->get_result();while($x=$z->fetch_assoc())$resellers[]=$x;$q->close();}
  $q=$conn->prepare("SELECT c.*,r.business_name,r.reseller_code,cu.customer_number,TRIM(CONCAT_WS(' ',cu.first_name,cu.last_name)) AS customer_name FROM reseller_commissions c INNER JOIN resellers r ON r.id=c.reseller_id AND r.tenant_id=c.tenant_id INNER JOIN customers cu ON cu.id=c.customer_id AND cu.tenant_id=c.tenant_id WHERE c.tenant_id=? ORDER BY c.id DESC LIMIT 300");
  if($q){$q->bind_param('i',$tenantId);$q->execute();$z=$q->get_result();while($x=$z->fetch_assoc())$commissions[]=$x;$q->close();}
- $q=$conn->prepare("SELECT * FROM invoices WHERE tenant_id=? ORDER BY id DESC LIMIT 200");
+ $q=$conn->prepare("SELECT i.* FROM invoices i INNER JOIN customers c ON c.id=i.customer_id AND c.tenant_id=i.tenant_id WHERE i.tenant_id=? AND c.reseller_id IS NOT NULL ORDER BY i.id DESC LIMIT 200");
  if($q){$q->bind_param('i',$tenantId);$q->execute();$z=$q->get_result();while($x=$z->fetch_assoc())$invoices[]=$x;$q->close();}
+ $q=$conn->prepare("SELECT id,customer_number,first_name,last_name FROM customers WHERE tenant_id=? ORDER BY first_name,last_name");
+ if($q){$q->bind_param('i',$tenantId);$q->execute();$z=$q->get_result();while($x=$z->fetch_assoc())$customers[]=$x;$q->close();}
 }
 $totalOutstanding=0;$pending=0;foreach($resellers as $r)$totalOutstanding+=(float)$r['outstanding_commission'];foreach($commissions as $c)if($c['status']==='pending')$pending++;
 $pageTitle='Resellers & Commissions';require_once __DIR__.'/../includes/header.php';require_once __DIR__.'/../includes/sidebar.php';
@@ -93,6 +120,7 @@ $pageTitle='Resellers & Commissions';require_once __DIR__.'/../includes/header.p
  <div class="reseller-metrics"><div><small>Resellers</small><strong><?=count($resellers)?></strong></div><div><small>Pending Commissions</small><strong><?=$pending?></strong></div><div><small>Unpaid Commission Value</small><strong><?=e(formatMoney($totalOutstanding))?></strong></div><div><small>Commission Records</small><strong><?=count($commissions)?></strong></div></div>
  <?php if(userCan('resellers','create')): ?>
  <section class="reseller-panel"><h2>Add Reseller</h2><form method="post"><?=csrfField()?><input type="hidden" name="action" value="create"><div class="reseller-form"><label>Business / Reseller Name *<input name="business_name" maxlength="180" required></label><label>Contact Person<input name="contact_person" maxlength="150"></label><label>Phone<input name="phone" maxlength="40"></label><label>Email<input type="email" name="email" maxlength="190"></label><label>Commission Rate (%)<input type="number" min="0" max="100" step="0.001" name="commission_rate" value="0"></label><label class="full">Notes<textarea name="notes" rows="2"></textarea></label></div><button class="btn btn-primary">Create Reseller</button></form></section>
+ <section class="reseller-panel"><h2>Assign Customer to Reseller</h2><form method="post"><?=csrfField()?><input type="hidden" name="action" value="assign_customer"><div class="reseller-form"><label>Reseller<select name="reseller_id" required><option value="">Select reseller</option><?php foreach($resellers as $r): if($r['status']==='active'): ?><option value="<?=(int)$r['id']?>"><?=e($r['reseller_code'].' — '.$r['business_name'])?></option><?php endif; endforeach; ?></select></label><label>Customer<select name="customer_id" required><option value="">Select customer</option><?php foreach($customers as $customer): ?><option value="<?=(int)$customer['id']?>"><?=e(($customer['customer_number']??'').' — '.trim(($customer['first_name']??'').' '.($customer['last_name']??'')))?></option><?php endforeach; ?></select></label></div><button class="btn btn-primary">Assign Customer</button></form></section>
  <section class="reseller-panel"><h2>Calculate Commission</h2><form method="post"><?=csrfField()?><input type="hidden" name="action" value="commission"><div class="reseller-form"><label>Reseller<select name="reseller_id" required><option value="">Select reseller</option><?php foreach($resellers as $r): if($r['status']==='active'): ?><option value="<?=(int)$r['id']?>"><?=e($r['reseller_code'].' — '.$r['business_name'].' ('.$r['commission_rate'].'%)')?></option><?php endif; endforeach; ?></select></label><label>Invoice<select name="invoice_id" required><option value="">Select invoice</option><?php foreach($invoices as $invoice): ?><option value="<?=(int)$invoice['id']?>"><?=e(($invoice['invoice_number']??('Invoice #'.$invoice['id'])).' · '.formatMoney($invoice['actual_paid']??0).' collected')?></option><?php endforeach; ?></select></label><label>Reference<input name="reference" maxlength="120"></label><label class="full">Notes<textarea name="commission_notes" rows="2"></textarea></label></div><button class="btn btn-primary">Calculate Commission</button></form></section>
  <?php endif; ?>
  <section class="reseller-panel"><h2>Reseller Directory</h2><div class="reseller-table-wrap"><table><thead><tr><th>Partner</th><th>Contact</th><th>Rate</th><th>Commissions</th><th>Outstanding</th><th>Status</th></tr></thead><tbody><?php foreach($resellers as $r): ?><tr><td><strong><?=e($r['business_name'])?></strong><small><?=e($r['reseller_code'])?></small></td><td><?=e($r['contact_person']??'—')?><small><?=e($r['phone']??'')?></small></td><td><?=number_format((float)$r['commission_rate'],3)?>%</td><td><?=(int)$r['commission_count']?></td><td><?=e(formatMoney($r['outstanding_commission']))?></td><td><?=e(ucfirst($r['status']))?></td></tr><?php endforeach; ?><?php if(!$resellers): ?><tr><td colspan="6">No resellers registered yet.</td></tr><?php endif; ?></tbody></table></div></section>
