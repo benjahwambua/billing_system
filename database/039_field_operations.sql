@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS field_jobs (
     KEY idx_field_jobs_tenant_status (tenant_id, status, priority),
     KEY idx_field_jobs_assignee (tenant_id, assigned_staff_id, status),
     KEY idx_field_jobs_customer (tenant_id, customer_id, created_at),
-    KEY idx_field_jobs_schedule (tenant_id, scheduled_at)
+    KEY idx_field_jobs_schedule (tenant_id, scheduled_at),
+    CONSTRAINT fk_field_jobs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS field_job_updates (
@@ -42,7 +43,8 @@ CREATE TABLE IF NOT EXISTS field_job_updates (
     note TEXT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_field_job_updates_job (tenant_id, job_id, id),
-    KEY idx_field_job_updates_staff (tenant_id, assigned_staff_id, created_at)
+    KEY idx_field_job_updates_staff (tenant_id, assigned_staff_id, created_at),
+    CONSTRAINT fk_field_job_updates_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS field_job_attachments (
@@ -55,5 +57,6 @@ CREATE TABLE IF NOT EXISTS field_job_attachments (
     mime_type VARCHAR(100) NOT NULL,
     size_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_field_job_attachments_job (tenant_id, job_id, id)
+    KEY idx_field_job_attachments_job (tenant_id, job_id, id),
+    CONSTRAINT fk_field_job_attachments_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
