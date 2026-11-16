@@ -30,6 +30,15 @@
 - [ ] Apply and verify the customer groups migration during the final database testing phase; group assignment controls depend on it.
 - [ ] Complete customer groups and group assignment using an explicit tenant-scoped schema.
 - [ ] Add duplicate contact handling and customer self-service portal.
+
+## Billing — implementation in progress
+
+- [x] Tenant-scoped invoice creation and listing with actual payment-ledger balance calculations.
+- [x] Invoice creation can associate an internet account belonging to the selected tenant customer.
+- [x] Outstanding/debtor view calculates balances from the tenant-scoped payment ledger.
+- [x] Invoice list provides a permission-gated Record Payment path, preselecting the invoice and linked service account.
+- [ ] Complete recurring invoice/tax/credit-note controls and verify partial-payment allocation, overpayment prevention and reconciliation.
+- [ ] Final testing phase: verify invoice/payment balances against the existing database and test normal, duplicate and failed payment paths.
 - [ ] Final testing phase: verify tenant boundaries, customer creation, filtering and linked account/ledger totals.
 
 ## Cross-cutting foundation — do first
