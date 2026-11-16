@@ -741,7 +741,11 @@ ob_start();
                 <div class="sidebar-menu-heading"><?= sidebarModuleIcon('OPERATIONS') ?><span class="sidebar-heading-label">OPERATIONS</span></div>
                 <a href="../operations/agent_sales.php" class="sidebar-menu-link <?= sidebarActive('/operations/agent_sales.php') ?>"><span class="sidebar-menu-icon">♙</span><span class="sidebar-menu-text">Agent Sales</span></a>
                 <a href="../operations/field_jobs.php" class="sidebar-menu-link <?= sidebarActive('/operations/field_jobs.php') ?>"><span class="sidebar-menu-icon">⚒</span><span class="sidebar-menu-text">Field Jobs &amp; Dispatch</span></a>
-                <a href="../support/index.php" class="sidebar-menu-link <?= sidebarActive('/support/') ?>"><span class="sidebar-menu-icon">?</span><span class="sidebar-menu-text">Support Centre</span></a>
+                <?php if ($isHost): ?>
+                <a href="../support/index.php" class="sidebar-menu-link <?= sidebarActive('/support/index.php') ?>"><span class="sidebar-menu-icon">?</span><span class="sidebar-menu-text">Platform Support</span></a>
+                <?php else: ?>
+                <a href="../support/tenant_tickets.php" class="sidebar-menu-link <?= sidebarActive('/support/tenant_tickets.php') ?>"><span class="sidebar-menu-icon">?</span><span class="sidebar-menu-text">Customer Support Tickets</span></a>
+                <?php endif; ?>
                 <a href="../operations/adverts.php" class="sidebar-menu-link <?= sidebarActive('/operations/adverts.php') ?>"><span class="sidebar-menu-icon">▤</span><span class="sidebar-menu-text">Adverts</span></a>
                 <a href="../inventory/index.php" class="sidebar-menu-link <?= sidebarActive('/inventory/') ?>"><span class="sidebar-menu-icon">▣</span><span class="sidebar-menu-text">Inventory</span></a>
                 <a href="../resellers/index.php" class="sidebar-menu-link <?= sidebarActive('/resellers/') ?>"><span class="sidebar-menu-icon">♙</span><span class="sidebar-menu-text">Resellers</span></a>
