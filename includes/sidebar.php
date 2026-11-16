@@ -741,6 +741,8 @@ ob_start();
                 <div class="sidebar-menu-heading"><?= sidebarModuleIcon('OPERATIONS') ?><span class="sidebar-heading-label">OPERATIONS</span></div>
                 <a href="../operations/agent_sales.php" class="sidebar-menu-link <?= sidebarActive('/operations/agent_sales.php') ?>"><span class="sidebar-menu-icon">♙</span><span class="sidebar-menu-text">Agent Sales</span></a>
                 <a href="../operations/field_jobs.php" class="sidebar-menu-link <?= sidebarActive('/operations/field_jobs.php') ?>"><span class="sidebar-menu-icon">⚒</span><span class="sidebar-menu-text">Field Jobs &amp; Dispatch</span></a>
+                <a href="../operations/index.php" class="sidebar-menu-link <?= sidebarActive('/operations/index.php') ?>"><span class="sidebar-menu-icon">▦</span><span class="sidebar-menu-text">Field Operations</span></a>
+                <a href="../operations/technician_performance.php" class="sidebar-menu-link <?= sidebarActive('/operations/technician_performance.php') ?>"><span class="sidebar-menu-icon">◷</span><span class="sidebar-menu-text">Technician Performance</span></a>
                 <?php if ($isHost): ?>
                 <a href="../support/index.php" class="sidebar-menu-link <?= sidebarActive('/support/index.php') ?>"><span class="sidebar-menu-icon">?</span><span class="sidebar-menu-text">Platform Support</span></a>
                 <?php elseif (function_exists('flexihubTableHasColumn') && flexihubTableHasColumn('customer_support_tickets','tenant_id')): ?>
