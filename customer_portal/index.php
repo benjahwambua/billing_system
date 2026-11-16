@@ -23,7 +23,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'&&($_POST['portal_action']??'')==='update_
   if(!$credential)$portalErrors[]='Unable to verify your portal account.';
   else{$credential->bind_param('iii',$portalId,$customerId,$tenantId);$credential->execute();$credentialRow=$credential->get_result()->fetch_assoc();$credential->close();if(!$credentialRow||!password_verify($currentPassword,(string)$credentialRow['password_hash']))$portalErrors[]='Your current password is incorrect.';}
  }
- if(!$portalErrors&&$canEditEmail&&strcasecmp($newEmail,(string)($_SESSION['customer_portal_email']??''))!==0){
+ if(!$portalErrors&&$canEditEmail&&strcasecmp($newEmail,(string)($customer['email']??''))!==0){
   $duplicate=$conn->prepare("SELECT id FROM customer_portal_users WHERE tenant_id=? AND email=? AND id<>? LIMIT 1");
   if(!$duplicate)$portalErrors[]='Unable to check email availability.';
   else{$duplicate->bind_param('isi',$tenantId,$newEmail,$portalId);$duplicate->execute();$exists=(bool)$duplicate->get_result()->fetch_assoc();$duplicate->close();if($exists)$portalErrors[]='That email address is already used by another portal account in this organisation.';}
