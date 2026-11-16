@@ -11,6 +11,7 @@ $modules = [
     'dashboard' => 'Dashboard',
     'customers' => 'Customers',
     'inventory' => 'Inventory',
+    'resellers' => 'Resellers',
     'internet_plans' => 'Internet Plans',
     'internet_accounts' => 'Internet Accounts',
     'subscriptions' => 'Subscriptions',
