@@ -82,7 +82,9 @@ function flexihubRecoverConfirmedCustomerMpesa($tenantId, $gatewayTransactionId,
             if($matchedReferenceInvoice) throw new RuntimeException('The original invoice reference resolves correctly. Use normal recovery instead of manual allocation.');
             $invoice=dbFetchOne("SELECT * FROM invoices WHERE id=? AND tenant_id=? LIMIT 1 FOR UPDATE",'ii',$targetInvoiceId,$tenantId);
             if(!$invoice) throw new RuntimeException('The selected invoice does not belong to this tenant.');
-            $customerPhone=dbFetchOne("SELECT phone FROM customers WHERE id=? AND tenant_id=? LIMIT 1",'ii',(int)($invoice['customer_id']??0),$tenantId);
+            $invoiceStatus=strtolower(trim((string)($invoice['status']??'')));
+            if(in_array($invoiceStatus,['paid','cancelled','canceled','void','draft'],true)) throw new RuntimeException('The selected invoice is not open for payment allocation.');
+            $customerPhone=dbFetchOne("SELECT phone FROM customers WHERE id=? AND tenant_id=? LIMIT 1 FOR UPDATE",'ii',(int)($invoice['customer_id']??0),$tenantId);
             if(!$customerPhone || trim((string)($customerPhone['phone']??''))==='' || !hash_equals(trim((string)($tx['phone_number']??'')),trim((string)$customerPhone['phone']))) throw new RuntimeException('Manual allocation requires the invoice customer phone to match the verified M-Pesa payer phone.');
         } else {
             $invoice=$matchedReferenceInvoice?dbFetchOne("SELECT * FROM invoices WHERE id=? AND tenant_id=? LIMIT 1 FOR UPDATE",'ii',(int)$matchedReferenceInvoice['id'],$tenantId):null;
