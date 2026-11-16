@@ -17,10 +17,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  $email=trim((string)($_POST['email']??($customer['email']??'')));
  if($email===''||!filter_var($email,FILTER_VALIDATE_EMAIL))$error='A valid customer email address is required before portal access can be invited.';
  else{
-  $token=bin2hex(random_bytes(32));$tokenHash=hash('sha256',$token);$expires=date('Y-m-d H:i:s',time()+172800);
-  $q=$conn->prepare("INSERT INTO customer_portal_users (tenant_id,customer_id,email,status,invite_token_hash,invite_expires_at) VALUES (?,?,?,'invited',?,?) ON DUPLICATE KEY UPDATE email=VALUES(email),status='invited',invite_token_hash=VALUES(invite_token_hash),invite_expires_at=VALUES(invite_expires_at)");
+  $token=bin2hex(random_bytes(32));$tokenHash=hash('sha256',$token);
+  $q=$conn->prepare("INSERT INTO customer_portal_users (tenant_id,customer_id,email,status,invite_token_hash,invite_expires_at) VALUES (?,?,?,'invited',?,DATE_ADD(NOW(),INTERVAL 48 HOUR)) ON DUPLICATE KEY UPDATE email=VALUES(email),status='invited',invite_token_hash=VALUES(invite_token_hash),invite_expires_at=DATE_ADD(NOW(),INTERVAL 48 HOUR)");
   if(!$q)$error='Unable to prepare customer portal invitation.';
-  else{$q->bind_param('iisss',$tenantId,$customerId,$email,$tokenHash,$expires);if($q->execute()){$scriptPath=str_replace(chr(92),'/',(string)($_SERVER['SCRIPT_NAME']??'/customers/portal_invite.php'));
+  else{$q->bind_param('iiss',$tenantId,$customerId,$email,$tokenHash);if($q->execute()){$scriptPath=str_replace(chr(92),'/',(string)($_SERVER['SCRIPT_NAME']??'/customers/portal_invite.php'));
      $appPath=rtrim(dirname(dirname($scriptPath)),'/');
      $scheme=(!empty($_SERVER['HTTPS'])&&strtolower((string)$_SERVER['HTTPS'])!=='off')?'https':'http';
      $host=preg_replace('/[^A-Za-z0-9.\\-:\\[\\]]/','',(string)($_SERVER['SERVER_NAME']??'localhost'));
