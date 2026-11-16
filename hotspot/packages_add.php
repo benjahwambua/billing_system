@@ -4,6 +4,7 @@ requireActiveUser();
 requireTenantContext();
 requireModulePermission('hotspot', 'create');
 require_once '../includes/hotspot_package_policy.php';
+require_once '../includes/billing_workflow.php';
 
 global $conn;
 $tenantId = (int)getCurrentTenantId();
