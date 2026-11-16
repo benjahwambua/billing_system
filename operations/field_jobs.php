@@ -85,6 +85,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         $signoff=trim((string)($_POST['customer_signoff_name']??''));
         if($jobId<=0||!in_array($status,$allowedStatuses,true))$errors[]='Select a valid job and status.';
         if(mb_strlen($note)>5000||mb_strlen($signoff)>150)$errors[]='Update note or customer sign-off is too long.';
+        if(in_array($status,['assigned','in_progress'],true)&&$assigned<=0)$errors[]='Assign an active technician before moving this job to assigned or in-progress.';
+        if($status==='completed'&&$signoff==='')$errors[]='Record the customer sign-off name before completing this job.';
         if($scheduled!==''&&strtotime($scheduled)===false)$errors[]='Enter a valid scheduled date and time.';
         if(!$errors&&$assigned>0){
             $check=$conn->prepare("SELECT id FROM staffs WHERE id=? AND tenant_id=? AND LOWER(status)='active' LIMIT 1");
