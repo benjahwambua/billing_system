@@ -11,7 +11,8 @@ if($tenantId<=0){http_response_code(403);exit('A valid tenant context is require
 $errors=[];$success='';
 $ready=false;$setting=null;
 $check=$conn->query("SHOW TABLES LIKE 'tenant_tax_settings'");
-if($check && $check->num_rows>0){
+$lineCheck=$conn->query("SHOW TABLES LIKE 'invoice_tax_lines'");
+if($check && $lineCheck && $check->num_rows>0 && $lineCheck->num_rows>0){
  $ready=true;
  $stmt=$conn->prepare("SELECT * FROM tenant_tax_settings WHERE tenant_id=? LIMIT 1");
  if($stmt){$stmt->bind_param('i',$tenantId);$stmt->execute();$setting=$stmt->get_result()->fetch_assoc();$stmt->close();}
@@ -23,7 +24,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  $value['tax_name']=trim((string)($_POST['tax_name']??'VAT'));
  $value['rate_percent']=trim((string)($_POST['rate_percent']??''));
  $value['is_active']=isset($_POST['is_active'])?1:0;
- if(!$ready)$errors[]='Tax configuration storage is not installed. Review and apply migration 045_tenant_tax_invoices.sql first.';
+ if(!$ready)$errors[]='Tax configuration and invoice snapshot storage are not both installed. Review and apply migration 045_tenant_tax_invoices.sql first.';
  if($value['tax_name']===''||strlen($value['tax_name'])>80)$errors[]='Enter a tax label of up to 80 characters.';
  if(!is_numeric($value['rate_percent'])||(float)$value['rate_percent']<0||(float)$value['rate_percent']>100)$errors[]='Tax rate must be between 0 and 100 percent.';
  if(!$errors){
