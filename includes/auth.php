@@ -123,8 +123,14 @@ if (!function_exists('requireActiveUser')) {
         $user = getCurrentUser();
 
         if (!$user) {
-            http_response_code(403);
-            exit('Unable to verify your user account. Please sign in again or contact the administrator.');
+            // A stale or unverifiable session must be cleared so the user can
+            // authenticate again; do not leave them stranded on a 403 page.
+            error_log(
+                'Flexihub auth: clearing unverifiable session for user ID ' .
+                (int) ($_SESSION['user_id'] ?? 0)
+            );
+
+            logoutUser($conn);
         }
 
         if (strtolower(trim((string)($user['status'] ?? ''))) !== 'active') {
