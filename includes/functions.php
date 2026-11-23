@@ -1194,140 +1194,128 @@ if (!function_exists('getTenantInsertId')) {
 |--------------------------------------------------------------------------
 */
 
+if (!function_exists('flexihubRbacSchemaReady')) {
+    function flexihubRbacSchemaReady()
+    {
+        static $schemaReady = null;
+        if ($schemaReady !== null) {
+            return $schemaReady;
+        }
+
+        $required = [
+            'access_roles' => ['tenant_id', 'name', 'is_system', 'status'],
+            'access_role_permissions' => ['tenant_id', 'role_id', 'module_key', 'can_view', 'can_create', 'can_edit', 'can_delete', 'can_approve'],
+            'access_user_roles' => ['tenant_id', 'user_id', 'role_id'],
+            'users' => ['tenant_id', 'user_scope'],
+        ];
+
+        foreach ($required as $table => $columns) {
+            foreach ($columns as $column) {
+                if (!flexihubTableHasColumn($table, $column)) {
+                    $schemaReady = false;
+                    return $schemaReady;
+                }
+            }
+        }
+
+        $schemaReady = true;
+        return $schemaReady;
+    }
+}
+
 if (!function_exists('getCurrentUserRoles')) {
     function getCurrentUserRoles()
     {
         global $conn;
 
         $userId = (int)getCurrentUserId();
-        if ($userId <= 0 || !($conn instanceof mysqli)) return [];
+        if ($userId <= 0 || !($conn instanceof mysqli)) {
+            return [];
+        }
 
-        // Tenant users use the canonical access_* role assignments.
-        // Host-level legacy roles remain separate from tenant RBAC.
-        if (isTenantUser()
-            && flexihubTableHasColumn('access_user_roles', 'role_id')
-            && flexihubTableHasColumn('access_roles', 'tenant_id')
-            && flexihubTableHasColumn('access_roles', 'status')) {
+        $tenantUser = isTenantUser();
+        if ($tenantUser) {
+            if (!flexihubRbacSchemaReady()) {
+                error_log('Flexihub RBAC: canonical tenant role schema is not installed or is incomplete.');
+                return [];
+            }
+
             $tenantId = (int)getCurrentTenantId();
-            if ($tenantId <= 0) return [];
+            if ($tenantId <= 0) {
+                return [];
+            }
+
             $stmt = $conn->prepare(
                 "SELECT UPPER(REPLACE(REPLACE(ar.name, ' ', '_'), '-', '_')) AS role_code
                  FROM access_user_roles aur
+                 INNER JOIN users u
+                    ON u.id=aur.user_id
+                   AND u.tenant_id=aur.tenant_id
+                   AND u.user_scope='tenant'
                  INNER JOIN access_roles ar
-                    ON ar.id=aur.role_id AND ar.tenant_id=aur.tenant_id
-                 WHERE aur.user_id=? AND aur.tenant_id=? AND ar.status='active'
+                    ON ar.id=aur.role_id
+                   AND ar.tenant_id=aur.tenant_id
+                 WHERE aur.user_id=?
+                   AND aur.tenant_id=?
+                   AND ar.status='active'
                  ORDER BY ar.name"
             );
-            if (!$stmt) return [];
-            $stmt->bind_param('ii', $userId, $tenantId);
         } else {
+            // Host-level roles remain separate from tenant RBAC.
             $stmt = $conn->prepare(
                 "SELECT r.role_code
                  FROM user_roles ur
                  INNER JOIN roles r ON r.id=ur.role_id
                  WHERE ur.user_id=? AND r.status='active'"
             );
-            if (!$stmt) return [];
+        }
+
+        if (!$stmt) {
+            error_log('Flexihub RBAC: unable to prepare current-user role lookup.');
+            return [];
+        }
+
+        if ($tenantUser) {
+            $stmt->bind_param('ii', $userId, $tenantId);
+        } else {
             $stmt->bind_param('i', $userId);
         }
 
         if (!$stmt->execute()) {
+            error_log('Flexihub RBAC: current-user role lookup failed.');
             $stmt->close();
             return [];
         }
+
         $result = $stmt->get_result();
         $roles = [];
-        if ($result) while ($row = $result->fetch_assoc()) {
-            if (!empty($row['role_code'])) $roles[] = $row['role_code'];
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                if (!empty($row['role_code'])) {
+                    $roles[] = $row['role_code'];
+                }
+            }
         }
         $stmt->close();
+
         return $roles;
     }
 }
 
-
 if (!function_exists('hasRole')) {
     function hasRole($roleCode)
     {
-        return in_array(
-            $roleCode,
-            getCurrentUserRoles(),
-            true
-        );
+        return in_array($roleCode, getCurrentUserRoles(), true);
     }
 }
-
-
-if (!function_exists('userHasPermission')) {
-    function userHasPermission($permissionCode)
-    {
-        global $conn;
-
-        $userId = getCurrentUserId();
-
-        if (!$userId) {
-            return false;
-        }
-
-        if (isHostUser() &&
-            hasRole('HOST_SUPER_ADMIN')
-        ) {
-            return true;
-        }
-
-        $stmt = $conn->prepare(
-            "SELECT 1
-             FROM user_roles ur
-             INNER JOIN role_permissions rp
-                 ON rp.role_id = ur.role_id
-             INNER JOIN permissions p
-                 ON p.id = rp.permission_id
-             WHERE ur.user_id = ?
-             AND p.permission_code = ?
-             LIMIT 1"
-        );
-
-        if (!$stmt) {
-            return false;
-        }
-
-        $stmt->bind_param(
-            'is',
-            $userId,
-            $permissionCode
-        );
-
-        if (!$stmt->execute()) {
-            error_log('Flexihub authorization: legacy permission lookup failed.');
-            $stmt->close();
-            return false;
-        }
-
-        $result = $stmt->get_result();
-        if ($result === false) {
-            error_log('Flexihub authorization: legacy permission result unavailable.');
-            $stmt->close();
-            return false;
-        }
-
-        $allowed = $result->num_rows > 0;
-        $stmt->close();
-
-        return $allowed;
-    }
-}
-
 
 if (!function_exists('isSuperUser')) {
     function isSuperUser()
     {
         global $conn;
 
-        /*
-         * Read the legacy role from the database as the source of truth.
-         * Older/local installations may not have the newer access-role
-         * tables, and an existing browser session may contain stale role data.
-         */
+        // Keep the existing account-level administrator access intact while
+        // canonical role assignments are migrated and verified.
         $userId = (int)getCurrentUserId();
         $legacyRole = strtolower(trim((string)($_SESSION['legacy_role'] ?? '')));
 
@@ -1336,7 +1324,8 @@ if (!function_exists('isSuperUser')) {
             if ($stmt) {
                 $stmt->bind_param('i', $userId);
                 if ($stmt->execute()) {
-                    $row = $stmt->get_result()->fetch_assoc();
+                    $result = $stmt->get_result();
+                    $row = $result ? $result->fetch_assoc() : null;
                     if ($row && array_key_exists('role', $row)) {
                         $legacyRole = strtolower(trim((string)$row['role']));
                         $_SESSION['legacy_role'] = $row['role'];
@@ -1361,56 +1350,121 @@ if (!function_exists('userCan')) {
     {
         $module = strtolower(trim((string)$module));
         $action = strtolower(trim((string)$action));
-        $allowedActions = ['view','create','edit','delete','approve'];
-        if ($module === '' || !in_array($action, $allowedActions, true)) return false;
-        if (isSuperUser()) return true;
-        if (!isTenantUser() || !getCurrentTenantId()) return false;
+        $allowedActions = ['view', 'create', 'edit', 'delete', 'approve'];
 
-        global $conn;
-        $tenantId = (int)getCurrentTenantId();
-        $userId = (int)getCurrentUserId();
-        $column = 'can_' . $action;
-
-        /* Preferred Flexihub access-control tables. */
-        if (flexihubTableHasColumn('access_roles','tenant_id')
-            && flexihubTableHasColumn('access_role_permissions',$column)
-            && flexihubTableHasColumn('access_user_roles','role_id')) {
-            $sql = "SELECT arp.$column AS allowed
-                    FROM access_user_roles aur
-                    INNER JOIN access_roles ar ON ar.id=aur.role_id AND ar.tenant_id=? AND ar.status='active'
-                    INNER JOIN access_role_permissions arp ON arp.role_id=ar.id AND arp.tenant_id=? AND arp.module_key=?
-                    WHERE aur.user_id=? AND aur.tenant_id=? LIMIT 1";
-            $stmt=$conn->prepare($sql);
-            if(!$stmt){
-                error_log('Flexihub authorization: role permission query could not be prepared.');
-                return false;
-            }
-
-            $stmt->bind_param('iisii',$tenantId,$tenantId,$module,$userId,$tenantId);
-            if(!$stmt->execute()){
-                error_log('Flexihub authorization: role permission query failed.');
-                $stmt->close();
-                return false;
-            }
-
-            $result=$stmt->get_result();
-            if($result===false){
-                error_log('Flexihub authorization: role permission result unavailable.');
-                $stmt->close();
-                return false;
-            }
-
-            $row=$result->fetch_assoc();
-            $stmt->close();
-
-            // An authoritative role-table lookup must not fall back to legacy
-            // permissions when it fails or returns no matching role permission.
-            return $row !== null && !empty($row['allowed']);
+        if ($module === '' || !preg_match('/^[a-z0-9_]+$/', $module) || !in_array($action, $allowedActions, true)) {
+            return false;
         }
 
-        /* Legacy permission-code compatibility is only used when the newer
-         * role-permission schema is not installed. */
-        return userHasPermission($module.'.'.$action);
+        if (isSuperUser()) {
+            return true;
+        }
+
+        if (!isTenantUser()) {
+            return false;
+        }
+
+        $tenantId = (int)getCurrentTenantId();
+        $userId = (int)getCurrentUserId();
+        if ($tenantId <= 0 || $userId <= 0) {
+            return false;
+        }
+
+        if (!flexihubRbacSchemaReady()) {
+            error_log('Flexihub authorization: canonical tenant RBAC schema is missing or incomplete; access denied.');
+            return false;
+        }
+
+        global $conn;
+        $column = 'can_' . $action;
+        $sql = "SELECT COALESCE(MAX(arp.$column), 0) AS allowed
+                FROM access_user_roles aur
+                INNER JOIN users u
+                    ON u.id=aur.user_id
+                   AND u.tenant_id=aur.tenant_id
+                   AND u.user_scope='tenant'
+                INNER JOIN access_roles ar
+                    ON ar.id=aur.role_id
+                   AND ar.tenant_id=aur.tenant_id
+                   AND ar.status='active'
+                INNER JOIN access_role_permissions arp
+                    ON arp.role_id=ar.id
+                   AND arp.tenant_id=aur.tenant_id
+                   AND arp.module_key=?
+                WHERE aur.user_id=?
+                  AND aur.tenant_id=?";
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            error_log('Flexihub authorization: canonical role permission query could not be prepared.');
+            return false;
+        }
+
+        $stmt->bind_param('sii', $module, $userId, $tenantId);
+        if (!$stmt->execute()) {
+            error_log('Flexihub authorization: canonical role permission query failed.');
+            $stmt->close();
+            return false;
+        }
+
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+
+        return $row !== null && (int)$row['allowed'] === 1;
+    }
+}
+
+if (!function_exists('userHasPermission')) {
+    function userHasPermission($permissionCode)
+    {
+        $userId = (int)getCurrentUserId();
+        if ($userId <= 0) {
+            return false;
+        }
+
+        if (isHostUser()) {
+            if (hasRole('HOST_SUPER_ADMIN')) {
+                return true;
+            }
+
+            global $conn;
+            $stmt = $conn->prepare(
+                "SELECT 1
+                 FROM user_roles ur
+                 INNER JOIN role_permissions rp ON rp.role_id=ur.role_id
+                 INNER JOIN permissions p ON p.id=rp.permission_id
+                 WHERE ur.user_id=? AND p.permission_code=? LIMIT 1"
+            );
+
+            if (!$stmt) {
+                return false;
+            }
+
+            $stmt->bind_param('is', $userId, $permissionCode);
+            if (!$stmt->execute()) {
+                error_log('Flexihub authorization: host permission lookup failed.');
+                $stmt->close();
+                return false;
+            }
+
+            $result = $stmt->get_result();
+            $allowed = $result !== false && $result->num_rows > 0;
+            $stmt->close();
+            return $allowed;
+        }
+
+        if (!isTenantUser()) {
+            return false;
+        }
+
+        // Legacy callers are translated to the canonical module/action model.
+        // Tenant users never fall back to the parallel legacy permission tables.
+        if (!preg_match('/^([a-z0-9_]+)\.(view|create|edit|delete|approve)$/i', trim((string)$permissionCode), $matches)) {
+            return false;
+        }
+
+        return userCan($matches[1], $matches[2]);
     }
 }
 
