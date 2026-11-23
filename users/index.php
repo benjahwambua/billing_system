@@ -15,7 +15,7 @@ if (!flexihubRbacSchemaReady()) {
     http_response_code(503);
     $pageTitle = 'Users & Access';
     require_once __DIR__ . '/../includes/header.php';
-    echo '<div class="alert alert-warning" role="alert"><strong>Access management is not ready.</strong> The canonical tenant role tables are missing or incomplete. Review and apply database/038_rbac_consolidation.sql only after backing up this database and checking its prerequisites. No data has been changed by this page.</div>';
+    echo '<div class="alert alert-warning" role="alert"><strong>Access management is not ready.</strong> The canonical tenant role tables are missing or incomplete. Do not run database/038_rbac_consolidation.sql as an automatic repair: it does not repair existing incomplete access_* tables. Have the canonical schema reviewed and a targeted repair prepared before making database changes. No data has been changed by this page.</div>';
     require_once __DIR__ . '/../includes/footer.php';
     exit;
 }
