@@ -1226,7 +1226,8 @@ if (!function_exists('getCurrentUserRoles')) {
             return [];
         }
 
-        if (isTenantUser()) {
+        $tenantUser = isTenantUser();
+        if ($tenantUser) {
             if (!flexihubRbacSchemaReady()) {
                 error_log('Flexihub RBAC: canonical tenant role schema is not installed or is incomplete.');
                 return [];
@@ -1267,8 +1268,9 @@ if (!function_exists('getCurrentUserRoles')) {
             return [];
         }
 
-        $stmt->bind_param('ii', $userId, $tenantId);
-        if (!isTenantUser()) {
+        if ($tenantUser) {
+            $stmt->bind_param('ii', $userId, $tenantId);
+        } else {
             $stmt->bind_param('i', $userId);
         }
 
