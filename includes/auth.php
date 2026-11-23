@@ -114,43 +114,85 @@ if (!function_exists('getCurrentUser')) {
             ? getCurrentUserId()
             : ($_SESSION['user_id'] ?? null);
 
-        if (!$userId || !($conn instanceof mysqli)) {
-            return null;
-        }
-
-        // Fetch the current row without assuming every optional user column
-        // exists in older/local database schemas. Authentication only relies
-        // on the user's ID and status, while returning any other columns that
-        // are present for existing callers.
-        $stmt = $conn->prepare("
-            SELECT *
-            FROM users
-            WHERE id = ?
-            LIMIT 1
-        ");
-
-        if (!$stmt) {
-            error_log('Flexihub auth: unable to prepare current-user lookup.');
-            return null;
-        }
-
         $userId = (int)$userId;
-        $stmt->bind_param('i', $userId);
 
-        if (!$stmt->execute()) {
-            error_log('Flexihub auth: current-user lookup execution failed.');
-            $stmt->close();
+        if ($userId <= 0 || !($conn instanceof mysqli)) {
             return null;
         }
 
-        $user = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+        try {
+            $stmt = $conn->prepare("
+                SELECT *
+                FROM users
+                WHERE id = ?
+                LIMIT 1
+            ");
 
-        if (!$user) {
-            error_log('Flexihub auth: current-user lookup returned no matching row.');
+            if ($stmt) {
+                $stmt->bind_param('i', $userId);
+
+                if ($stmt->execute()) {
+                    $result = $stmt->get_result();
+
+                    if ($result instanceof mysqli_result) {
+                        $user = $result->fetch_assoc();
+                        $stmt->close();
+
+                        if (!$user) {
+                            error_log('Flexihub auth: no users row found for session user_id=' . $userId);
+                        }
+
+                        return $user ?: null;
+                    }
+
+                    error_log(
+                        'Flexihub auth: prepared user lookup returned no result object; ' .
+                        'falling back to a direct integer-key lookup. stmt_error=' . $stmt->error
+                    );
+                } else {
+                    error_log(
+                        'Flexihub auth: prepared user lookup failed; stmt_error=' . $stmt->error
+                    );
+                }
+
+                $stmt->close();
+            } else {
+                error_log(
+                    'Flexihub auth: unable to prepare user lookup; database_error=' . $conn->error
+                );
+            }
+
+            /*
+             * mysqli_stmt::get_result() requires mysqlnd. Some PHP builds do
+             * not provide it, so retry using a safely integer-cast user ID.
+             */
+            $fallback = $conn->query(
+                "SELECT * FROM users WHERE id = " . $userId . " LIMIT 1"
+            );
+
+            if ($fallback instanceof mysqli_result) {
+                $user = $fallback->fetch_assoc();
+                $fallback->free();
+
+                if (!$user) {
+                    error_log('Flexihub auth: fallback lookup found no users row for session user_id=' . $userId);
+                }
+
+                return $user ?: null;
+            }
+
+            error_log(
+                'Flexihub auth: fallback user lookup failed; database_errno=' .
+                $conn->errno . '; database_error=' . $conn->error
+            );
+        } catch (Throwable $e) {
+            error_log(
+                'Flexihub auth: current-user lookup exception for user_id=' .
+                $userId . '; ' . get_class($e) . ': ' . $e->getMessage()
+            );
         }
 
-        return $user ?: null;
+        return null;
     }
 }
 
