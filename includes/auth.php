@@ -27,8 +27,8 @@ if (!function_exists('flexihubAuthUrl')) {
         $basePath = '';
 
         if ($documentRoot && $applicationRoot) {
-            $documentRoot = rtrim(str_replace('\\\\', '/', $documentRoot), '/');
-            $applicationRoot = str_replace('\\\\', '/', $applicationRoot);
+            $documentRoot = rtrim(str_replace('\\', '/', $documentRoot), '/');
+            $applicationRoot = str_replace('\\', '/', $applicationRoot);
 
             if (strcasecmp($applicationRoot, $documentRoot) === 0) {
                 $basePath = '';
