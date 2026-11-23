@@ -15,6 +15,57 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/functions.php';
 
+/**
+ * Build an application-root URL so authentication redirects work from both
+ * top-level and deeply nested module pages (including Windows/XAMPP paths).
+ */
+if (!function_exists('flexihubAuthUrl')) {
+    function flexihubAuthUrl($path)
+    {
+        $documentRoot = realpath($_SERVER['DOCUMENT_ROOT'] ?? '');
+        $applicationRoot = realpath(__DIR__ . '/..');
+        $basePath = '';
+
+        if ($documentRoot && $applicationRoot) {
+            $documentRoot = rtrim(str_replace('\\', '/', $documentRoot), '/');
+            $applicationRoot = str_replace('\\', '/', $applicationRoot);
+
+            if (strcasecmp($applicationRoot, $documentRoot) === 0) {
+                $basePath = '';
+            } elseif (stripos($applicationRoot, $documentRoot . '/') === 0) {
+                $basePath = substr($applicationRoot, strlen($documentRoot));
+            }
+        }
+
+        if ($basePath === '' && $applicationRoot && $documentRoot &&
+            strcasecmp($applicationRoot, $documentRoot) !== 0) {
+            $basePath = '/' . basename($applicationRoot);
+        }
+
+        return rtrim($basePath, '/') . '/' . ltrim($path, '/');
+    }
+}
+
+/**
+ * Remove an unverifiable authentication session without changing user data.
+ * Keep an empty session so the login page can display normally.
+ */
+if (!function_exists('clearInvalidLoginSession')) {
+    function clearInvalidLoginSession()
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return;
+        }
+
+        $_SESSION = [];
+
+        if (!headers_sent()) {
+            session_regenerate_id(true);
+        }
+    }
+}
+
+
 
 if (!function_exists('isLoggedIn')) {
     function isLoggedIn()
@@ -41,7 +92,7 @@ if (!function_exists('requireLogin')) {
     function requireLogin()
     {
         if (!isLoggedIn()) {
-            header('Location: ../auth/login.php');
+            header('Location: ' . flexihubAuthUrl('auth/login.php'));
             exit;
         }
 
@@ -63,43 +114,94 @@ if (!function_exists('getCurrentUser')) {
             ? getCurrentUserId()
             : ($_SESSION['user_id'] ?? null);
 
-        if (!$userId || !($conn instanceof mysqli)) {
-            return null;
-        }
-
-        // Fetch the current row without assuming every optional user column
-        // exists in older/local database schemas. Authentication only relies
-        // on the user's ID and status, while returning any other columns that
-        // are present for existing callers.
-        $stmt = $conn->prepare("
-            SELECT *
-            FROM users
-            WHERE id = ?
-            LIMIT 1
-        ");
-
-        if (!$stmt) {
-            error_log('Flexihub auth: unable to prepare current-user lookup.');
-            return null;
-        }
-
         $userId = (int)$userId;
-        $stmt->bind_param('i', $userId);
 
-        if (!$stmt->execute()) {
-            error_log('Flexihub auth: current-user lookup execution failed.');
-            $stmt->close();
+        if ($userId <= 0 || !($conn instanceof mysqli)) {
             return null;
         }
 
-        $user = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+        try {
+            $stmt = $conn->prepare("
+                SELECT *
+                FROM users
+                WHERE id = ?
+                LIMIT 1
+            ");
 
-        if (!$user) {
-            error_log('Flexihub auth: current-user lookup returned no matching row.');
+            if ($stmt) {
+                $stmt->bind_param('i', $userId);
+
+                if ($stmt->execute()) {
+                    $result = false;
+
+                    try {
+                        $result = $stmt->get_result();
+                    } catch (Throwable $resultError) {
+                        error_log(
+                            'Flexihub auth: statement result retrieval unavailable; ' .
+                            'using direct lookup. ' . get_class($resultError)
+                        );
+                    }
+
+                    if ($result instanceof mysqli_result) {
+                        $user = $result->fetch_assoc();
+                        $stmt->close();
+
+                        if (!$user) {
+                            error_log('Flexihub auth: no users row found for session user_id=' . $userId);
+                        }
+
+                        return $user ?: null;
+                    }
+
+                    error_log(
+                        'Flexihub auth: prepared user lookup returned no result object; ' .
+                        'falling back to a direct integer-key lookup. stmt_error=' . $stmt->error
+                    );
+                } else {
+                    error_log(
+                        'Flexihub auth: prepared user lookup failed; stmt_error=' . $stmt->error
+                    );
+                }
+
+                $stmt->close();
+            } else {
+                error_log(
+                    'Flexihub auth: unable to prepare user lookup; database_error=' . $conn->error
+                );
+            }
+
+            /*
+             * mysqli_stmt::get_result() requires mysqlnd. Some PHP builds do
+             * not provide it, so retry using a safely integer-cast user ID.
+             */
+            $fallback = $conn->query(
+                "SELECT * FROM users WHERE id = " . $userId . " LIMIT 1"
+            );
+
+            if ($fallback instanceof mysqli_result) {
+                $user = $fallback->fetch_assoc();
+                $fallback->free();
+
+                if (!$user) {
+                    error_log('Flexihub auth: fallback lookup found no users row for session user_id=' . $userId);
+                }
+
+                return $user ?: null;
+            }
+
+            error_log(
+                'Flexihub auth: fallback user lookup failed; database_errno=' .
+                $conn->errno . '; database_error=' . $conn->error
+            );
+        } catch (Throwable $e) {
+            error_log(
+                'Flexihub auth: current-user lookup exception for user_id=' .
+                $userId . '; ' . get_class($e) . ': ' . $e->getMessage()
+            );
         }
 
-        return $user ?: null;
+        return null;
     }
 }
 
@@ -120,14 +222,27 @@ if (!function_exists('requireActiveUser')) {
     {
         requireLogin();
 
+        $userId = function_exists('getCurrentUserId')
+            ? getCurrentUserId()
+            : ($_SESSION['user_id'] ?? null);
+
         $user = getCurrentUser();
 
         if (!$user) {
-            http_response_code(403);
-            exit('Unable to verify your user account. Please sign in again or contact the administrator.');
+            error_log(
+                'Flexihub auth: protected-page user verification failed; session user_id=' .
+                (int)$userId .
+                '; database_errno=' .
+                ((isset($GLOBALS['conn']) && $GLOBALS['conn'] instanceof mysqli) ? $GLOBALS['conn']->errno : 'no_connection')
+            );
+
+            clearInvalidLoginSession();
+            header('Location: ' . flexihubAuthUrl('auth/login.php?session=invalid'));
+            exit;
         }
 
         if (strtolower(trim((string)($user['status'] ?? ''))) !== 'active') {
+            clearInvalidLoginSession();
             http_response_code(403);
             exit('Your user account is inactive. Please contact the administrator.');
         }
@@ -287,7 +402,7 @@ if (!function_exists('logoutUser')) {
 
         session_destroy();
 
-        header('Location: ../auth/login.php');
+        header('Location: ' . flexihubAuthUrl('auth/login.php'));
         exit;
     }
 }

@@ -1,7 +1,6 @@
 <?php
 
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -9,9 +8,23 @@ if (session_status() === PHP_SESSION_NONE) {
 
 
 
+/*
+ * A PHP session ID alone is not proof that the user still exists or is active.
+ * Use the same current-user verifier as protected pages and recover stale
+ * sessions before handling a fresh sign-in.
+ */
 if (!empty($_SESSION['user_id'])) {
-    header('Location: ../dashboard/index.php');
-    exit;
+    $existingUser = getCurrentUser();
+
+    if (
+        $existingUser &&
+        strtolower(trim((string)($existingUser['status'] ?? ''))) === 'active'
+    ) {
+        header('Location: ' . flexihubAuthUrl('dashboard/index.php'));
+        exit;
+    }
+
+    clearInvalidLoginSession();
 }
 
 $error = '';
@@ -259,6 +272,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             
 
+                            // Start a clean authenticated session; do not carry stale or portal state forward.
+                            $_SESSION = [];
                             session_regenerate_id(true);
 
                         
@@ -462,7 +477,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                           
 
                             header(
-                                'Location: ../dashboard/index.php'
+                                'Location: ' . flexihubAuthUrl('dashboard/index.php')
                             );
 
                             exit;
