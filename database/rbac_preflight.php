@@ -189,6 +189,7 @@ if (isset($usersColumns['user_scope'])) {
     rbacPrint('users.user_scope', 'present');
 } else {
     rbacPrint('users.user_scope', 'MISSING (application RBAC requires it)');
+    $canonicalIncomplete['users'][] = 'user_scope column is required';
 }
 
 echo PHP_EOL . "Canonical RBAC data checks\n";
@@ -198,9 +199,13 @@ $canonicalChecks = [
     'Canonical user assignments crossing tenant' => "SELECT COUNT(*) FROM access_user_roles ur LEFT JOIN users u ON u.id=ur.user_id AND u.tenant_id=ur.tenant_id LEFT JOIN access_roles r ON r.id=ur.role_id AND r.tenant_id=ur.tenant_id WHERE u.id IS NULL OR r.id IS NULL",
     'Duplicate canonical role names within tenant' => "SELECT COUNT(*) FROM (SELECT tenant_id, name FROM access_roles GROUP BY tenant_id, name HAVING COUNT(*)>1) d",
 ];
+$canonicalDataCheckFailed = false;
 foreach ($canonicalChecks as $label => $sql) {
     $count = rbacCount($conn, $sql);
     rbacPrint($label, $count === null ? 'CHECK FAILED — inspect schema/query' : (string)$count);
+    if ($count === null) {
+        $canonicalDataCheckFailed = true;
+    }
 }
 
 echo PHP_EOL . "Legacy migration data checks\n";
@@ -231,6 +236,11 @@ if ($canonicalIncomplete) {
 
 if ($tenantIdType !== 'bigint unsigned') {
     echo "STOP: tenants.id is not BIGINT UNSIGNED; review tenant key compatibility before migration.\n";
+    exit(2);
+}
+
+if ($canonicalDataCheckFailed) {
+    echo "STOP: one or more canonical RBAC data checks could not be completed.\n";
     exit(2);
 }
 
