@@ -203,7 +203,7 @@ $canonicalDataCheckFailed = false;
 foreach ($canonicalChecks as $label => $sql) {
     $count = rbacCount($conn, $sql);
     rbacPrint($label, $count === null ? 'CHECK FAILED — inspect schema/query' : (string)$count);
-    if ($count === null) {
+    if ($count === null || $count > 0) {
         $canonicalDataCheckFailed = true;
     }
 }
