@@ -233,7 +233,7 @@ if (!function_exists('requireActiveUser')) {
                 'Flexihub auth: protected-page user verification failed; session user_id=' .
                 (int)$userId .
                 '; database_errno=' .
-                (($GLOBALS['conn'] instanceof mysqli) ? $GLOBALS['conn']->errno : 'no_connection')
+                ((isset($GLOBALS['conn']) && $GLOBALS['conn'] instanceof mysqli) ? $GLOBALS['conn']->errno : 'no_connection')
             );
 
             clearInvalidLoginSession();
