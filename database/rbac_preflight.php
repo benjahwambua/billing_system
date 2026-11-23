@@ -131,7 +131,11 @@ foreach ($requiredCanonical as $table => $required) {
         rbacPrint($table, 'present; required columns found');
     }
 
-    rbacPrint($table . ' engine', (string)(rbacEngine($conn, $table) ?? 'unknown'));
+    $engine = rbacEngine($conn, $table);
+    rbacPrint($table . ' engine', (string)($engine ?? 'unknown'));
+    if (strtolower((string)$engine) !== 'innodb') {
+        $canonicalIncomplete[$table][] = 'table engine must be InnoDB';
+    }
 }
 
 echo PHP_EOL . "Migration 038 prerequisites\n";
@@ -160,7 +164,8 @@ foreach ($legacyRequirements as $table => $required) {
 }
 
 $tenantColumns = rbacColumns($conn, 'tenants');
-$tenantIdType = $tenantColumns['id']['type'] ?? null;
+$tenantIdTypeRaw = $tenantColumns['id']['type'] ?? null;
+$tenantIdType = $tenantIdTypeRaw !== null ? preg_replace('/\\(\\d+\\)/', '', $tenantIdTypeRaw) : null;
 $tenantEngine = rbacEngine($conn, 'tenants');
 rbacPrint('tenants.id column type', (string)($tenantIdType ?? 'unknown'));
 rbacPrint('tenants table engine', (string)($tenantEngine ?? 'unknown'));
@@ -208,7 +213,7 @@ foreach ($checks as $label => $sql) {
 
 echo PHP_EOL . "Result\n";
 if ($canonicalIncomplete) {
-    echo "STOP: one or more existing access_* tables are incomplete or have mismatched tenant key types.\n";
+    echo "STOP: one or more RBAC/tenant schema prerequisites are incomplete or incompatible.\n";
     echo "Migration 038 uses CREATE TABLE IF NOT EXISTS and will not repair an existing incomplete table.\n";
     exit(2);
 }
