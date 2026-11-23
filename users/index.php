@@ -11,6 +11,15 @@ $tenantId = (int) getCurrentTenantId();
 $canEditUsers = userCan('staff', 'edit');
 $errorMessage = '';
 
+if (!flexihubRbacSchemaReady()) {
+    http_response_code(503);
+    $pageTitle = 'Users & Access';
+    require_once __DIR__ . '/../includes/header.php';
+    echo '<div class="alert alert-warning" role="alert"><strong>Access management is not ready.</strong> The canonical tenant role tables are missing or incomplete. Review and apply database/038_rbac_consolidation.sql only after backing up this database and checking its prerequisites. No data has been changed by this page.</div>';
+    require_once __DIR__ . '/../includes/footer.php';
+    exit;
+}
+
 /*
  * Assignments are always created through a tenant-scoped join. The target
  * user and role must both belong to the current tenant.
