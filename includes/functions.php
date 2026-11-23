@@ -1197,6 +1197,11 @@ if (!function_exists('getTenantInsertId')) {
 if (!function_exists('flexihubRbacSchemaReady')) {
     function flexihubRbacSchemaReady()
     {
+        static $schemaReady = null;
+        if ($schemaReady !== null) {
+            return $schemaReady;
+        }
+
         $required = [
             'access_roles' => ['tenant_id', 'name', 'is_system', 'status'],
             'access_role_permissions' => ['tenant_id', 'role_id', 'module_key', 'can_view', 'can_create', 'can_edit', 'can_delete', 'can_approve'],
@@ -1207,12 +1212,14 @@ if (!function_exists('flexihubRbacSchemaReady')) {
         foreach ($required as $table => $columns) {
             foreach ($columns as $column) {
                 if (!flexihubTableHasColumn($table, $column)) {
-                    return false;
+                    $schemaReady = false;
+                    return $schemaReady;
                 }
             }
         }
 
-        return true;
+        $schemaReady = true;
+        return $schemaReady;
     }
 }
 
