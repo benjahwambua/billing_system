@@ -15,6 +15,57 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/functions.php';
 
+/**
+ * Build an application-root URL so authentication redirects work from both
+ * top-level and deeply nested module pages (including Windows/XAMPP paths).
+ */
+if (!function_exists('flexihubAuthUrl')) {
+    function flexihubAuthUrl($path)
+    {
+        $documentRoot = realpath($_SERVER['DOCUMENT_ROOT'] ?? '');
+        $applicationRoot = realpath(__DIR__ . '/..');
+        $basePath = '';
+
+        if ($documentRoot && $applicationRoot) {
+            $documentRoot = rtrim(str_replace('\\\\', '/', $documentRoot), '/');
+            $applicationRoot = str_replace('\\\\', '/', $applicationRoot);
+
+            if (strcasecmp($applicationRoot, $documentRoot) === 0) {
+                $basePath = '';
+            } elseif (stripos($applicationRoot, $documentRoot . '/') === 0) {
+                $basePath = substr($applicationRoot, strlen($documentRoot));
+            }
+        }
+
+        if ($basePath === '' && $applicationRoot && $documentRoot &&
+            strcasecmp($applicationRoot, $documentRoot) !== 0) {
+            $basePath = '/' . basename($applicationRoot);
+        }
+
+        return rtrim($basePath, '/') . '/' . ltrim($path, '/');
+    }
+}
+
+/**
+ * Remove an unverifiable authentication session without changing user data.
+ * Keep an empty session so the login page can display normally.
+ */
+if (!function_exists('clearInvalidLoginSession')) {
+    function clearInvalidLoginSession()
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return;
+        }
+
+        $_SESSION = [];
+
+        if (!headers_sent()) {
+            session_regenerate_id(true);
+        }
+    }
+}
+
+
 
 if (!function_exists('isLoggedIn')) {
     function isLoggedIn()
@@ -41,7 +92,7 @@ if (!function_exists('requireLogin')) {
     function requireLogin()
     {
         if (!isLoggedIn()) {
-            header('Location: ../auth/login.php');
+            header('Location: ' . flexihubAuthUrl('auth/login.php'));
             exit;
         }
 
@@ -120,14 +171,27 @@ if (!function_exists('requireActiveUser')) {
     {
         requireLogin();
 
+        $userId = function_exists('getCurrentUserId')
+            ? getCurrentUserId()
+            : ($_SESSION['user_id'] ?? null);
+
         $user = getCurrentUser();
 
         if (!$user) {
-            http_response_code(403);
-            exit('Unable to verify your user account. Please sign in again or contact the administrator.');
+            error_log(
+                'Flexihub auth: protected-page user verification failed; session user_id=' .
+                (int)$userId .
+                '; database_errno=' .
+                (($GLOBALS['conn'] instanceof mysqli) ? $GLOBALS['conn']->errno : 'no_connection')
+            );
+
+            clearInvalidLoginSession();
+            header('Location: ' . flexihubAuthUrl('auth/login.php?session=invalid'));
+            exit;
         }
 
         if (strtolower(trim((string)($user['status'] ?? ''))) !== 'active') {
+            clearInvalidLoginSession();
             http_response_code(403);
             exit('Your user account is inactive. Please contact the administrator.');
         }
@@ -287,7 +351,7 @@ if (!function_exists('logoutUser')) {
 
         session_destroy();
 
-        header('Location: ../auth/login.php');
+        header('Location: ' . flexihubAuthUrl('auth/login.php'));
         exit;
     }
 }
