@@ -7,6 +7,15 @@ requireModulePermission('staff', 'view');
 global $conn;
 $tenantId = (int) getCurrentTenantId();
 
+if (!flexihubRbacSchemaReady()) {
+    http_response_code(503);
+    $pageTitle = 'Roles & Permissions';
+    require_once __DIR__ . '/../includes/header.php';
+    echo '<div class="alert alert-warning" role="alert"><strong>Access management is not ready.</strong> The canonical tenant role tables are missing or incomplete. Review and apply database/038_rbac_consolidation.sql only after backing up this database and checking its prerequisites. No data has been changed by this page.</div>';
+    require_once __DIR__ . '/../includes/footer.php';
+    exit;
+}
+
 $modules = [
     'dashboard' => 'Dashboard',
     'customers' => 'Customers',
@@ -90,9 +99,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit('That role name is reserved for protected system access. Choose a different name.');
     }
 
+    if (!$conn->begin_transaction()) {
+        http_response_code(500);
+        exit('Unable to start a safe role update. No changes were saved.');
+    }
+
     if ($roleId > 0) {
         $roleCheck = $conn->prepare("SELECT id, is_system FROM access_roles WHERE id = ? AND tenant_id = ? LIMIT 1");
         if (!$roleCheck) {
+            $conn->rollback();
             http_response_code(500);
             exit('Unable to verify the selected role.');
         }
@@ -102,23 +117,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $roleCheck->close();
 
         if (!$ownedRole) {
+            $conn->rollback();
             http_response_code(404);
             exit('The selected role was not found in your organisation.');
         }
 
         if (!empty($ownedRole['is_system'])) {
+            $conn->rollback();
             http_response_code(403);
             exit('System roles cannot be edited. Create a separate role for custom permissions.');
         }
 
         $q = $conn->prepare("UPDATE access_roles SET name = ?, description = ? WHERE id = ? AND tenant_id = ? AND is_system = 0");
         if (!$q) {
+            $conn->rollback();
             http_response_code(500);
             exit('Unable to prepare the role update.');
         }
         $q->bind_param('ssii', $name, $description, $roleId, $tenantId);
         if (!$q->execute()) {
             $q->close();
+            $conn->rollback();
             http_response_code(500);
             exit('Unable to save the role details.');
         }
@@ -126,12 +145,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $q = $conn->prepare("INSERT INTO access_roles (tenant_id, name, description) VALUES (?, ?, ?)");
         if (!$q) {
+            $conn->rollback();
             http_response_code(500);
             exit('Unable to prepare role creation.');
         }
         $q->bind_param('iss', $tenantId, $name, $description);
         if (!$q->execute()) {
             $q->close();
+            $conn->rollback();
             http_response_code(500);
             exit('Unable to create the role. Check whether the role name already exists.');
         }
@@ -152,8 +173,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
 
     if (!$permission) {
+        $conn->rollback();
         http_response_code(500);
-        exit('Role saved, but the permissions could not be prepared. Reopen the role and save permissions again.');
+        exit('The role and permissions could not be saved. No partial changes were kept.');
     }
 
     foreach ($modules as $key => $label) {
@@ -166,11 +188,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$permission->execute()) {
             error_log('Flexihub role permission save failed for module ' . $key . ': ' . $permission->error);
             $permission->close();
+            $conn->rollback();
             http_response_code(500);
-            exit('Some permissions could not be saved. Reopen the role and try again.');
+            exit('The role and permissions could not be saved. No partial changes were kept.');
         }
     }
     $permission->close();
+
+    if (!$conn->commit()) {
+        $conn->rollback();
+        http_response_code(500);
+        exit('Unable to confirm the role and permission changes. Please check the role before retrying.');
+    }
 
     header('Location: index.php?role=' . $roleId . '&saved=1');
     exit;
