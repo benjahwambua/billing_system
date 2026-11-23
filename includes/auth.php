@@ -132,7 +132,16 @@ if (!function_exists('getCurrentUser')) {
                 $stmt->bind_param('i', $userId);
 
                 if ($stmt->execute()) {
-                    $result = $stmt->get_result();
+                    $result = false;
+
+                    try {
+                        $result = $stmt->get_result();
+                    } catch (Throwable $resultError) {
+                        error_log(
+                            'Flexihub auth: statement result retrieval unavailable; ' .
+                            'using direct lookup. ' . get_class($resultError)
+                        );
+                    }
 
                     if ($result instanceof mysqli_result) {
                         $user = $result->fetch_assoc();
