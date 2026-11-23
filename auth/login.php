@@ -1,7 +1,6 @@
 <?php
 
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -10,50 +9,22 @@ if (session_status() === PHP_SESSION_NONE) {
 
 
 /*
- * Do not trust a user_id left in an old PHP session. Verify it against the
- * current users table before redirecting to the dashboard. If it is stale,
- * clear it so the user can sign in again instead of being trapped in a
- * login -> dashboard verification loop.
+ * A PHP session ID alone is not proof that the user still exists or is active.
+ * Use the same current-user verifier as protected pages and recover stale
+ * sessions before handling a fresh sign-in.
  */
 if (!empty($_SESSION['user_id'])) {
-    $existingUserId = (int) $_SESSION['user_id'];
-    $existingUser = null;
-
-    if ($existingUserId > 0 && isset($conn) && $conn instanceof mysqli) {
-        $existingUserStmt = $conn->prepare("
-            SELECT id, status
-            FROM users
-            WHERE id = ?
-            LIMIT 1
-        ");
-
-        if ($existingUserStmt) {
-            $existingUserStmt->bind_param('i', $existingUserId);
-
-            if ($existingUserStmt->execute()) {
-                $existingUserResult = $existingUserStmt->get_result();
-                $existingUser = $existingUserResult
-                    ? $existingUserResult->fetch_assoc()
-                    : null;
-            }
-
-            $existingUserStmt->close();
-        }
-    }
+    $existingUser = getCurrentUser();
 
     if (
         $existingUser &&
-        strtolower(trim((string) ($existingUser['status'] ?? ''))) === 'active'
+        strtolower(trim((string)($existingUser['status'] ?? ''))) === 'active'
     ) {
-        header('Location: ../dashboard/index.php');
+        header('Location: ' . flexihubAuthUrl('dashboard/index.php'));
         exit;
     }
 
-    $_SESSION = [];
-
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        session_regenerate_id(true);
-    }
+    clearInvalidLoginSession();
 }
 
 $error = '';
@@ -301,6 +272,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             
 
+                            // Start a clean authenticated session; do not carry stale or portal state forward.
+                            $_SESSION = [];
                             session_regenerate_id(true);
 
                         
@@ -504,7 +477,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                           
 
                             header(
-                                'Location: ../dashboard/index.php'
+                                'Location: ' . flexihubAuthUrl('dashboard/index.php')
                             );
 
                             exit;
