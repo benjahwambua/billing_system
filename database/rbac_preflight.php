@@ -11,13 +11,13 @@
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(403);
-    exit("CLI only.\\n");
+    exit("CLI only.\n");
 }
 
 require_once __DIR__ . '/../config/database.php';
 
 if (!isset($conn) || !($conn instanceof mysqli)) {
-    fwrite(STDERR, "Database connection is unavailable.\\n");
+    fwrite(STDERR, "Database connection is unavailable.\n");
     exit(2);
 }
 
@@ -98,9 +98,9 @@ function rbacCount(mysqli $conn, string $sql): ?int
     return isset($row[0]) ? (int)$row[0] : null;
 }
 
-echo "Flexihub — read-only RBAC migration preflight\\n";
-echo "Database: " . $conn->query("SELECT DATABASE()")->fetch_row()[0] . "\\n";
-echo "SQL writes: NONE\\n\\n";
+echo "Flexihub — read-only RBAC migration preflight\n";
+echo "Database: " . $conn->query("SELECT DATABASE()")->fetch_row()[0] . "\n";
+echo "SQL writes: NONE\n\n";
 
 $requiredCanonical = [
     'access_roles' => ['id', 'tenant_id', 'name', 'description', 'is_system', 'status'],
@@ -134,10 +134,10 @@ foreach ($requiredCanonical as $table => $required) {
     rbacPrint($table . ' engine', (string)(rbacEngine($conn, $table) ?? 'unknown'));
 }
 
-echo PHP_EOL . "Migration 038 prerequisites\\n";
+echo PHP_EOL . "Migration 038 prerequisites\n";
 $legacyRequirements = [
     'tenants' => ['id'],
-    'users' => ['id', 'tenant_id'],
+    'users' => ['id', 'tenant_id', 'user_scope'],
     'roles' => ['id', 'tenant_id', 'name', 'description', 'is_system'],
     'role_permissions' => ['role_id', 'module_key', 'can_view', 'can_create', 'can_edit', 'can_delete', 'can_approve'],
     'user_roles' => ['user_id', 'role_id'],
@@ -161,7 +161,12 @@ foreach ($legacyRequirements as $table => $required) {
 
 $tenantColumns = rbacColumns($conn, 'tenants');
 $tenantIdType = $tenantColumns['id']['type'] ?? null;
+$tenantEngine = rbacEngine($conn, 'tenants');
 rbacPrint('tenants.id column type', (string)($tenantIdType ?? 'unknown'));
+rbacPrint('tenants table engine', (string)($tenantEngine ?? 'unknown'));
+if (strtolower((string)$tenantEngine) !== 'innodb') {
+    $canonicalIncomplete['tenants'] = ['table engine must be InnoDB for tenant foreign keys'];
+}
 
 foreach (['access_roles', 'access_role_permissions', 'access_user_roles'] as $table) {
     if (!empty($canonicalColumns[$table]['tenant_id']['type'])) {
@@ -180,7 +185,7 @@ if (isset($usersColumns['user_scope'])) {
     rbacPrint('users.user_scope', 'MISSING (application RBAC requires it)');
 }
 
-echo PHP_EOL . "Legacy data checks\\n";
+echo PHP_EOL . "Legacy data checks\n";
 $checks = [
     'Roles with missing tenant records' => "SELECT COUNT(*) FROM roles r LEFT JOIN tenants t ON t.id=r.tenant_id WHERE t.id IS NULL",
     'Tenant users with missing tenant records' => "SELECT COUNT(*) FROM users u LEFT JOIN tenants t ON t.id=u.tenant_id WHERE u.tenant_id IS NOT NULL AND t.id IS NULL",
@@ -201,24 +206,24 @@ foreach ($checks as $label => $sql) {
     rbacPrint($label, $count === null ? 'NOT CHECKED (required legacy table missing)' : (string)$count);
 }
 
-echo PHP_EOL . "Result\\n";
+echo PHP_EOL . "Result\n";
 if ($canonicalIncomplete) {
-    echo "STOP: one or more existing access_* tables are incomplete or have mismatched tenant key types.\\n";
-    echo "Migration 038 uses CREATE TABLE IF NOT EXISTS and will not repair an existing incomplete table.\\n";
+    echo "STOP: one or more existing access_* tables are incomplete or have mismatched tenant key types.\n";
+    echo "Migration 038 uses CREATE TABLE IF NOT EXISTS and will not repair an existing incomplete table.\n";
     exit(2);
 }
 
 if ($tenantIdType !== 'bigint unsigned') {
-    echo "STOP: tenants.id is not BIGINT UNSIGNED; review tenant key compatibility before migration.\\n";
+    echo "STOP: tenants.id is not BIGINT UNSIGNED; review tenant key compatibility before migration.\n";
     exit(2);
 }
 
 if ($legacyWarnings) {
-    echo "REVIEW REQUIRED: legacy tables/columns are missing; migration 038 may skip some legacy role/permission/assignment copies.\\n";
+    echo "REVIEW REQUIRED: legacy tables/columns are missing; migration 038 may skip some legacy role/permission/assignment copies.\n";
     foreach ($legacyWarnings as $warning) echo " - " . $warning . PHP_EOL;
     exit(1);
 }
 
-echo "STRUCTURAL PREFLIGHT PASSED. This is not approval to execute migration 038.\\n";
-echo "Back up the database and review the migration registry and reported data checks before applying it.\\n";
+echo "STRUCTURAL PREFLIGHT PASSED. This is not approval to execute migration 038.\n";
+echo "Back up the database and review the migration registry and reported data checks before applying it.\n";
 exit(0);
