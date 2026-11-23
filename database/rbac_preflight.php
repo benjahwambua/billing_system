@@ -175,8 +175,9 @@ if (strtolower((string)$tenantEngine) !== 'innodb') {
 
 foreach (['access_roles', 'access_role_permissions', 'access_user_roles'] as $table) {
     if (!empty($canonicalColumns[$table]['tenant_id']['type'])) {
-        $actual = $canonicalColumns[$table]['tenant_id']['type'];
-        rbacPrint($table . '.tenant_id type', $actual);
+        $actualRaw = $canonicalColumns[$table]['tenant_id']['type'];
+        $actual = preg_replace('/\\(\\d+\\)/', '', $actualRaw);
+        rbacPrint($table . '.tenant_id column type', $actualRaw);
         if ($tenantIdType !== null && $actual !== $tenantIdType) {
             $canonicalIncomplete[$table][] = 'tenant_id type differs from tenants.id';
         }
@@ -190,25 +191,35 @@ if (isset($usersColumns['user_scope'])) {
     rbacPrint('users.user_scope', 'MISSING (application RBAC requires it)');
 }
 
-echo PHP_EOL . "Legacy data checks\n";
-$checks = [
+echo PHP_EOL . "Canonical RBAC data checks\n";
+$canonicalChecks = [
+    'Canonical roles with missing tenant' => "SELECT COUNT(*) FROM access_roles ar LEFT JOIN tenants t ON t.id=ar.tenant_id WHERE t.id IS NULL",
+    'Canonical permissions crossing role tenant' => "SELECT COUNT(*) FROM access_role_permissions p LEFT JOIN access_roles r ON r.id=p.role_id AND r.tenant_id=p.tenant_id WHERE r.id IS NULL",
+    'Canonical user assignments crossing tenant' => "SELECT COUNT(*) FROM access_user_roles ur LEFT JOIN users u ON u.id=ur.user_id AND u.tenant_id=ur.tenant_id LEFT JOIN access_roles r ON r.id=ur.role_id AND r.tenant_id=ur.tenant_id WHERE u.id IS NULL OR r.id IS NULL",
+    'Duplicate canonical role names within tenant' => "SELECT COUNT(*) FROM (SELECT tenant_id, name FROM access_roles GROUP BY tenant_id, name HAVING COUNT(*)>1) d",
+];
+foreach ($canonicalChecks as $label => $sql) {
+    $count = rbacCount($conn, $sql);
+    rbacPrint($label, $count === null ? 'CHECK FAILED — inspect schema/query' : (string)$count);
+}
+
+echo PHP_EOL . "Legacy migration data checks\n";
+$legacyChecks = [
     'Roles with missing tenant records' => "SELECT COUNT(*) FROM roles r LEFT JOIN tenants t ON t.id=r.tenant_id WHERE t.id IS NULL",
     'Tenant users with missing tenant records' => "SELECT COUNT(*) FROM users u LEFT JOIN tenants t ON t.id=u.tenant_id WHERE u.tenant_id IS NOT NULL AND t.id IS NULL",
     'Legacy user-role assignments crossing tenant boundary' => "SELECT COUNT(*) FROM user_roles ur INNER JOIN users u ON u.id=ur.user_id INNER JOIN roles r ON r.id=ur.role_id WHERE u.tenant_id IS NULL OR r.tenant_id<>u.tenant_id",
     'Duplicate legacy role names within a tenant' => "SELECT COUNT(*) FROM (SELECT tenant_id, name FROM roles GROUP BY tenant_id, name HAVING COUNT(*)>1) d",
 ];
-
-foreach ($checks as $label => $sql) {
-    $neededTables = ['roles', 'users', 'user_roles', 'tenants'];
-    $available = true;
-    foreach ($neededTables as $table) {
-        if (!rbacTableExists($conn, $table)) {
-            $available = false;
-            break;
-        }
+$legacyTablesAvailable = true;
+foreach (['roles', 'users', 'user_roles', 'tenants'] as $table) {
+    if (!rbacTableExists($conn, $table)) {
+        $legacyTablesAvailable = false;
+        break;
     }
-    $count = $available ? rbacCount($conn, $sql) : null;
-    rbacPrint($label, $count === null ? 'NOT CHECKED (required legacy table missing)' : (string)$count);
+}
+foreach ($legacyChecks as $label => $sql) {
+    $count = $legacyTablesAvailable ? rbacCount($conn, $sql) : null;
+    rbacPrint($label, $count === null ? 'NOT APPLICABLE — legacy tables missing' : (string)$count);
 }
 
 echo PHP_EOL . "Result\n";
@@ -224,11 +235,13 @@ if ($tenantIdType !== 'bigint unsigned') {
 }
 
 if ($legacyWarnings) {
-    echo "REVIEW REQUIRED: legacy tables/columns are missing; migration 038 may skip some legacy role/permission/assignment copies.\n";
+    echo "CANONICAL RBAC STRUCTURE PASSED, subject to reviewing the canonical data checks above.\n";
+    echo "Migration 038 is NOT applicable to this database: its legacy source tables are absent.\n";
+    echo "Do not create legacy tables or run Migration 038. Preserve and validate the existing access_* data instead.\n";
     foreach ($legacyWarnings as $warning) echo " - " . $warning . PHP_EOL;
-    exit(1);
+    exit(0);
 }
 
-echo "STRUCTURAL PREFLIGHT PASSED. This is not approval to execute migration 038.\n";
-echo "Back up the database and review the migration registry and reported data checks before applying it.\n";
+echo "CANONICAL RBAC STRUCTURE PASSED. Legacy source tables are present for a separately reviewed import.\n";
+echo "This is not approval to execute migration 038; back up and review all data checks first.\n";
 exit(0);
